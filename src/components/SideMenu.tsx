@@ -176,13 +176,13 @@ export function SideMenu({ children }: SideMenuProps) {
           padding="md"
         >
           <AppShell.Header>
-            <Group h="100%" px="md" justify="space-between">
-              <Text fw={700} size="lg">
-                Generador Site Survey
-              </Text>
+            <Group h="100%">
               <Button variant="subtle" size="sm" onClick={toggle}>
                 <IconMenu2 size={20} />
               </Button>
+              <Text fw={700} size="lg">
+                Generador Site Survey
+              </Text>
             </Group>
           </AppShell.Header>
 
