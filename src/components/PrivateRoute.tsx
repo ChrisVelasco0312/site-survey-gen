@@ -1,8 +1,14 @@
 import { useAuth } from '../features/auth/AuthContext';
 import { useLocation } from 'preact-iso';
 import { useEffect } from 'preact/hooks';
+import { ComponentType } from 'preact';
 
-export function PrivateRoute({ component: Component, ...rest }) {
+interface PrivateRouteProps {
+  component: ComponentType<any>;
+  [key: string]: any;
+}
+
+export function PrivateRoute({ component: Component, ...rest }: PrivateRouteProps) {
   const { user, loading } = useAuth();
   const location = useLocation();
 
@@ -16,5 +22,9 @@ export function PrivateRoute({ component: Component, ...rest }) {
       return <div>Loading...</div>;
   }
 
-  return user ? <Component {...rest} /> : null;
+  return user ? (
+    <>
+      <Component {...rest} />
+    </>
+  ) : null;
 }

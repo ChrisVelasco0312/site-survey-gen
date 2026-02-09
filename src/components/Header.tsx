@@ -1,18 +1,30 @@
 import { useLocation } from 'preact-iso';
+import { useAuth } from '../features/auth/AuthContext';
+import { JSX } from 'preact';
 
 export function Header() {
-	const { url } = useLocation();
+  const { user, logout } = useAuth();
+  const location = useLocation();
 
-	return (
-		<header>
-			<nav>
-				<a href="/" class={url == '/' && 'active'}>
-					Home
-				</a>
-				<a href="/404" class={url == '/404' && 'active'}>
-					404
-				</a>
-			</nav>
-		</header>
-	);
+  const handleLogout = async () => {
+    try {
+      await logout();
+      location.route('/login');
+    } catch (error) {
+      console.error("Failed to log out", error);
+    }
+  };
+
+  return (
+    <header>
+      <nav>
+        <a href="/" class={location.url === '/' ? 'active' : ''}>Home</a>
+      </nav>
+      {user && (
+        <a href="#" onClick={(e: JSX.TargetedEvent<HTMLAnchorElement>) => { e.preventDefault(); handleLogout(); }}>
+          Cerrar sesión
+        </a>
+      )}
+    </header>
+  );
 }

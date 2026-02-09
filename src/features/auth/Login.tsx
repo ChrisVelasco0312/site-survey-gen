@@ -1,6 +1,7 @@
 import { useState } from 'preact/hooks';
 import { useAuth } from './AuthContext';
 import { useLocation } from 'preact-iso';
+import { JSX } from 'preact';
 
 export function Login() {
   const [email, setEmail] = useState('');
@@ -9,20 +10,20 @@ export function Login() {
   const { login } = useAuth();
   const location = useLocation();
 
-  async function handleSubmit(e) {
+  async function handleSubmit(e: JSX.TargetedEvent<HTMLFormElement>) {
     e.preventDefault();
     try {
       setError('');
       await login(email, password);
       location.route('/'); // Redirect to home on successful login
-    } catch (err) {
+    } catch (err: any) {
       setError('Failed to log in: ' + err.message);
     }
   }
 
   return (
     <div className="auth-container">
-      <h2>Login</h2>
+      <h2>Bienvenido a Site Survey</h2>
       {error && <p className="error">{error}</p>}
       <form onSubmit={handleSubmit}>
         <div className="form-group">
@@ -30,7 +31,7 @@ export function Login() {
           <input
             type="email"
             value={email}
-            onInput={(e) => setEmail(e.target.value)}
+            onInput={(e) => setEmail(e.currentTarget.value)}
             required
           />
         </div>
@@ -39,11 +40,11 @@ export function Login() {
           <input
             type="password"
             value={password}
-            onInput={(e) => setPassword(e.target.value)}
+            onInput={(e) => setPassword(e.currentTarget.value)}
             required
           />
         </div>
-        <button type="submit">Log In</button>
+        <button type="submit" disabled={!email || !password}>Iniciar sesión</button>
       </form>
     </div>
   );
