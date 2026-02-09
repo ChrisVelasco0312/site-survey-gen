@@ -10,6 +10,7 @@ import {
 } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import { auth, db } from '../../firebase-config';
+import { saveUserToDB, getUserFromDB } from '../../utils/indexedDB';
 
 export interface UserProfile {
   uid: string;
@@ -66,18 +67,36 @@ export function AuthProvider({ children }: AuthProviderProps) {
       
       if (currentUser) {
         try {
+          // Try to get from Firestore first (online)
           const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
           if (userDoc.exists()) {
             const data = userDoc.data() as UserProfile;
-            console.log("User Data Fetched:", data);
-            setUserData(data);
+            // Ensure uid is present
+            const profileData: UserProfile = { ...data, uid: currentUser.uid };
+            console.log("User Data Fetched from Firestore:", profileData);
+            setUserData(profileData);
+            // Save to IndexedDB for offline use
+            await saveUserToDB(profileData);
           } else {
             console.error("No such user document!");
             setUserData(null);
           }
         } catch (error) {
-          console.error("Error fetching user data:", error);
-          setUserData(null);
+          console.error("Error fetching user data from Firestore, trying offline cache:", error);
+          // Fallback to IndexedDB (offline)
+          try {
+            const cachedUser = await getUserFromDB(currentUser.uid);
+            if (cachedUser) {
+              console.log("User Data Fetched from IndexedDB:", cachedUser);
+              setUserData(cachedUser);
+            } else {
+               console.warn("No user data found in offline cache.");
+               setUserData(null);
+            }
+          } catch (dbError) {
+             console.error("Error fetching from IndexedDB:", dbError);
+             setUserData(null);
+          }
         }
       } else {
         setUserData(null);
