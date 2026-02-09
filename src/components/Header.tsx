@@ -6,6 +6,8 @@ export function Header() {
   const { user, logout } = useAuth();
   const location = useLocation();
 
+  if (location.path === '/login') return null;
+
   const handleLogout = async () => {
     try {
       await logout();
