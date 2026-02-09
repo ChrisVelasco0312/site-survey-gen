@@ -8,10 +8,21 @@ import {
   User,
   UserCredential
 } from 'firebase/auth';
-import { auth } from '../../firebase-config';
+import { doc, getDoc } from 'firebase/firestore';
+import { auth, db } from '../../firebase-config';
+
+export interface UserProfile {
+  uid: string;
+  email: string;
+  full_name: string;
+  role: 'admin' | 'field_worker';
+  group_assignment: 'grupo_a' | 'grupo_b' | 'all';
+  is_active: boolean;
+}
 
 interface AuthContextType {
   user: User | null;
+  userData: UserProfile | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<UserCredential>;
   signup: (email: string, password: string) => Promise<UserCredential>;
@@ -34,6 +45,7 @@ interface AuthProviderProps {
 
 export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<User | null>(null);
+  const [userData, setUserData] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
   function login(email: string, password: string) {
@@ -49,8 +61,28 @@ export function AuthProvider({ children }: AuthProviderProps) {
   }
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
+      
+      if (currentUser) {
+        try {
+          const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
+          if (userDoc.exists()) {
+            const data = userDoc.data() as UserProfile;
+            console.log("User Data Fetched:", data);
+            setUserData(data);
+          } else {
+            console.error("No such user document!");
+            setUserData(null);
+          }
+        } catch (error) {
+          console.error("Error fetching user data:", error);
+          setUserData(null);
+        }
+      } else {
+        setUserData(null);
+      }
+      
       setLoading(false);
     });
 
@@ -59,6 +91,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const value = {
     user,
+    userData,
     login,
     signup,
     logout,

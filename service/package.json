@@ -1,0 +1,14 @@
+{
+  "name": "backend-scripts",
+  "version": "1.0.0",
+  "description": "Backend scripts for site-survey-gen",
+  "type": "module",
+  "scripts": {
+    "deploy-user": "node firestore/users/deploy_user.js"
+  },
+  "dependencies": {
+    "dotenv": "^17.2.4",
+    "firebase-admin": "^12.7.0",
+    "inquirer": "^13.2.2"
+  }
+}
