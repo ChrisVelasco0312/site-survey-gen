@@ -2,6 +2,7 @@ import { render } from 'preact';
 import { LocationProvider, Router, Route } from 'preact-iso';
 import { MantineProvider } from '@mantine/core';
 import '@mantine/core/styles.css';
+import '@mantine/dates/styles.css';
 
 import { Home } from './pages/Home';
 import { Login } from './pages/auth';

@@ -45,8 +45,8 @@ Desarrollaremos el formulario dividido en pasos lógicos o pestañas para maneja
     *   [x] Implementar navegación por pasos/tabs dentro del formulario.
 
 8.  **Paso 1: Datos Generales y Ubicación (HU-12)**
-    *   [ ] Formulario con Fecha, Tipo Instalación.
-    *   [ ] Selector de Dirección (Mock o base de datos simple de sitios) que autocompleta Lat/Long y Nombre.
+    *   [x] Formulario con Fecha, Tipo Instalación.
+    *   [x] Selector de Dirección (Mock o base de datos simple de sitios) que autocompleta Lat/Long y Nombre.
 
 9.  **Paso 2: Seguridad y Contrato (HU-14) + Observaciones (HU-13)**
     *   [ ] Selectores para Nivel de Seguridad y Componentes del Contrato.

@@ -14,8 +14,9 @@ import {
   Select,
 } from '@mantine/core';
 import { useMediaQuery } from '@mantine/hooks';
-import { getReportFromDB } from '../../utils/indexedDB';
+import { getReportFromDB, saveReportToDB } from '../../utils/indexedDB';
 import type { Report } from '../../types/Report';
+import { ReportEditStep1 } from './ReportEditStep1';
 
 const STEP_LABELS = [
   'Datos generales y ubicación',
@@ -74,9 +75,20 @@ export function ReportEdit() {
     };
   }, [id]);
 
-  const nextStep = () =>
+  const persistReport = (r: Report) => {
+    saveReportToDB(r).catch((e) =>
+      console.error('Error al guardar reporte en IndexedDB:', e)
+    );
+  };
+
+  const nextStep = () => {
+    if (report) persistReport(report);
     setActiveStep((c) => (c < STEP_LABELS.length - 1 ? c + 1 : c));
-  const prevStep = () => setActiveStep((c) => (c > 0 ? c - 1 : c));
+  };
+  const prevStep = () => {
+    if (report) persistReport(report);
+    setActiveStep((c) => (c > 0 ? c - 1 : c));
+  };
   const stepValue = String(activeStep);
   const setStepValue = (v: string | null) => setActiveStep(Number(v ?? 0));
   const isMobile = useMediaQuery('(max-width: 48em)');
@@ -154,9 +166,17 @@ export function ReportEdit() {
           {STEP_KEYS.map((key, index) => (
             <Tabs.Panel key={key} value={key} pt="md">
               <Box py="sm">
-                <Text size="sm" c="dimmed">
-                  Paso {index + 1}: {STEP_LABELS[index]} (contenido en desarrollo)
-                </Text>
+                {index === 0 ? (
+                  <ReportEditStep1
+                    report={report}
+                    setReport={setReport}
+                    readOnly={report.status !== 'en_campo'}
+                  />
+                ) : (
+                  <Text size="sm" c="dimmed">
+                    Paso {index + 1}: {STEP_LABELS[index]} (contenido en desarrollo)
+                  </Text>
+                )}
               </Box>
             </Tabs.Panel>
           ))}
