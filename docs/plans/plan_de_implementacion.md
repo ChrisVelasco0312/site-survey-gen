@@ -49,8 +49,8 @@ Desarrollaremos el formulario dividido en pasos lógicos o pestañas para maneja
     *   [x] Selector de Dirección (Mock o base de datos simple de sitios) que autocompleta Lat/Long y Nombre.
 
 9.  **Paso 2: Seguridad y Contrato (HU-14) + Observaciones (HU-13)**
-    *   [ ] Selectores para Nivel de Seguridad y Componentes del Contrato.
-    *   [ ] Lista dinámica para agregar múltiples observaciones.
+    *   [x] Selectores para Nivel de Seguridad y Componentes del Contrato.
+    *   [x] Lista dinámica para agregar múltiples observaciones.
 
 10. **Paso 3: Datos Técnicos e Infraestructura (HU-15)**
     *   [ ] Checks de Línea de Vista, Medio de Transmisión.
