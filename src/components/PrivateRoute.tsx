@@ -2,6 +2,7 @@ import { useAuth } from '../features/auth/AuthContext';
 import { useLocation } from 'preact-iso';
 import { useEffect } from 'preact/hooks';
 import { ComponentType } from 'preact';
+import { Center, Loader } from '@mantine/core';
 
 interface PrivateRouteProps {
   component: ComponentType<any>;
@@ -19,7 +20,11 @@ export function PrivateRoute({ component: Component, ...rest }: PrivateRouteProp
   }, [user, loading, location]);
 
   if (loading) {
-      return <div>Loading...</div>;
+    return (
+      <Center h="100vh">
+        <Loader />
+      </Center>
+    );
   }
 
   return user ? (

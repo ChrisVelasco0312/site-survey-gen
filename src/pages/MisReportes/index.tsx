@@ -9,24 +9,33 @@ import { getAllReportsFromDB, saveReportToDB, addToSyncQueue } from '../../utils
 import { USE_MOCK_DATA, generateMockReports } from '../../utils/mockData';
 
 export function MisReportes() {
-  const { userData, loading: authLoading } = useAuth();
+  console.log("LOADING MIS REPORTES");
+  const { user, userData, loading: authLoading } = useAuth();
   const location = useLocation();
   const [reports, setReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<string | null>('en_campo');
   const isMobile = useMediaQuery('(max-width: 768px)');
 
+  // Usar uid de Auth si el perfil Firestore no cargó (ej. documento no existe)
+  const effectiveUid = userData?.uid ?? user?.uid ?? null;
+  const effectiveGroup = userData?.group_assignment ?? 'grupo_a';
+
   const fetchReports = async () => {
     setLoading(true);
     try {
       if (USE_MOCK_DATA) {
-        console.log("Using Mock Data for MisReportes");
-        // Generate mocks for this user
-        const mocks = generateMockReports(userData?.uid, 8);
+        // Con mocks siempre mostramos datos (uid real o fallback para vista demo)
+        const uidForMocks = effectiveUid ?? 'demo-user';
+        const mocks = generateMockReports(uidForMocks, 8);
         setReports(mocks);
       } else {
+        if (!effectiveUid) {
+          setLoading(false);
+          return;
+        }
         const allReports = await getAllReportsFromDB();
-        const myReports = userData ? allReports.filter(r => r.user_id === userData.uid) : [];
+        const myReports = allReports.filter(r => r.user_id === effectiveUid);
         myReports.sort((a, b) => b.created_at - a.created_at);
         setReports(myReports);
       }
@@ -38,17 +47,21 @@ export function MisReportes() {
   };
 
   useEffect(() => {
-    if (!authLoading && userData) {
+    if (authLoading) return;
+    // Con USE_MOCK_DATA siempre cargamos mocks para ver la vista; sin mocks hace falta user
+    if (USE_MOCK_DATA || user) {
       fetchReports();
+    } else {
+      setLoading(false);
     }
-  }, [userData, authLoading]);
+  }, [user, userData, authLoading]);
 
   const handleCreateNew = async () => {
-    if (!userData) return;
+    if (!effectiveUid) return;
 
     try {
       setLoading(true);
-      const newReport = createInitialReport(userData.uid, userData.group_assignment);
+      const newReport = createInitialReport(effectiveUid, effectiveGroup);
       await saveReportToDB(newReport);
       await addToSyncQueue({
         reportId: newReport.id,
@@ -64,7 +77,7 @@ export function MisReportes() {
   };
 
   const handleDuplicate = async (report: Report) => {
-    if (!userData) return;
+    if (!effectiveUid) return;
     if (!confirm('¿Desea duplicar este reporte como base para uno nuevo?')) return;
 
     try {
@@ -72,7 +85,7 @@ export function MisReportes() {
         const newReport: Report = {
             ...report,
             id: crypto.randomUUID(),
-            user_id: userData.uid,
+            user_id: effectiveUid,
             status: 'en_campo',
             created_at: Date.now(),
             updated_at: Date.now(),

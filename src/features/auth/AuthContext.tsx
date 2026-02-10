@@ -109,9 +109,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
     loading
   };
 
+  // Siempre renderizar hijos: así se muestra "Cargando..." en PrivateRoute en vez de pantalla en blanco
   return (
     <AuthContext.Provider value={value}>
-      {!loading && children}
+      {children}
     </AuthContext.Provider>
   );
 }

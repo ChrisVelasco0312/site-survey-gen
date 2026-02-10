@@ -16,9 +16,12 @@ const getRandomGroup = (): GroupAssignment => {
   return groups[Math.floor(Math.random() * groups.length)];
 };
 
+const STATUSES: ReportStatus[] = ['en_campo', 'en_revision', 'listo_para_generar', 'generado'];
+
 export const generateMockReports = (userId?: string, count: number = 10): Report[] => {
   return Array.from({ length: count }).map((_, i) => {
-    const status = getRandomStatus();
+    // Reparto fijo para que cada pestaña tenga algo que mostrar
+    const status = STATUSES[i % STATUSES.length];
     const group = getRandomGroup();
     const date = new Date(BASE_DATE);
     date.setDate(BASE_DATE.getDate() - i); // Past dates
