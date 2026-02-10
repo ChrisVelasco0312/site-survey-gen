@@ -41,8 +41,8 @@ Aquí implementaremos las vistas principales donde los usuarios gestionan sus re
 Desarrollaremos el formulario dividido en pasos lógicos o pestañas para manejar la complejidad (HU-12 a HU-19). Crearemos un componente `ReportFormContainer`.
 
 7.  **Estructura del Formulario**
-    *   [ ] Crear `src/pages/ReportEdit/index.tsx`: Componente contenedor del formulario.
-    *   [ ] Implementar navegación por pasos/tabs dentro del formulario.
+    *   [x] Crear `src/pages/ReportEdit/index.tsx`: Componente contenedor del formulario.
+    *   [x] Implementar navegación por pasos/tabs dentro del formulario.
 
 8.  **Paso 1: Datos Generales y Ubicación (HU-12)**
     *   [ ] Formulario con Fecha, Tipo Instalación.
