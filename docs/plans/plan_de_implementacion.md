@@ -7,16 +7,16 @@ Este documento detalla el plan paso a paso para la implementación del sistema d
 Esta fase establece las bases para que la aplicación funcione sin conexión (HU-02) y maneje los datos correctamente.
 
 1.  **Definición de Modelos de Datos (TypeScript Interfaces)**
-    *   [ ] Crear `src/types/Report.ts`: Definir la estructura completa del reporte (campos de todas las HUs: General, Técnico, Fotos, etc.) y los tipos auxiliares (Estado, Rol, Coordenadas).
-    *   [ ] Crear `src/types/User.ts`: Definir interfaces para los roles de usuario (Admin, Trabajador).
+    *   [x] Crear `src/types/Report.ts`: Definir la estructura completa del reporte (campos de todas las HUs: General, Técnico, Fotos, etc.) y los tipos auxiliares (Estado, Rol, Coordenadas).
+    *   [x] Crear `src/types/User.ts`: Definir interfaces para los roles de usuario (Admin, Trabajador).
 
 2.  **Configuración de Base de Datos Local (IndexedDB)**
-    *   [ ] Actualizar `src/utils/indexedDB.ts`: Agregar stores para `reports` (guardar reportes) y `syncQueue` (cola de cambios pendientes de subir).
-    *   [ ] Crear métodos CRUD básicos para reportes en IndexedDB (`saveReport`, `getReport`, `getAllReports`, `deleteReport`).
+    *   [x] Actualizar `src/utils/indexedDB.ts`: Agregar stores para `reports` (guardar reportes) y `syncQueue` (cola de cambios pendientes de subir).
+    *   [x] Crear métodos CRUD básicos para reportes en IndexedDB (`saveReport`, `getReport`, `getAllReports`, `deleteReport`).
 
 3.  **Servicio de Sincronización (HU-03)**
-    *   [ ] Crear `src/services/SyncService.ts`: Lógica para detectar conexión a internet, subir reportes pendientes de `syncQueue` a Firebase Firestore y bajar actualizaciones.
-    *   [ ] Crear Hook `useConnectivity`: Para que la UI sepa si hay internet o no y muestre el estado ("Sincronizado", "Sincronizando...", "Sin conexión").
+    *   [x] Crear `src/services/SyncService.ts`: Lógica para detectar conexión a internet, subir reportes pendientes de `syncQueue` a Firebase Firestore y bajar actualizaciones.
+    *   [x] Crear Hook `useConnectivity`: Para que la UI sepa si hay internet o no y muestre el estado ("Sincronizado", "Sincronizando...", "Sin conexión").
 
 ## Fase 2: Gestión y Navegación (Roles y Listas)
 

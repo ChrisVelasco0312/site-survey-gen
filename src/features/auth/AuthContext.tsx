@@ -11,15 +11,7 @@ import {
 import { doc, getDoc } from 'firebase/firestore';
 import { auth, db } from '../../firebase-config';
 import { saveUserToDB, getUserFromDB } from '../../utils/indexedDB';
-
-export interface UserProfile {
-  uid: string;
-  email: string;
-  full_name: string;
-  role: 'admin' | 'field_worker';
-  group_assignment: 'grupo_a' | 'grupo_b' | 'all';
-  is_active: boolean;
-}
+import { UserProfile } from '../../types/User';
 
 interface AuthContextType {
   user: User | null;
