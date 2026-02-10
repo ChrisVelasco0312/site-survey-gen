@@ -18,6 +18,7 @@ import { getReportFromDB, saveReportToDB } from '../../utils/indexedDB';
 import type { Report } from '../../types/Report';
 import { ReportEditStep1 } from './ReportEditStep1';
 import { ReportEditStep2 } from './ReportEditStep2';
+import { ReportEditStep3 } from './ReportEditStep3';
 
 const STEP_LABELS = [
   'Datos generales y ubicación',
@@ -175,6 +176,12 @@ export function ReportEdit() {
                   />
                 ) : index === 1 ? (
                   <ReportEditStep2
+                    report={report}
+                    setReport={setReport}
+                    readOnly={report.status !== 'en_campo'}
+                  />
+                ) : index === 2 ? (
+                  <ReportEditStep3
                     report={report}
                     setReport={setReport}
                     readOnly={report.status !== 'en_campo'}

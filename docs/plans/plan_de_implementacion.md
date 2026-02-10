@@ -53,9 +53,9 @@ Desarrollaremos el formulario dividido en pasos lógicos o pestañas para maneja
     *   [x] Lista dinámica para agregar múltiples observaciones.
 
 10. **Paso 3: Datos Técnicos e Infraestructura (HU-15)**
-    *   [ ] Checks de Línea de Vista, Medio de Transmisión.
-    *   [ ] Campos para Inventario de Hardware (cámaras, PTZ, fijas).
-    *   [ ] Campos para Infraestructura Adicional.
+    *   [x] Checks de Línea de Vista, Medio de Transmisión.
+    *   [x] Campos para Inventario de Hardware (cámaras, PTZ, fijas).
+    *   [x] Campos para Infraestructura Adicional.
 
 11. **Paso 4: Diagrama y Mapa (HU-16)**
     *   [ ] Integración básica de mapa (OpenStreetMap/Leaflet o Google Static) para mostrar ubicación.
