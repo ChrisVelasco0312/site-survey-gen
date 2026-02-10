@@ -58,9 +58,9 @@ Desarrollaremos el formulario dividido en pasos lógicos o pestañas para maneja
     *   [x] Campos para Infraestructura Adicional.
 
 11. **Paso 4: Diagrama y Mapa (HU-16)**
-    *   [ ] Integración básica de mapa (OpenStreetMap/Leaflet o Google Static) para mostrar ubicación.
-    *   [ ] Input para subir la imagen del diagrama editado.
-    *   [ ] Validar que la imagen editada esté presente antes de enviar.
+    *   [x] Integración básica de mapa (OpenStreetMap/Leaflet o Google Static) para mostrar ubicación.
+    *   [x] Input para subir la imagen del diagrama editado.
+    *   [x] Validar que la imagen editada esté presente antes de enviar.
 
 12. **Paso 5: Evidencia Fotográfica (HU-17)**
     *   [ ] Inputs para subir fotos (Visual cámara, Acometida).
