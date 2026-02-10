@@ -20,6 +20,7 @@ import { ReportEditStep1 } from './ReportEditStep1';
 import { ReportEditStep2 } from './ReportEditStep2';
 import { ReportEditStep3 } from './ReportEditStep3';
 import { ReportEditStep4 } from './ReportEditStep4';
+import { ReportEditStep5 } from './ReportEditStep5';
 
 const STEP_LABELS = [
   'Datos generales y ubicación',
@@ -189,6 +190,12 @@ export function ReportEdit() {
                   />
                 ) : index === 3 ? (
                   <ReportEditStep4
+                    report={report}
+                    setReport={setReport}
+                    readOnly={report.status !== 'en_campo'}
+                  />
+                ) : index === 4 ? (
+                  <ReportEditStep5
                     report={report}
                     setReport={setReport}
                     readOnly={report.status !== 'en_campo'}

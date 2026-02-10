@@ -63,8 +63,8 @@ Desarrollaremos el formulario dividido en pasos lógicos o pestañas para maneja
     *   [x] Validar que la imagen editada esté presente antes de enviar.
 
 12. **Paso 5: Evidencia Fotográfica (HU-17)**
-    *   [ ] Inputs para subir fotos (Visual cámara, Acometida).
-    *   [ ] Implementar compresión de imagen antes de guardar en IndexedDB (usando `browser-image-compression` o canvas).
+    *   [x] Inputs para subir fotos (Visual cámara, Acometida).
+    *   [x] Implementar compresión de imagen antes de guardar en IndexedDB (usando `browser-image-compression` o canvas).
 
 13. **Paso 6: Metrajes y Civil (HU-18)**
     *   [ ] Tablas para ingresar metros de cableado (Poste/Fachada) y detalles de tubería.
