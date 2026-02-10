@@ -14,13 +14,11 @@ import {
 import { useDisclosure, useMediaQuery } from '@mantine/hooks';
 import {
   IconMenu2,
-  IconX,
   IconHome,
   IconFileCheck,
-  IconCheck,
   IconPlus,
   IconLogout,
-  IconChevronLeft,
+  IconLayoutDashboard
 } from '@tabler/icons-react';
 import { JSX } from 'preact';
 
@@ -58,7 +56,7 @@ interface SideMenuProps {
 }
 
 export function SideMenu({ children }: SideMenuProps) {
-  const { user, logout } = useAuth();
+  const { userData, logout } = useAuth();
   const location = useLocation();
   const [opened, { toggle, close }] = useDisclosure(false);
   const [collapsed, setCollapsed] = useState(false);
@@ -73,11 +71,20 @@ export function SideMenu({ children }: SideMenuProps) {
     }
   };
 
-  const menuItems = [
-    { label: 'Mis reportes', path: '/mis-reportes', icon: IconHome },
-    { label: 'En revisión', path: '/en-revision', icon: IconFileCheck },
-    { label: 'Generados', path: '/generados', icon: IconCheck },
-  ];
+  const getMenuItems = () => {
+    const items = [];
+    
+    if (userData?.role === 'admin') {
+      items.push({ label: 'Dashboard', path: '/', icon: IconLayoutDashboard });
+    }
+
+    // Both roles can see "Mis Reportes"
+    items.push({ label: 'Mis Reportes', path: '/mis-reportes', icon: IconFileCheck });
+
+    return items;
+  };
+
+  const menuItems = getMenuItems();
 
   const handleNavClick = (path: string) => {
     location.route(path);
@@ -90,9 +97,9 @@ export function SideMenu({ children }: SideMenuProps) {
     <Stack gap="md" style={{ height: '100%' }}>
       {/* Header with title and toggle */}
       <Group p="md" wrap="nowrap" align="center" justify={collapsed ? 'center' : 'space-between'}>
-        {!collapsed && (
+        {(!collapsed || isMobile) && (
           <Text fw={700} size="lg" ta="center" style={{ flex: 1, lineHeight: 1.2 }}>
-            Generador Site Survey
+            Site Survey
           </Text>
         )}
         {!isMobile && (
@@ -100,17 +107,9 @@ export function SideMenu({ children }: SideMenuProps) {
             variant="subtle"
             size="sm"
             onClick={() => setCollapsed(!collapsed)}
+            p={collapsed ? 4 : 'xs'}
           >
             {collapsed ? <IconMenu2 size={18} /> : <CollapseIcon size={18} />}
-          </Button>
-        )}
-        {isMobile && (
-          <Button
-            variant="subtle"
-            size="sm"
-            onClick={close}
-          >
-            <CollapseIcon size={18} />
           </Button>
         )}
       </Group>
@@ -121,7 +120,8 @@ export function SideMenu({ children }: SideMenuProps) {
           fullWidth
           leftSection={!collapsed && <IconPlus size={18} />}
           variant="light"
-          onClick={() => handleNavClick('/mis-reportes')}
+          onClick={() => handleNavClick('/mis-reportes')} // Simply go to mis-reportes to handle new there
+          title={collapsed ? "Nuevo Reporte" : undefined}
         >
           {collapsed ? <IconPlus size={18} /> : 'Nuevo reporte'}
         </Button>
@@ -131,7 +131,7 @@ export function SideMenu({ children }: SideMenuProps) {
       <Stack gap={0} style={{ flex: 1 }}>
         {menuItems.map((item) => {
           const Icon = item.icon;
-          const isActive = location.path === item.path;
+          const isActive = location.path === item.path || (item.path === '/' && location.path === '/');
 
           return (
             <NavLink
@@ -161,6 +161,7 @@ export function SideMenu({ children }: SideMenuProps) {
           variant="light"
           color="red"
           onClick={handleLogout}
+          title={collapsed ? "Cerrar sesión" : undefined}
         >
           {collapsed ? <IconLogout size={18} /> : 'Cerrar sesión'}
         </Button>
@@ -170,46 +171,46 @@ export function SideMenu({ children }: SideMenuProps) {
 
   if (isMobile) {
     return (
-      <>
-        <AppShell
-          header={{ height: 60 }}
-          padding="md"
-        >
-          <AppShell.Header>
-            <Group h="100%">
-              <Button variant="subtle" size="sm" onClick={toggle}>
-                <IconMenu2 size={20} />
-              </Button>
-              <Text fw={700} size="lg">
-                Generador Site Survey
-              </Text>
+      <AppShell
+        header={{ height: 60 }}
+        padding="md"
+      >
+        <AppShell.Header>
+            <Group h="100%" px="md" justify="space-between">
+                <Group>
+                    <Button variant="subtle" size="sm" onClick={toggle} p={0}>
+                        <IconMenu2 size={20} />
+                    </Button>
+                    <Text fw={700} size="lg">
+                        Site Survey
+                    </Text>
+                </Group>
             </Group>
-          </AppShell.Header>
+        </AppShell.Header>
 
-          <AppShell.Main>{children}</AppShell.Main>
+        <AppShell.Main>{children}</AppShell.Main>
 
-          <Drawer
-            opened={opened}
-            onClose={close}
-            position="left"
-            size="100%"
-            withCloseButton={false}
-            styles={{
-              body: { padding: 0 },
-              content: { height: '100%' },
-            }}
-          >
-            {navContent}
-          </Drawer>
-        </AppShell>
-      </>
+        <Drawer
+          opened={opened}
+          onClose={close}
+          position="left"
+          size="75%" 
+          withCloseButton={false}
+          styles={{
+            body: { padding: 0 },
+            content: { height: '100%' },
+          }}
+        >
+          {navContent}
+        </Drawer>
+      </AppShell>
     );
   }
 
   return (
     <AppShell
       navbar={{
-        width: collapsed ? 80 : 280,
+        width: collapsed ? 80 : 250,
         breakpoint: 'sm',
         collapsed: { mobile: !opened },
       }}

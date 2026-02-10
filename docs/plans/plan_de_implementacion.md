@@ -23,18 +23,18 @@ Esta fase establece las bases para que la aplicación funcione sin conexión (HU
 Aquí implementaremos las vistas principales donde los usuarios gestionan sus reportes (HU-01, HU-05, HU-06).
 
 4.  **Ruteo por Roles y Dashboard Admin (HU-01, HU-06)**
-    *   [ ] Modificar `src/pages/Home/index.tsx`: Si es Admin, mostrar Dashboard General (tabla con todos los reportes, filtros por estado). Si es Trabajador, redirigir a "Mis Reportes".
-    *   [ ] Implementar `src/components/RoleBasedRoute.tsx`: Para proteger rutas según el rol del usuario.
+    *   [x] Modificar `src/pages/Home/index.tsx`: Si es Admin, mostrar Dashboard General (tabla con todos los reportes, filtros por estado). Si es Trabajador, redirigir a "Mis Reportes".
+    *   [x] Implementar `src/components/RoleBasedRoute.tsx`: Para proteger rutas según el rol del usuario.
 
 5.  **Vista "Mis Reportes" (HU-05)**
-    *   [ ] Implementar en `src/pages/MisReportes/index.tsx`: Tabs para "En Campo" (editables) y "En Revisión/Finalizados" (solo lectura).
-    *   [ ] Conectar con IndexedDB para listar reportes locales.
-    *   [ ] Añadir indicadores visuales del estado de cada reporte.
+    *   [x] Implementar en `src/pages/MisReportes/index.tsx`: Tabs para "En Campo" (editables) y "En Revisión/Finalizados" (solo lectura).
+    *   [x] Conectar con IndexedDB para listar reportes locales.
+    *   [x] Añadir indicadores visuales del estado de cada reporte.
 
 6.  **Acción "Crear Reporte" (HU-04, HU-11)**
-    *   [ ] Crear botón flotante o principal para iniciar un nuevo reporte.
-    *   [ ] Lógica para inicializar un objeto `Report` vacío con ID único, fecha actual y estado "En campo".
-    *   [ ] Implementar "Duplicar Reporte" (HU-11): Crear una copia de un reporte existente como nuevo.
+    *   [x] Crear botón flotante o principal para iniciar un nuevo reporte.
+    *   [x] Lógica para inicializar un objeto `Report` vacío con ID único, fecha actual y estado "En campo".
+    *   [x] Implementar "Duplicar Reporte" (HU-11): Crear una copia de un reporte existente como nuevo.
 
 ## Fase 3: El Formulario de Site Survey (El Núcleo)
 

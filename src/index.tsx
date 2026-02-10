@@ -7,8 +7,6 @@ import { Home } from './pages/Home';
 import { Login } from './pages/auth';
 import { NotFound } from './pages/_404';
 import { MisReportes } from './pages/MisReportes';
-import { EnRevision } from './pages/EnRevision';
-import { Generados } from './pages/Generados';
 import { AuthProvider } from './features/auth/AuthContext';
 import { PrivateRoute } from './components/PrivateRoute';
 import { SideMenu } from './components/SideMenu';
@@ -20,9 +18,9 @@ function ProtectedLayout() {
 			<Router>
 				<Route path="/" component={Home} />
 				<Route path="/mis-reportes" component={MisReportes} />
-				<Route path="/en-revision" component={EnRevision} />
-				<Route path="/generados" component={Generados} />
-				<Route default component={Home} />
+				{/* Route for editing/viewing specific report */}
+				<Route path="/reporte/:id" component={() => <div>Report Edit Page (Coming Soon)</div>} /> 
+				<Route default component={NotFound} />
 			</Router>
 		</SideMenu>
 	);
@@ -35,11 +33,8 @@ export function App() {
 				<AuthProvider>
 					<Router>
 						<Route path="/login" component={Login} />
-						<PrivateRoute path="/" component={ProtectedLayout} />
-						<PrivateRoute path="/mis-reportes" component={ProtectedLayout} />
-						<PrivateRoute path="/en-revision" component={ProtectedLayout} />
-						<PrivateRoute path="/generados" component={ProtectedLayout} />
-						<Route default component={NotFound} />
+						{/* Capture all other routes and let ProtectedLayout handle them */}
+						<PrivateRoute default component={ProtectedLayout} />
 					</Router>
 				</AuthProvider>
 			</LocationProvider>
