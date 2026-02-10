@@ -1,9 +1,9 @@
 import { Title } from '@mantine/core';
 
-export function MisSitios() {
+export function MisReportes() {
   return (
     <div>
-      <Title order={1}>Mis sitios</Title>
+      <Title order={1}>Mis reportes</Title>
       {/* Content will be added later */}
     </div>
   );

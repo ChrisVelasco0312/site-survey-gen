@@ -74,7 +74,7 @@ export function SideMenu({ children }: SideMenuProps) {
   };
 
   const menuItems = [
-    { label: 'Mis sitios', path: '/mis-sitios', icon: IconHome },
+    { label: 'Mis reportes', path: '/mis-reportes', icon: IconHome },
     { label: 'En revisión', path: '/en-revision', icon: IconFileCheck },
     { label: 'Generados', path: '/generados', icon: IconCheck },
   ];
@@ -115,15 +115,15 @@ export function SideMenu({ children }: SideMenuProps) {
         )}
       </Group>
 
-      {/* Nuevo sitio button */}
+      {/* Nuevo reporte button */}
       <Box px="md">
         <Button
           fullWidth
           leftSection={!collapsed && <IconPlus size={18} />}
           variant="light"
-          onClick={() => handleNavClick('/mis-sitios')}
+          onClick={() => handleNavClick('/mis-reportes')}
         >
-          {collapsed ? <IconPlus size={18} /> : 'Nuevo sitio'}
+          {collapsed ? <IconPlus size={18} /> : 'Nuevo reporte'}
         </Button>
       </Box>
 

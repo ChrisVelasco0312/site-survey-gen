@@ -6,7 +6,7 @@ import '@mantine/core/styles.css';
 import { Home } from './pages/Home';
 import { Login } from './pages/auth';
 import { NotFound } from './pages/_404';
-import { MisSitios } from './pages/MisSitios';
+import { MisReportes } from './pages/MisReportes';
 import { EnRevision } from './pages/EnRevision';
 import { Generados } from './pages/Generados';
 import { AuthProvider } from './features/auth/AuthContext';
@@ -19,7 +19,7 @@ function ProtectedLayout() {
 		<SideMenu>
 			<Router>
 				<Route path="/" component={Home} />
-				<Route path="/mis-sitios" component={MisSitios} />
+				<Route path="/mis-reportes" component={MisReportes} />
 				<Route path="/en-revision" component={EnRevision} />
 				<Route path="/generados" component={Generados} />
 				<Route default component={Home} />
@@ -36,7 +36,7 @@ export function App() {
 					<Router>
 						<Route path="/login" component={Login} />
 						<PrivateRoute path="/" component={ProtectedLayout} />
-						<PrivateRoute path="/mis-sitios" component={ProtectedLayout} />
+						<PrivateRoute path="/mis-reportes" component={ProtectedLayout} />
 						<PrivateRoute path="/en-revision" component={ProtectedLayout} />
 						<PrivateRoute path="/generados" component={ProtectedLayout} />
 						<Route default component={NotFound} />
