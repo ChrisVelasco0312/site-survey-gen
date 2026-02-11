@@ -1,6 +1,6 @@
 # Historias de Usuario - Sistema de Reportes Site Survey
 
-Este documento detalla las historias de usuario para el desarrollo de la aplicación móvil/web de generación de reportes de Site Survey.
+Este documento detalla las historias de usuario para el desarrollo de la aplicación móvil/web de generación de reportes de Site Survey. El catálogo de sitios (direcciones) proviene de la **base de datos de sitios** (LPR y Cotejo Facial); la selección de dirección y los listados se filtran por **tipo** (LPR / Cotejo Facial), **distrito** y **municipio**.
 
 ## Roles de Usuario
 *   **Trabajador de Campo (Representante Grupo A / Grupo B):** Usuario que realiza la visita técnica, recolecta datos y fotos en sitio. Requiere funcionamiento offline.
@@ -60,24 +60,25 @@ Este documento detalla las historias de usuario para el desarrollo de la aplicac
 
 ### HU-05: Listado de Reportes (Vista Trabajador)
 **Como** Trabajador de Campo,
-**Quiero** ver una lista de mis reportes filtrada por estado,
+**Quiero** ver una lista de mis reportes filtrada por estado y, opcionalmente, por tipo de sitio, distrito y municipio,
 **Para** organizar mi trabajo y saber qué está pendiente.
 
 **Criterios de Aceptación:**
 *   Pestañas o filtros para: "En Campo", "En Revisión", "Historial/Generados".
+*   Filtros opcionales por **Tipo** (LPR / Cotejo Facial), **Distrito** y **Municipio** (según los datos del sitio del reporte).
 *   En "En Campo", puedo seleccionar un reporte para seguir editando.
 *   En "En Revisión", puedo ver los reportes enviados pero no editarlos.
 *   Indicadores visuales claros del estado de cada reporte.
 
 ### HU-06: Dashboard General (Vista Admin)
 **Como** Administrador,
-**Quiero** ver un dashboard con todos los reportes de todos los grupos,
+**Quiero** ver un dashboard con todos los reportes de todos los grupos, pudiendo filtrar por tipo de sitio, distrito y municipio,
 **Para** monitorear el avance del proyecto.
 
 **Criterios de Aceptación:**
 *   Lista consolidada de reportes.
-*   Columnas/Datos visibles: Fecha reporte, Dirección, Grupo Reportante (Nombre Representante), Estado actual.
-*   Capacidad de filtrar por estado ("En revisión", "Listo para generar", etc.).
+*   Columnas/Datos visibles: Fecha reporte, Dirección, **Tipo** (LPR/Cotejo Facial), **Distrito**, **Municipio**, Grupo Reportante (Nombre Representante), Estado actual.
+*   Capacidad de filtrar por estado ("En revisión", "Listo para generar", etc.) y por **Tipo**, **Distrito** y **Municipio** (según el sitio del reporte).
 
 ### HU-07: Cambio de Estado a "En Revisión"
 **Como** Trabajador de Campo,
@@ -138,16 +139,15 @@ Este documento detalla las historias de usuario para el desarrollo de la aplicac
 
 ### HU-12: Datos Generales y Selección de Dirección
 **Como** usuario,
-**Quiero** seleccionar la dirección de una lista predefinida y que se autocompleten los datos geográficos,
+**Quiero** seleccionar la dirección de una lista predefinida (base de datos de sitios: LPR y Cotejo Facial) filtrando por distrito y municipio, y que se autocompleten los datos geográficos,
 **Para** evitar errores de digitación en coordenadas y nomenclatura.
 
 **Criterios de Aceptación:**
 *   Campo "Fecha": Automático (Día/Mes/Año).
 *   Campo "Tipo Instalación": Selección múltiple (Fachada/mástil, Poste, Torre).
-*   Campo "Dirección": Modal/Buscador conectado a base de datos de sitios predefinidos.
+*   Campo "Dirección": Modal/Buscador conectado a la base de datos de sitios predefinidos, con filtros por **Tipo** (LPR / Cotejo Facial), **Distrito** y **Municipio**.
 *   Al seleccionar dirección:
-    *   Se autocompleta: "PM - N°".
-    *   Se autocompleta: Latitud, Longitud, Nombre del sitio.
+    *   Se autocompleta: código del punto (ej. "LPR 1", "F.1"), **Distrito**, **Municipio**, Nombre del sitio, Dirección/Ubicación, Latitud y Longitud.
     *   Se descargan estos valores para disponibilidad offline si se sincronizó previamente.
 
 ### HU-13: Información Geográfica y Observaciones

@@ -23,13 +23,14 @@ Esta fase establece las bases para que la aplicación funcione sin conexión (HU
 Aquí implementaremos las vistas principales donde los usuarios gestionan sus reportes (HU-01, HU-05, HU-06).
 
 4.  **Ruteo por Roles y Dashboard Admin (HU-01, HU-06)**
-    *   [x] Modificar `src/pages/Home/index.tsx`: Si es Admin, mostrar Dashboard General (tabla con todos los reportes, filtros por estado). Si es Trabajador, redirigir a "Mis Reportes".
+    *   [x] Modificar `src/pages/Home/index.tsx`: Si es Admin, mostrar Dashboard General (tabla con todos los reportes, filtros por estado, **Tipo**, **Distrito** y **Municipio**). Si es Trabajador, redirigir a "Mis Reportes".
     *   [x] Implementar `src/components/RoleBasedRoute.tsx`: Para proteger rutas según el rol del usuario.
 
 5.  **Vista "Mis Reportes" (HU-05)**
     *   [x] Implementar en `src/pages/MisReportes/index.tsx`: Tabs para "En Campo" (editables) y "En Revisión/Finalizados" (solo lectura).
     *   [x] Conectar con IndexedDB para listar reportes locales.
     *   [x] Añadir indicadores visuales del estado de cada reporte.
+    *   [ ] Filtros opcionales por Tipo (LPR/Cotejo Facial), Distrito y Municipio (según sitio del reporte).
 
 6.  **Acción "Crear Reporte" (HU-04, HU-11)**
     *   [x] Crear botón flotante o principal para iniciar un nuevo reporte.
@@ -46,7 +47,7 @@ Desarrollaremos el formulario dividido en pasos lógicos o pestañas para maneja
 
 8.  **Paso 1: Datos Generales y Ubicación (HU-12)**
     *   [x] Formulario con Fecha, Tipo Instalación.
-    *   [x] Selector de Dirección (Mock o base de datos simple de sitios) que autocompleta Lat/Long y Nombre.
+    *   [x] Selector de Dirección conectado a base de datos de sitios (LPR/Cotejo Facial), con filtros por **Tipo** (LPR/Cotejo Facial), **Distrito** y **Municipio**, que autocompleta código, tipo, distrito, municipio, Lat/Long y Nombre.
 
 9.  **Paso 2: Seguridad y Contrato (HU-14) + Observaciones (HU-13)**
     *   [x] Selectores para Nivel de Seguridad y Componentes del Contrato.

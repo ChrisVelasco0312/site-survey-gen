@@ -4,7 +4,8 @@
   "description": "Backend scripts for site-survey-gen",
   "type": "module",
   "scripts": {
-    "deploy-user": "node firestore/users/deploy_user.js"
+    "deploy-user": "node firestore/users/deploy_user.js",
+    "seed-sites": "node firestore/sites/seedSites.js"
   },
   "dependencies": {
     "dotenv": "^17.2.4",

@@ -24,20 +24,25 @@ La estrategia principal es la **Desnormalización**: Los datos del sitio (`site`
 
 ### 2. Colección: `sites`
 
-**Propósito:** Catálogo maestro de sitios predefinidos para autocompletado (HU-12). Es una colección de solo lectura para los trabajadores de campo.
+**Propósito:** Catálogo maestro de sitios predefinidos para autocompletado (HU-12). Origen: base de datos de sitios (LPR y Cotejo Facial). Es una colección de solo lectura para los trabajadores de campo. Los listados se filtran por **tipo** (LPR / Cotejo Facial), **distrito** y **municipio**.
 
 ```json
 {
-  "id": "string", // ID del documento (ej: "PM-104")
-  "site_code": "string", // Código visual (ej: "PM - 104")
-  "name": "string", // Nombre del sitio (ej: "Parque Central")
-  "address": "string", // Dirección oficial
-  "district": "string", // Barrio o localidad
+  "id": "string", // ID del documento (ej: "lpr-1", "f-1")
+  "site_code": "string", // Código del punto (ej: "LPR 1", "F.1")
+  "name": "string", // Nombre o referencia corta del sitio
+  "address": "string", // Dirección / Ubicación (texto completo)
+  "site_type": "string", // "lpr" | "cotejo_facial" (origen en base de datos sitios)
+  "distrito": "string", // Ej: "DISTRITO PALMIRA", "DISTRITO BUGA"
+  "municipio": "string", // Ej: "PALMIRA", "CANDELARIA", "BUGA"
   "location": "geopoint", // Coordenadas (Latitud, Longitud)
-  "description": "string" // Información extra para ayudar a ubicarlo
+  "cameras_count": 0, // Solo LPR: cantidad de cámaras (opcional)
+  "description": "string" // Información extra (opcional)
 }
 
 ```
+
+**Consultas típicas:** Listar sitios filtrados por `site_type`, `distrito` y/o `municipio` para el selector de dirección (HU-12). Índices compuestos recomendados: `site_type` + `distrito` + `municipio`, o combinaciones de dos campos.
 
 ---
 
@@ -75,9 +80,12 @@ Estos datos se copian desde la colección `sites` al crear el reporte, pero pued
 {
   "site_data": {
     "reference_site_id": "string", // ID del doc en colección 'sites'
-    "code": "string", // "PM - N°"
+    "code": "string", // Código del punto (ej: "LPR 1", "F.1")
+    "site_type": "string", // "lpr" | "cotejo_facial" (para filtros y offline)
+    "distrito": "string", // Copiado del sitio (para filtros y offline)
+    "municipio": "string", // Copiado del sitio (para filtros y offline)
     "name": "string", // Nombre del sitio
-    "address": "string", // Dirección
+    "address": "string", // Dirección / Ubicación
     "location": "geopoint", // Coordenadas Lat/Lng (Editables o automáticas)
     "installation_types": [ // Array de strings (Selección múltiple HU-12)
       "fachada",
@@ -215,7 +223,10 @@ Estructura jerárquica para separar los tipos de superficie y detalles de infrae
 Para mantener la integridad de los datos, utiliza estos valores exactos en el código (Dropdowns):
 
 * **`status`**: `["en_campo", "en_revision", "listo_generar", "generado"]`
+* **`site_type`** (en `sites`): `["lpr", "cotejo_facial"]`
 * **`security_level`**: `["alto", "medio", "bajo"]`
 * **`contract_component`**: `["valle_seguro", "lpr", "cotejo_facial"]`
 * **`cabling_type`**: `["aereo", "subterraneo", "mixto"]`
 * **`transmission_medium`**: `["fibra_optica", "na"]`
+
+**Filtrado de reportes:** El dashboard (HU-06) y listados pueden filtrar por `site_data.site_type`, `site_data.distrito` y `site_data.municipio`. Conviene crear índices compuestos en `reports` para consultas por estado + tipo, estado + distrito o estado + municipio.
