@@ -12,6 +12,7 @@ import { doc, getDoc } from 'firebase/firestore';
 import { auth, db } from '../../firebase-config';
 import { saveUserToDB, getUserFromDB } from '../../utils/indexedDB';
 import { UserProfile } from '../../types/User';
+import { fetchSitesAndPersist } from '../../services/sitesService';
 
 interface AuthContextType {
   user: User | null;
@@ -63,12 +64,18 @@ export function AuthProvider({ children }: AuthProviderProps) {
           const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
           if (userDoc.exists()) {
             const data = userDoc.data() as UserProfile;
-            // Ensure uid is present
             const profileData: UserProfile = { ...data, uid: currentUser.uid };
-            console.log("User Data Fetched from Firestore:", profileData);
             setUserData(profileData);
-            // Save to IndexedDB for offline use
-            await saveUserToDB(profileData);
+            // Save to IndexedDB for offline (don't block auth if this fails)
+            saveUserToDB(profileData).catch((err) => {
+              console.warn('Could not cache user for offline:', err);
+            });
+            // Fetch and cache sites only when online
+            if (typeof navigator !== 'undefined' && navigator.onLine) {
+              fetchSitesAndPersist()
+                .then((sites) => console.log(`Sites cached for offline: ${sites.length} sites`))
+                .catch((err) => console.warn('Could not cache sites for offline:', err));
+            }
           } else {
             console.error("No such user document!");
             setUserData(null);

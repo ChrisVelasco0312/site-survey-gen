@@ -14,12 +14,31 @@ export type ContractComponent = 'valle_seguro' | 'lpr' | 'cotejo_facial';
 export type TransmissionMedium = 'fibra_optica' | 'na';
 export type CablingType = 'aereo' | 'subterraneo' | 'mixto';
 
+/** Site record as stored in Firestore and IndexedDB (sites collection). */
+export interface SiteRecord {
+  id: string;
+  site_code: string;
+  site_type: 'lpr' | 'cotejo_facial';
+  distrito: string;
+  municipio: string;
+  name: string;
+  address: string;
+  location?: { latitude: number; longitude: number } | null;
+  cameras_count: number;
+  description: string;
+}
+
 export interface AddressData {
-  pm_number: string;      // PM - N°
+  pm_number: string;      // PM - N° / site_code
   latitude: number;
   longitude: number;
   site_name: string;
   full_address: string;
+  /** Set when selected from sites catalog (for filters and sync). */
+  site_id?: string;
+  site_type?: 'lpr' | 'cotejo_facial';
+  distrito?: string;
+  municipio?: string;
 }
 
 export interface ConnectivityData {

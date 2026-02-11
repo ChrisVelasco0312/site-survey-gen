@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'preact/hooks';
+import { useMemo, useState, useEffect } from 'preact/hooks';
 import {
   TextInput,
   MultiSelect,
@@ -7,16 +7,23 @@ import {
   Modal,
   Button,
   Box,
-  ScrollArea,
+  Select,
 } from '@mantine/core';
 import { DateInput } from '@mantine/dates';
-import type { Report, AddressData, InstallationType } from '../../types/Report';
-import { MOCK_SITES, formatSiteOption, searchMockSites } from '../../data/mockSites';
+import type { Report, AddressData, InstallationType, SiteRecord } from '../../types/Report';
+import { getAllSitesFromDB } from '../../utils/indexedDB';
+import { fetchSitesAndPersist } from '../../services/sitesService';
 
 const INSTALLATION_TYPE_OPTIONS: { value: InstallationType; label: string }[] = [
   { value: 'fachada_mastil', label: 'Fachada / Mástil' },
   { value: 'poste', label: 'Poste' },
   { value: 'torre', label: 'Torre' },
+];
+
+const SITE_TYPE_OPTIONS = [
+  { value: '', label: 'Todos' },
+  { value: 'lpr', label: 'LPR' },
+  { value: 'cotejo_facial', label: 'Cotejo Facial' },
 ];
 
 interface ReportEditStep1Props {
@@ -59,9 +66,104 @@ function toStoredDateValue(value: Date | { toDate?: () => Date } | string): stri
   return date.toISOString().slice(0, 10);
 }
 
+function siteToAddressData(site: SiteRecord): AddressData {
+  const lat = site.location?.latitude ?? 0;
+  const lng = site.location?.longitude ?? 0;
+  return {
+    pm_number: site.site_code,
+    latitude: lat,
+    longitude: lng,
+    site_name: site.name,
+    full_address: site.address,
+    site_id: site.id,
+    site_type: site.site_type,
+    distrito: site.distrito,
+    municipio: site.municipio,
+  };
+}
+
+/** Format a site/address for display (search by name, code or address). */
+function formatSiteOption(addr: AddressData): string {
+  const parts = [addr.site_name, addr.pm_number, addr.full_address];
+  if (addr.distrito) parts.push(addr.distrito);
+  if (addr.municipio) parts.push(addr.municipio);
+  return parts.filter(Boolean).join(' — ');
+}
+
+function filterAndSearchSites(
+  sites: SiteRecord[],
+  filterType: string,
+  filterDistrito: string,
+  filterMunicipio: string,
+  searchQuery: string
+): SiteRecord[] {
+  let list = sites;
+  if (filterType) {
+    list = list.filter((s) => s.site_type === filterType);
+  }
+  if (filterDistrito) {
+    list = list.filter((s) => s.distrito === filterDistrito);
+  }
+  if (filterMunicipio) {
+    list = list.filter((s) => s.municipio === filterMunicipio);
+  }
+  const q = searchQuery.trim().toLowerCase();
+  if (q) {
+    list = list.filter(
+      (s) =>
+        s.site_code.toLowerCase().includes(q) ||
+        s.name.toLowerCase().includes(q) ||
+        s.address.toLowerCase().includes(q) ||
+        s.distrito.toLowerCase().includes(q) ||
+        s.municipio.toLowerCase().includes(q)
+    );
+  }
+  return list;
+}
+
 export function ReportEditStep1({ report, setReport, readOnly }: ReportEditStep1Props) {
   const [siteModalOpen, setSiteModalOpen] = useState(false);
   const [siteSearchQuery, setSiteSearchQuery] = useState('');
+  const [filterType, setFilterType] = useState('');
+  const [filterDistrito, setFilterDistrito] = useState('');
+  const [filterMunicipio, setFilterMunicipio] = useState('');
+  const [sites, setSites] = useState<SiteRecord[]>([]);
+  const [sitesLoading, setSitesLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    const finish = () => { if (!cancelled) setSitesLoading(false); };
+    getAllSitesFromDB()
+      .then((cached) => {
+        if (cancelled) return;
+        if (cached.length > 0) {
+          setSites(cached);
+          finish();
+          return;
+        }
+        if (typeof navigator !== 'undefined' && navigator.onLine) {
+          fetchSitesAndPersist()
+            .then((fresh) => { if (!cancelled) setSites(fresh); })
+            .catch(() => {})
+            .finally(finish);
+        } else {
+          finish();
+        }
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setSites([]);
+        if (typeof navigator !== 'undefined' && navigator.onLine) {
+          fetchSitesAndPersist()
+            .then((fresh) => { if (!cancelled) setSites(fresh); })
+            .catch(() => {})
+            .finally(finish);
+        } else {
+          finish();
+        }
+      });
+    return () => { cancelled = true; };
+  }, []);
 
   const dateDisplayText = useMemo(() => {
     if (!report.date) return '—';
@@ -79,6 +181,28 @@ export function ReportEditStep1({ report, setReport, readOnly }: ReportEditStep1
     if (!a?.site_name && !a?.pm_number && !a?.full_address) return '';
     return formatSiteOption(a);
   }, [report.address]);
+
+  const uniqueDistritos = useMemo(() => {
+    const set = new Set(sites.map((s) => s.distrito).filter(Boolean));
+    return Array.from(set).sort();
+  }, [sites]);
+
+  const uniqueMunicipios = useMemo(() => {
+    const set = new Set(sites.map((s) => s.municipio).filter(Boolean));
+    return Array.from(set).sort();
+  }, [sites]);
+
+  const filteredSites = useMemo(
+    () =>
+      filterAndSearchSites(
+        sites,
+        filterType,
+        filterDistrito,
+        filterMunicipio,
+        siteSearchQuery
+      ),
+    [sites, filterType, filterDistrito, filterMunicipio, siteSearchQuery]
+  );
 
   const onDateChange = (value: string | Date | null | unknown) => {
     if (value == null) {
@@ -100,20 +224,23 @@ export function ReportEditStep1({ report, setReport, readOnly }: ReportEditStep1
     });
   };
 
-  const onSelectSite = (site: AddressData) => {
+  const onSelectSite = (site: SiteRecord) => {
     setReport({
       ...report,
-      address: { ...site },
+      address: siteToAddressData(site),
       updated_at: Date.now(),
     });
     setSiteModalOpen(false);
     setSiteSearchQuery('');
   };
 
-  const filteredSites = useMemo(
-    () => searchMockSites(siteSearchQuery),
-    [siteSearchQuery]
-  );
+  const closeModal = () => {
+    setSiteModalOpen(false);
+    setSiteSearchQuery('');
+    setFilterType('');
+    setFilterDistrito('');
+    setFilterMunicipio('');
+  };
 
   if (readOnly) {
     return (
@@ -153,7 +280,7 @@ export function ReportEditStep1({ report, setReport, readOnly }: ReportEditStep1
         valueFormat="DD/MM/YYYY"
         dateParser={(input) => {
           const parsed = parseStoredDate(input);
-          return parsed ?? undefined;
+          return parsed ?? null;
         }}
         clearable
       />
@@ -169,7 +296,7 @@ export function ReportEditStep1({ report, setReport, readOnly }: ReportEditStep1
           Dirección / Sitio
         </Text>
         <Text size="xs" c="dimmed" mb="xs">
-          Seleccione un sitio de la lista. La información quedará fija.
+          Seleccione un sitio de la lista (filtrable por tipo, distrito y municipio). La información quedará fija.
         </Text>
         {hasAddressSelected ? (
           <Stack gap="xs">
@@ -180,6 +307,9 @@ export function ReportEditStep1({ report, setReport, readOnly }: ReportEditStep1
             >
               <Text size="sm" fw={500}>{report.address.site_name}</Text>
               <Text size="xs" c="dimmed">{report.address.pm_number} — {report.address.full_address}</Text>
+              {(report.address.distrito || report.address.municipio) && (
+                <Text size="xs" c="dimmed">{report.address.distrito} / {report.address.municipio}</Text>
+              )}
               <Text size="xs" c="dimmed" mt={4}>
                 Lat: {report.address.latitude.toFixed(5)}, Long: {report.address.longitude.toFixed(5)}
               </Text>
@@ -189,7 +319,7 @@ export function ReportEditStep1({ report, setReport, readOnly }: ReportEditStep1
             </Button>
           </Stack>
         ) : (
-          <Button onClick={() => setSiteModalOpen(true)}>
+          <Button onClick={() => setSiteModalOpen(true)} loading={sitesLoading}>
             Seleccionar sitio
           </Button>
         )}
@@ -198,42 +328,92 @@ export function ReportEditStep1({ report, setReport, readOnly }: ReportEditStep1
       <Modal
         title="Seleccionar sitio"
         opened={siteModalOpen}
-        onClose={() => {
-          setSiteModalOpen(false);
-          setSiteSearchQuery('');
+        onClose={closeModal}
+        size="lg"
+        styles={{
+          content: { maxHeight: 'min(680px, calc(100vh - 40px))', display: 'flex', flexDirection: 'column' },
+          header: { flex: '0 0 auto' },
+          body: { flex: '1 1 auto', display: 'flex', flexDirection: 'column', overflow: 'hidden', minHeight: 0 },
         }}
       >
-        <Stack gap="md">
+        <Stack gap="md" style={{ flex: '0 0 auto' }}>
+          <Select
+            label="Tipo"
+            placeholder="Todos"
+            data={SITE_TYPE_OPTIONS}
+            value={filterType || null}
+            onChange={(v) => setFilterType(v ?? '')}
+            clearable
+            comboboxProps={{ withinPortal: false }}
+          />
+          <Select
+            label="Distrito"
+            placeholder="Todos"
+            data={uniqueDistritos.map((d) => ({ value: d, label: d }))}
+            value={filterDistrito || null}
+            onChange={(v) => setFilterDistrito(v ?? '')}
+            clearable
+            searchable
+            comboboxProps={{ withinPortal: false }}
+          />
+          <Select
+            label="Municipio"
+            placeholder="Todos"
+            data={uniqueMunicipios.map((m) => ({ value: m, label: m }))}
+            value={filterMunicipio || null}
+            onChange={(v) => setFilterMunicipio(v ?? '')}
+            clearable
+            searchable
+            comboboxProps={{ withinPortal: false }}
+          />
           <TextInput
-            placeholder="Buscar por nombre, PM o dirección..."
+            placeholder="Buscar por código, nombre, dirección, distrito o municipio..."
             value={siteSearchQuery}
             onInput={(e) => setSiteSearchQuery((e.target as HTMLInputElement).value)}
           />
-        <ScrollArea.Autosize mah={360}>
-          <Stack gap="xs">
-            {filteredSites.map((site) => (
-              <Box
-                key={site.pm_number}
-                py="sm"
-                px="md"
-                style={{
-                  border: '1px solid var(--mantine-color-default-border)',
-                  borderRadius: 'var(--mantine-radius-sm)',
-                  cursor: 'pointer',
-                }}
-                onClick={() => onSelectSite(site)}
-                role="button"
-              >
-                <Text size="sm" fw={500}>{site.site_name}</Text>
-                <Text size="xs" c="dimmed">{site.pm_number} — {site.full_address}</Text>
-                <Text size="xs" c="dimmed">
-                  {site.latitude.toFixed(5)}, {site.longitude.toFixed(5)}
-                </Text>
-              </Box>
-            ))}
-          </Stack>
-        </ScrollArea.Autosize>
         </Stack>
+        <div
+          style={{
+            flex: '1 1 auto',
+            overflowY: 'auto',
+            marginTop: 12,
+            minHeight: 0,
+          }}
+        >
+          <Stack gap="xs">
+            {filteredSites.length === 0 ? (
+              <Text size="sm" c="dimmed">
+                {sites.length === 0
+                  ? 'No hay sitios en caché. Inicia sesión con conexión para cargarlos.'
+                  : 'Ningún sitio coincide con los filtros.'}
+              </Text>
+            ) : (
+              filteredSites.map((site) => (
+                <Box
+                  key={site.id}
+                  py="sm"
+                  px="md"
+                  style={{
+                    border: '1px solid var(--mantine-color-default-border)',
+                    borderRadius: 'var(--mantine-radius-sm)',
+                    cursor: 'pointer',
+                  }}
+                  onClick={() => onSelectSite(site)}
+                  role="button"
+                >
+                  <Text size="sm" fw={500}>{site.site_code} — {site.name}</Text>
+                  <Text size="xs" c="dimmed">{site.address}</Text>
+                  <Text size="xs" c="dimmed">{site.distrito} / {site.municipio}</Text>
+                  {site.location && (
+                    <Text size="xs" c="dimmed">
+                      {site.location.latitude.toFixed(5)}, {site.location.longitude.toFixed(5)}
+                    </Text>
+                  )}
+                </Box>
+              ))
+            )}
+          </Stack>
+        </div>
       </Modal>
     </Stack>
   );

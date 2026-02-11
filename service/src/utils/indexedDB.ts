@@ -1,11 +1,13 @@
 import { UserProfile } from '../types/User';
 import { Report } from '../types/Report';
+import type { SiteRecord } from '../types/Report';
 
 const DB_NAME = 'site_survey_db';
-const DB_VERSION = 2;
+const DB_VERSION = 4;
 const USER_STORE_NAME = 'users';
 const REPORT_STORE_NAME = 'reports';
 const SYNC_QUEUE_STORE_NAME = 'sync_queue';
+const SITES_STORE_NAME = 'sites';
 
 export interface SyncItem {
   id?: number;
@@ -15,35 +17,87 @@ export interface SyncItem {
   timestamp: number;
 }
 
-export const initDB = (): Promise<IDBDatabase> => {
+/** Cached connection – reused across calls, closed on version change. */
+let cachedDB: IDBDatabase | null = null;
+
+function createStoresIfNeeded(db: IDBDatabase): void {
+  if (!db.objectStoreNames.contains(USER_STORE_NAME)) {
+    db.createObjectStore(USER_STORE_NAME, { keyPath: 'uid' });
+  }
+  if (!db.objectStoreNames.contains(REPORT_STORE_NAME)) {
+    db.createObjectStore(REPORT_STORE_NAME, { keyPath: 'id' });
+  }
+  if (!db.objectStoreNames.contains(SYNC_QUEUE_STORE_NAME)) {
+    db.createObjectStore(SYNC_QUEUE_STORE_NAME, { keyPath: 'id', autoIncrement: true });
+  }
+  if (!db.objectStoreNames.contains(SITES_STORE_NAME)) {
+    db.createObjectStore(SITES_STORE_NAME, { keyPath: 'id' });
+  }
+}
+
+function openDB(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     const request = indexedDB.open(DB_NAME, DB_VERSION);
 
-    request.onerror = (event) => {
-      console.error('IndexedDB error:', event);
-      reject('Error opening database');
+    request.onerror = () => {
+      console.error('IndexedDB open error:', request.error?.message ?? 'unknown');
+      reject(request.error ?? new Error('Error opening IndexedDB'));
     };
 
-    request.onsuccess = (event) => {
-      resolve((event.target as IDBOpenDBRequest).result);
+    request.onblocked = () => {
+      console.warn('IndexedDB upgrade blocked – close other tabs and reload.');
     };
 
-    request.onupgradeneeded = (event) => {
-      const db = (event.target as IDBOpenDBRequest).result;
-      
-      if (!db.objectStoreNames.contains(USER_STORE_NAME)) {
-        db.createObjectStore(USER_STORE_NAME, { keyPath: 'uid' });
-      }
+    request.onupgradeneeded = () => {
+      const db = request.result;
+      createStoresIfNeeded(db);
+    };
 
-      if (!db.objectStoreNames.contains(REPORT_STORE_NAME)) {
-        db.createObjectStore(REPORT_STORE_NAME, { keyPath: 'id' });
-      }
-
-      if (!db.objectStoreNames.contains(SYNC_QUEUE_STORE_NAME)) {
-        db.createObjectStore(SYNC_QUEUE_STORE_NAME, { keyPath: 'id', autoIncrement: true });
-      }
+    request.onsuccess = () => {
+      const db = request.result;
+      // If another tab triggers an upgrade, close this connection so it isn't blocked.
+      db.onversionchange = () => {
+        db.close();
+        cachedDB = null;
+      };
+      cachedDB = db;
+      resolve(db);
     };
   });
+}
+
+/**
+ * Returns a ready IDBDatabase. Reuses the cached connection when possible;
+ * if the upgrade is blocked by other tabs it will log a warning.
+ * If the DB is corrupt / stuck, it deletes and recreates it.
+ */
+export const initDB = async (): Promise<IDBDatabase> => {
+  if (cachedDB) {
+    try {
+      // Quick health-check: if the db was closed we'll get an error.
+      cachedDB.transaction([USER_STORE_NAME], 'readonly');
+      return cachedDB;
+    } catch {
+      cachedDB = null;
+    }
+  }
+
+  try {
+    return await openDB();
+  } catch (firstErr) {
+    // If the open failed (corrupt / stuck upgrade), delete and retry once.
+    console.warn('IndexedDB open failed, deleting database and retrying...', firstErr);
+    await new Promise<void>((res, rej) => {
+      const del = indexedDB.deleteDatabase(DB_NAME);
+      del.onsuccess = () => res();
+      del.onerror = () => rej(del.error);
+      del.onblocked = () => {
+        console.warn('Delete blocked – close other tabs.');
+        res(); // resolve anyway so we at least try to reopen
+      };
+    });
+    return openDB();
+  }
 };
 
 export const saveUserToDB = async (user: UserProfile): Promise<void> => {
@@ -199,4 +253,30 @@ export const clearSyncQueueItem = async (id: number): Promise<void> => {
         request.onsuccess = () => resolve();
         request.onerror = (event) => reject(event);
     });
+};
+
+// Sites (catalog for address selector – offline first)
+export const saveSitesToDB = async (sites: SiteRecord[]): Promise<void> => {
+  const db = await initDB();
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction([SITES_STORE_NAME], 'readwrite');
+    const store = transaction.objectStore(SITES_STORE_NAME);
+    transaction.oncomplete = () => resolve();
+    transaction.onerror = () => reject(transaction.error);
+    store.clear();
+    for (const site of sites) {
+      store.put(site);
+    }
+  });
+};
+
+export const getAllSitesFromDB = async (): Promise<SiteRecord[]> => {
+  const db = await initDB();
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction([SITES_STORE_NAME], 'readonly');
+    const store = transaction.objectStore(SITES_STORE_NAME);
+    const request = store.getAll();
+    request.onsuccess = () => resolve(request.result ?? []);
+    request.onerror = () => reject(request.error);
+  });
 };
