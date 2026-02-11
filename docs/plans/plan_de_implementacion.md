@@ -72,8 +72,8 @@ Desarrollaremos el formulario dividido en pasos lógicos o pestañas para maneja
     *   [x] Validaciones: Al menos un campo debe tener valor > 0.
 
 14. **Paso 7: Cierre y Guardado (HU-19)**
-    *   [ ] Campos finales: "Este punto pertenece a", Observaciones finales.
-    *   [ ] Guardado automático en cada paso hacia IndexedDB.
+    *   [x] Campos finales: "Este punto pertenece a", Observaciones finales.
+    *   [x] Guardado automático en cada paso hacia IndexedDB.
 
 ## Fase 4: Flujo de Trabajo y Salida
 

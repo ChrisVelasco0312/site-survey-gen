@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'preact/hooks';
+import { useState, useEffect, useRef } from 'preact/hooks';
 import { useRoute, useLocation } from 'preact-iso';
 import {
   Container,
@@ -22,6 +22,7 @@ import { ReportEditStep3 } from './ReportEditStep3';
 import { ReportEditStep4 } from './ReportEditStep4';
 import { ReportEditStep5 } from './ReportEditStep5';
 import { ReportEditStep6 } from './ReportEditStep6';
+import { ReportEditStep7 } from './ReportEditStep7';
 
 const STEP_LABELS = [
   'Datos generales y ubicación',
@@ -85,6 +86,23 @@ export function ReportEdit() {
       console.error('Error al guardar reporte en IndexedDB:', e)
     );
   };
+
+  // Debounced auto-save: persist to IndexedDB 2s after last change
+  const autoSaveTimer = useRef<ReturnType<typeof setTimeout>>();
+  const isInitialLoad = useRef(true);
+
+  useEffect(() => {
+    if (!report) return;
+    if (isInitialLoad.current) {
+      isInitialLoad.current = false;
+      return;
+    }
+    clearTimeout(autoSaveTimer.current);
+    autoSaveTimer.current = setTimeout(() => {
+      persistReport(report);
+    }, 2000);
+    return () => clearTimeout(autoSaveTimer.current);
+  }, [report]);
 
   const nextStep = () => {
     if (report) persistReport(report);
@@ -207,11 +225,13 @@ export function ReportEdit() {
                     setReport={setReport}
                     readOnly={report.status !== 'en_campo'}
                   />
-                ) : (
-                  <Text size="sm" c="dimmed">
-                    Paso {index + 1}: {STEP_LABELS[index]} (contenido en desarrollo)
-                  </Text>
-                )}
+                ) : index === 6 ? (
+                  <ReportEditStep7
+                    report={report}
+                    setReport={setReport}
+                    readOnly={report.status !== 'en_campo'}
+                  />
+                ) : null}
               </Box>
             </Tabs.Panel>
           ))}
