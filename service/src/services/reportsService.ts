@@ -16,19 +16,26 @@ import {
   getAllReportsFromDB,
   addToSyncQueue,
 } from '../utils/indexedDB';
+import {
+  reportWithStorageUrls,
+  reportWithBase64FromStorage,
+} from '../utils/reportImagesStorage';
 
 /**
  * Save a report to Firestore (primary) and IndexedDB (cache).
+ * - IndexedDB: stores the report as-is (with base64 images for offline).
+ * - Firestore: images are uploaded to Firebase Storage; report stores storage URLs only.
  * When offline, saves to IndexedDB + sync queue for later push.
  */
 export async function saveReport(report: Report): Promise<void> {
-  // Always cache locally
+  // Always cache locally with base64 so UI works offline
   await saveReportToDB(report);
 
   if (navigator.onLine) {
     try {
+      const reportForFirestore = await reportWithStorageUrls(report);
       const reportRef = doc(db, 'reports', report.id);
-      await setDoc(reportRef, report, { merge: true });
+      await setDoc(reportRef, reportForFirestore, { merge: true });
     } catch (error) {
       console.error('Firestore save failed, queuing for sync:', error);
       await addToSyncQueue({
@@ -58,9 +65,10 @@ export async function getReport(id: string): Promise<Report | null> {
       const snap = await getDoc(reportRef);
       if (snap.exists()) {
         const report = snap.data() as Report;
-        // Update local cache
-        await saveReportToDB(report).catch(() => {});
-        return report;
+        // Cache for IndexedDB with base64 (fetch images from Storage)
+        const reportForCache = await reportWithBase64FromStorage(report);
+        await saveReportToDB(reportForCache).catch(() => {});
+        return reportForCache;
       }
     } catch (error) {
       console.warn('Firestore read failed, falling back to IndexedDB:', error);
@@ -85,9 +93,11 @@ export async function getUserReports(userId: string): Promise<Report[]> {
       const snapshot = await getDocs(q);
       const reports: Report[] = [];
       snapshot.forEach((d) => reports.push(d.data() as Report));
-      // Update local cache
+      // Cache each report with base64 images for IndexedDB
       for (const r of reports) {
-        saveReportToDB(r).catch(() => {});
+        reportWithBase64FromStorage(r)
+          .then((cached) => saveReportToDB(cached))
+          .catch(() => {});
       }
       return reports;
     } catch (error) {
@@ -115,6 +125,12 @@ export async function getAllReports(): Promise<Report[]> {
       const snapshot = await getDocs(q);
       const reports: Report[] = [];
       snapshot.forEach((d) => reports.push(d.data() as Report));
+      // Cache each report with base64 images for IndexedDB
+      for (const r of reports) {
+        reportWithBase64FromStorage(r)
+          .then((cached) => saveReportToDB(cached))
+          .catch(() => {});
+      }
       return reports;
     } catch (error) {
       console.warn('Firestore query failed, falling back to IndexedDB:', error);

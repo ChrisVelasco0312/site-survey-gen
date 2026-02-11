@@ -230,3 +230,27 @@ Para mantener la integridad de los datos, utiliza estos valores exactos en el c�
 * **`transmission_medium`**: `["fibra_optica", "na"]`
 
 **Filtrado de reportes:** El dashboard (HU-06) y listados pueden filtrar por `site_data.site_type`, `site_data.distrito` y `site_data.municipio`. Conviene crear índices compuestos en `reports` para consultas por estado + tipo, estado + distrito o estado + municipio.
+
+---
+
+### 5. Firebase Storage (imágenes de reportes)
+
+Las imágenes de los reportes (mapa editado, fotos de evidencia) **no** se guardan en Firestore como base64. Se suben a **Firebase Storage** y en el documento del reporte solo se guardan las URLs de descarga.
+
+- **Ruta en Storage:** `reports/{reportId}/{campo}.{ext}` (ej. `reports/abc-123/edited_map_image_url.png`, `camera_view_photo_url.jpg`).
+- **Campos afectados:** `map_image_url`, `edited_map_image_url`, `camera_view_photo_url`, `service_entrance_photo_url`.
+
+En **IndexedDB** se sigue guardando la versión con imágenes en base64 para uso offline. Al sincronizar desde Firestore a IndexedDB, la app descarga cada imagen desde Storage y la convierte a base64 para la caché local.
+
+**Reglas de Storage recomendadas** (crear `storage.rules` en el proyecto y desplegar con Firebase CLI):
+
+```
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /reports/{reportId}/{allPaths=**} {
+      allow read, write: if request.auth != null;
+    }
+  }
+}
+```

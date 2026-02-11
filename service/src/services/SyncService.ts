@@ -1,7 +1,7 @@
-import { doc, setDoc, deleteDoc, Timestamp, collection, addDoc, updateDoc } from 'firebase/firestore';
+import { doc, setDoc, deleteDoc } from 'firebase/firestore';
 import { db } from '../firebase-config';
 import { getSyncQueue, clearSyncQueueItem, SyncItem } from '../utils/indexedDB';
-import { Report } from '../types/Report';
+import { reportWithStorageUrls } from '../utils/reportImagesStorage';
 
 class SyncService {
   private isSyncing: boolean = false;
@@ -81,8 +81,9 @@ class SyncService {
         if (!item.data) {
           throw new Error('Missing data for create/update operation');
         }
-        // Use setDoc with merge: true to handle both create (with specific ID) and update
-        await setDoc(reportRef, item.data, { merge: true });
+        // Upload base64 images to Storage and get report with storage URLs for Firestore
+        const reportForFirestore = await reportWithStorageUrls(item.data);
+        await setDoc(reportRef, reportForFirestore, { merge: true });
         break;
 
       case 'delete':
