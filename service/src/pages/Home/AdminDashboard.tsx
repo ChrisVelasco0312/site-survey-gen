@@ -1,12 +1,10 @@
 import { useEffect, useState } from 'preact/hooks';
 import { Title, Table, Badge, Button, Loader, Text, Group, ActionIcon, Tooltip, Card, Stack } from '@mantine/core';
 import { useMediaQuery } from '@mantine/hooks';
-import { collection, getDocs, query, orderBy } from 'firebase/firestore';
-import { db } from '../../firebase-config';
 import { Report } from '../../types/Report';
 import { IconEye, IconRefresh } from '@tabler/icons-react';
 import { useLocation } from 'preact-iso';
-import { USE_MOCK_DATA, generateMockReports } from '../../utils/mockData';
+import { getAllReports } from '../../services/reportsService';
 
 export function AdminDashboard() {
   const [reports, setReports] = useState<Report[]>([]);
@@ -17,23 +15,8 @@ export function AdminDashboard() {
   const fetchReports = async () => {
     setLoading(true);
     try {
-      if (USE_MOCK_DATA) {
-        console.log("Using Mock Data for AdminDashboard");
-        const mocks = generateMockReports(undefined, 15);
-        setReports(mocks);
-      } else if (navigator.onLine) {
-        const q = query(collection(db, 'reports'), orderBy('updated_at', 'desc'));
-        const querySnapshot = await getDocs(q);
-        const data: Report[] = [];
-        querySnapshot.forEach((doc) => {
-          data.push(doc.data() as Report);
-        });
-        setReports(data);
-      } else {
-        // TODO: Fallback to local DB if offline?
-        // For admin dashboard, online is preferred.
-        console.warn("Offline: Cannot fetch global reports.");
-      }
+      const data = await getAllReports();
+      setReports(data);
     } catch (error) {
       console.error("Error fetching reports:", error);
     } finally {

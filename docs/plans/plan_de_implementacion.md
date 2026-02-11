@@ -80,8 +80,8 @@ Desarrollaremos el formulario dividido en pasos lógicos o pestañas para maneja
 Finalizar el ciclo de vida del reporte y generar los entregables.
 
 15. **Transiciones de Estado (HU-07, HU-08)**
-    *   [ ] Botón "Enviar a Revisión" (Trabajador): Valida y cambia estado a "En Revisión", bloquea edición.
-    *   [ ] Botón "Aprobar/Corregir" (Admin): Permite editar y cambiar a "Listo para generar".
+    *   [x] Botón "Enviar a Revisión" (Trabajador): Valida y cambia estado a "En Revisión", bloquea edición.
+    *   [x] Botón "Aprobar/Corregir" (Admin): Permite editar y cambiar a "Listo para generar".
 
 16. **Generación de PDF (HU-09, HU-10)**
     *   [ ] Instalar librería de generación de PDF (`jspdf` + `jspdf-autotable` o `@react-pdf/renderer`).

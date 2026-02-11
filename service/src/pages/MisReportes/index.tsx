@@ -5,11 +5,9 @@ import { IconEdit, IconEye, IconPlus, IconCopy } from '@tabler/icons-react';
 import { useLocation } from 'preact-iso';
 import { useAuth } from '../../features/auth/AuthContext';
 import { Report, ReportStatus, createInitialReport } from '../../types/Report';
-import { getAllReportsFromDB, saveReportToDB, addToSyncQueue } from '../../utils/indexedDB';
-import { USE_MOCK_DATA, generateMockReports } from '../../utils/mockData';
+import { getUserReports, saveReport } from '../../services/reportsService';
 
 export function MisReportes() {
-  console.log("LOADING MIS REPORTES");
   const { user, userData, loading: authLoading } = useAuth();
   const location = useLocation();
   const [reports, setReports] = useState<Report[]>([]);
@@ -22,23 +20,14 @@ export function MisReportes() {
   const effectiveGroup = userData?.group_assignment ?? 'grupo_a';
 
   const fetchReports = async () => {
+    if (!effectiveUid) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
-      if (USE_MOCK_DATA) {
-        // Con mocks siempre mostramos datos (uid real o fallback para vista demo)
-        const uidForMocks = effectiveUid ?? 'demo-user';
-        const mocks = generateMockReports(uidForMocks, 8);
-        setReports(mocks);
-      } else {
-        if (!effectiveUid) {
-          setLoading(false);
-          return;
-        }
-        const allReports = await getAllReportsFromDB();
-        const myReports = allReports.filter(r => r.user_id === effectiveUid);
-        myReports.sort((a, b) => b.created_at - a.created_at);
-        setReports(myReports);
-      }
+      const myReports = await getUserReports(effectiveUid);
+      setReports(myReports);
     } catch (error) {
       console.error("Error fetching reports:", error);
     } finally {
@@ -48,8 +37,7 @@ export function MisReportes() {
 
   useEffect(() => {
     if (authLoading) return;
-    // Con USE_MOCK_DATA siempre cargamos mocks para ver la vista; sin mocks hace falta user
-    if (USE_MOCK_DATA || user) {
+    if (user) {
       fetchReports();
     } else {
       setLoading(false);
@@ -62,13 +50,7 @@ export function MisReportes() {
     try {
       setLoading(true);
       const newReport = createInitialReport(effectiveUid, effectiveGroup);
-      await saveReportToDB(newReport);
-      await addToSyncQueue({
-        reportId: newReport.id,
-        action: 'create',
-        data: newReport,
-        timestamp: Date.now()
-      });
+      await saveReport(newReport);
       location.route(`/reporte/${newReport.id}`);
     } catch (error) {
       console.error("Error creating report:", error);
@@ -96,14 +78,7 @@ export function MisReportes() {
             service_entrance_photo_url: undefined,
         };
 
-        await saveReportToDB(newReport);
-        await addToSyncQueue({
-            reportId: newReport.id,
-            action: 'create',
-            data: newReport,
-            timestamp: Date.now()
-        });
-        
+        await saveReport(newReport);
         location.route(`/reporte/${newReport.id}`);
     } catch (error) {
         console.error("Error duplicating report:", error);

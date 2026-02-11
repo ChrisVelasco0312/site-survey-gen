@@ -2,7 +2,7 @@ import { Report, ReportStatus } from '../types/Report';
 import { GroupAssignment } from '../types/User';
 
 // Simple toggle for preview mode
-export const USE_MOCK_DATA = true;
+export const USE_MOCK_DATA = false;
 
 const BASE_DATE = new Date();
 
