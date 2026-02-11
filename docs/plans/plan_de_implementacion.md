@@ -68,8 +68,8 @@ Desarrollaremos el formulario dividido en pasos lógicos o pestañas para maneja
     *   [x] Implementar compresión de imagen antes de guardar en IndexedDB (usando `browser-image-compression` o canvas).
 
 13. **Paso 6: Metrajes y Civil (HU-18)**
-    *   [ ] Tablas para ingresar metros de cableado (Poste/Fachada) y detalles de tubería.
-    *   [ ] Validaciones: Al menos un campo debe tener valor > 0.
+    *   [x] Tablas para ingresar metros de cableado (Poste/Fachada) y detalles de tubería.
+    *   [x] Validaciones: Al menos un campo debe tener valor > 0.
 
 14. **Paso 7: Cierre y Guardado (HU-19)**
     *   [ ] Campos finales: "Este punto pertenece a", Observaciones finales.
