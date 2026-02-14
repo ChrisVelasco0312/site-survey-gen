@@ -1,3 +1,139 @@
 .section-title {
   font-weight: 800;
 }
+
+/* ── Report Edit Layout ────────────────────────────────── */
+
+.report-edit-wrapper {
+  display: flex;
+  min-height: calc(100vh - 60px);
+}
+
+.report-edit-sidebar {
+  width: 300px;
+  flex-shrink: 0;
+  border-right: 1px solid var(--mantine-color-gray-3);
+  background-color: var(--mantine-color-gray-0);
+  padding: 1.5rem;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+  box-sizing: border-box;
+}
+
+.report-edit-main {
+  flex: 1;
+  min-width: 0;
+}
+
+/* ── Vertical Stepper ──────────────────────────────────── */
+
+.vertical-stepper {
+  display: flex;
+  flex-direction: column;
+}
+
+.stepper-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  cursor: pointer;
+  padding: 0;
+  text-align: left;
+  width: 100%;
+  background: none;
+  border: none;
+  border-radius: var(--mantine-radius-sm);
+}
+
+.stepper-item:hover .stepper-label-col {
+  color: var(--mantine-color-blue-6);
+}
+
+.stepper-indicator-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+/* Connecting line between steps */
+.stepper-connector {
+  width: 3px;
+  height: 2rem;
+  border-radius: 3px;
+  margin: 0.5rem 0;
+  background-color: var(--mantine-color-gray-3);
+  transition: background-color 0.3s ease;
+}
+
+.stepper-connector[data-completed] {
+  background-color: var(--mantine-color-teal-6);
+}
+
+.stepper-label-col {
+  padding-top: 0.55rem;
+  padding-bottom: 0.75rem;
+  transition: color 0.2s ease;
+}
+
+/* ── Active step pulse ring ────────────────────────────── */
+
+.stepper-item.active .mantine-ThemeIcon-root {
+  box-shadow: 0 0 0 4px rgba(34, 139, 230, 0.25);
+  animation: stepper-pulse 2s ease-in-out infinite;
+}
+
+@keyframes stepper-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 4px rgba(34, 139, 230, 0.25);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(34, 139, 230, 0.08);
+  }
+}
+
+/* ── Step title button (mobile) ─────────────────────────── */
+
+.step-title-btn {
+  width: 100%;
+  padding: 0.75rem;
+  border-radius: var(--mantine-radius-md);
+  background-color: var(--mantine-color-blue-0);
+  border: 1px solid var(--mantine-color-blue-2);
+  transition: background-color 0.15s ease;
+}
+
+.step-title-btn:active {
+  background-color: var(--mantine-color-blue-1);
+}
+
+[data-mantine-color-scheme='dark'] .step-title-btn {
+  background-color: var(--mantine-color-dark-6);
+  border-color: var(--mantine-color-dark-4);
+}
+
+[data-mantine-color-scheme='dark'] .step-title-btn:active {
+  background-color: var(--mantine-color-dark-5);
+}
+
+/* ── Dark mode ─────────────────────────────────────────── */
+
+[data-mantine-color-scheme='dark'] .report-edit-sidebar {
+  background-color: var(--mantine-color-dark-7);
+  border-right-color: var(--mantine-color-dark-4);
+}
+
+[data-mantine-color-scheme='dark'] .stepper-connector {
+  background-color: var(--mantine-color-dark-4);
+}
+
+[data-mantine-color-scheme='dark'] .stepper-connector[data-completed] {
+  background-color: var(--mantine-color-teal-7);
+}
+
+[data-mantine-color-scheme='dark'] .stepper-item.active .mantine-ThemeIcon-root {
+  box-shadow: 0 0 0 4px rgba(34, 139, 230, 0.35);
+}

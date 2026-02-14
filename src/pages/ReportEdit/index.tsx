@@ -4,19 +4,19 @@ import {
   Container,
   Title,
   Text,
-  Tabs,
   Button,
   Group,
   Alert,
   Stack,
   Box,
-  ScrollArea,
-  Select,
   ActionIcon,
   Tooltip,
+  Drawer,
+  UnstyledButton,
+  ThemeIcon,
 } from '@mantine/core';
-import { IconDeviceFloppy } from '@tabler/icons-react';
-import { useMediaQuery } from '@mantine/hooks';
+import { IconDeviceFloppy, IconCheck, IconChevronDown } from '@tabler/icons-react';
+import { useMediaQuery, useDisclosure } from '@mantine/hooks';
 import type { Report } from '../../types/Report';
 import { useAuth } from '../../features/auth/AuthContext';
 import { getReport, saveReport, updateReportStatus } from '../../services/reportsService';
@@ -27,6 +27,7 @@ import { ReportEditStep4 } from './ReportEditStep4';
 import { ReportEditStep5 } from './ReportEditStep5';
 import { ReportEditStep6 } from './ReportEditStep6';
 import { ReportEditStep7 } from './ReportEditStep7';
+import './ReportEdit.css';
 
 const STEP_LABELS = [
   'Datos generales y ubicación',
@@ -36,17 +37,6 @@ const STEP_LABELS = [
   'Evidencia fotográfica',
   'Metrajes y civil',
   'Cierre y guardado',
-];
-
-const STEP_KEYS = STEP_LABELS.map((_, i) => String(i));
-const STEP_SHORT_LABELS = [
-  'Generales',
-  'Seguridad',
-  'Técnicos',
-  'Diagrama',
-  'Fotos',
-  'Metrajes',
-  'Cierre',
 ];
 
 export function ReportEdit() {
@@ -63,6 +53,7 @@ export function ReportEdit() {
   const [activeStep, setActiveStep] = useState(0);
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState<string | null>(null);
+  const [stepperOpened, { open: openStepper, close: closeStepper }] = useDisclosure(false);
 
   useEffect(() => {
     if (!id) {
@@ -161,14 +152,7 @@ export function ReportEdit() {
     ? report?.status === 'listo_para_generar' || report?.status === 'generado'
     : report?.status !== 'en_campo';
 
-  const stepValue = String(activeStep);
-  const setStepValue = (v: string | null) => setActiveStep(Number(v ?? 0));
   const isMobile = useMediaQuery('(max-width: 48em)');
-
-  const stepSelectData = STEP_KEYS.map((key) => ({
-    value: key,
-    label: `Paso ${Number(key) + 1}: ${STEP_SHORT_LABELS[Number(key)]}`,
-  }));
 
   if (!id) {
     return (
@@ -204,145 +188,222 @@ export function ReportEdit() {
     );
   }
 
-  return (
-    <Container size="md" py="xl">
-      <Stack gap="lg">
-        <Group justify="space-between" align="flex-start">
-          <Box>
-            <Title order={2}>Editar reporte</Title>
-            <Text c="dimmed" mt="xs" size="sm">
-              ID: {report.id}
-            </Text>
-          </Box>
-          {!readOnly && (
-            <Tooltip label="Guardar" position="left">
-              <ActionIcon
-                variant="filled"
-                color="green"
-                size="xl"
-                radius="xl"
-                onClick={handleSave}
-                loading={saving}
-              >
-                <IconDeviceFloppy size={22} />
-              </ActionIcon>
-            </Tooltip>
-          )}
-        </Group>
+  const handleStepClick = (step: number) => {
+    if (report) persistReport(report);
+    setActiveStep(step);
+  };
 
-        <Tabs value={stepValue} onChange={setStepValue} variant="outline">
-          {isMobile ? (
-            <Select
-              label="Paso actual"
-              value={stepValue}
-              onChange={setStepValue}
-              data={stepSelectData}
-              size="sm"
-              mb="sm"
-            />
-          ) : (
-            <ScrollArea scrollbars="x" type="auto" mb="xs">
-              <Tabs.List style={{ flexWrap: 'nowrap', minWidth: 'min-content' }}>
-                {STEP_KEYS.map((key, index) => (
-                  <Tabs.Tab key={key} value={key} style={{ whiteSpace: 'nowrap' }}>
-                    {index + 1}. {STEP_SHORT_LABELS[index]}
-                  </Tabs.Tab>
-                ))}
-              </Tabs.List>
-            </ScrollArea>
-          )}
-          {STEP_KEYS.map((key, index) => (
-            <Tabs.Panel key={key} value={key} pt="md">
-              <Box py="sm">
-                {index === 0 ? (
-                  <ReportEditStep1
-                    report={report}
-                    setReport={setReport}
-                    readOnly={readOnly}
-                  />
-                ) : index === 1 ? (
-                  <ReportEditStep2
-                    report={report}
-                    setReport={setReport}
-                    readOnly={readOnly}
-                  />
-                ) : index === 2 ? (
-                  <ReportEditStep3
-                    report={report}
-                    setReport={setReport}
-                    readOnly={readOnly}
-                  />
-                ) : index === 3 ? (
-                  <ReportEditStep4
-                    report={report}
-                    setReport={setReport}
-                    readOnly={readOnly}
-                  />
-                ) : index === 4 ? (
-                  <ReportEditStep5
-                    report={report}
-                    setReport={setReport}
-                    readOnly={readOnly}
-                  />
-                ) : index === 5 ? (
-                  <ReportEditStep6
-                    report={report}
-                    setReport={setReport}
-                    readOnly={readOnly}
-                  />
-                ) : index === 6 ? (
-                  <ReportEditStep7
-                    report={report}
-                    setReport={setReport}
-                    readOnly={readOnly}
-                  />
-                ) : null}
-              </Box>
-            </Tabs.Panel>
-          ))}
-        </Tabs>
+  const handleStepClickMobile = (step: number) => {
+    handleStepClick(step);
+    closeStepper();
+  };
 
-        <Group justify="space-between">
-          <Button variant="default" onClick={prevStep} disabled={activeStep === 0}>
-            Anterior
-          </Button>
-          <Button
-            onClick={nextStep}
-            disabled={activeStep === STEP_LABELS.length - 1}
+  const renderStepper = (onStepClick: (step: number) => void) => (
+    <div className="vertical-stepper">
+      {STEP_LABELS.map((label, i) => {
+        const isCompleted = i < activeStep;
+        const isActive = i === activeStep;
+        return (
+          <UnstyledButton
+            key={i}
+            onClick={() => onStepClick(i)}
+            className={`stepper-item${isCompleted ? ' completed' : ''}${isActive ? ' active' : ''}`}
           >
-            Siguiente
-          </Button>
-        </Group>
+            <div className="stepper-indicator-col">
+              <ThemeIcon
+                size={42}
+                radius="xl"
+                variant={isCompleted || isActive ? 'filled' : 'light'}
+                color={isCompleted ? 'teal' : isActive ? 'blue' : 'gray'}
+              >
+                {isCompleted ? (
+                  <IconCheck size={20} />
+                ) : (
+                  <Text size="sm" fw={700} c={isActive ? 'white' : undefined}>
+                    {i + 1}
+                  </Text>
+                )}
+              </ThemeIcon>
+              {i < STEP_LABELS.length - 1 && (
+                <div
+                  className="stepper-connector"
+                  data-completed={isCompleted || undefined}
+                />
+              )}
+            </div>
+            <div className="stepper-label-col">
+              <Text size="xs" c="dimmed" tt="uppercase" fw={600}>
+                Paso {i + 1}
+              </Text>
+              <Text fw={isActive ? 700 : 500} size={isActive ? 'lg' : 'md'}>
+                {label}
+              </Text>
+            </div>
+          </UnstyledButton>
+        );
+      })}
+    </div>
+  );
 
-        {saveMsg && (
-          <Alert color={saveMsg.includes('Error') ? 'red' : 'green'} variant="light">
-            {saveMsg}
-          </Alert>
+  const renderStepContent = () => {
+    const props = { report, setReport, readOnly };
+    switch (activeStep) {
+      case 0: return <ReportEditStep1 {...props} />;
+      case 1: return <ReportEditStep2 {...props} />;
+      case 2: return <ReportEditStep3 {...props} />;
+      case 3: return <ReportEditStep4 {...props} />;
+      case 4: return <ReportEditStep5 {...props} />;
+      case 5: return <ReportEditStep6 {...props} />;
+      case 6: return <ReportEditStep7 {...props} />;
+      default: return null;
+    }
+  };
+
+  return (
+    <>
+      {/* Mobile stepper drawer */}
+      {isMobile && (
+        <Drawer
+          opened={stepperOpened}
+          onClose={closeStepper}
+          position="bottom"
+          size="100%"
+          title={<Text fw={600} size="lg">Pasos del reporte</Text>}
+        >
+          <Box p="md">
+            {renderStepper(handleStepClickMobile)}
+          </Box>
+        </Drawer>
+      )}
+
+      <div className={isMobile ? undefined : 'report-edit-wrapper'}>
+        {/* Desktop sidebar with vertical stepper */}
+        {!isMobile && (
+          <aside className="report-edit-sidebar">
+            <Box mb="xl">
+              <Text size="sm" c="dimmed" fw={500}>Editar reporte</Text>
+              <Text size="xs" c="dimmed">ID: {report.id}</Text>
+            </Box>
+            {renderStepper(handleStepClick)}
+          </aside>
         )}
 
-        {/* Status transition actions */}
-        {report.status === 'en_campo' && !isAdmin && (
-          <Alert color="blue" variant="light" title="Reporte en campo">
-            <Group justify="space-between" align="center" mt="xs">
-              <Text size="sm">Cuando el reporte esté completo, envíelo a revisión.</Text>
-              <Button color="orange" onClick={handleSubmitForReview}>
-                Enviar a Revisión
-              </Button>
-            </Group>
-          </Alert>
-        )}
+        {/* Main content */}
+        <div className={isMobile ? undefined : 'report-edit-main'}>
+          <Container size="md" py="xl">
+            <Stack gap="lg">
+              {/* Mobile: title row with save button */}
+              {isMobile && (
+                <Group justify="space-between" align="center">
+                  <Text size="sm" c="dimmed" fw={500}>Editar reporte</Text>
+                  {!readOnly && (
+                    <Tooltip label="Guardar" position="left">
+                      <ActionIcon
+                        variant="filled"
+                        color="green"
+                        size="xl"
+                        radius="xl"
+                        onClick={handleSave}
+                        loading={saving}
+                      >
+                        <IconDeviceFloppy size={22} />
+                      </ActionIcon>
+                    </Tooltip>
+                  )}
+                </Group>
+              )}
 
-        {report.status === 'en_revision' && isAdmin && (
-          <Alert color="orange" variant="light" title="Reporte en revisión">
-            <Group justify="space-between" align="center" mt="xs">
-              <Text size="sm">Revise los datos y apruebe el reporte cuando esté correcto.</Text>
-              <Button color="teal" onClick={handleApprove}>
-                Marcar como Listo para generar
-              </Button>
-            </Group>
-          </Alert>
-        )}
-      </Stack>
-    </Container>
+              {/* Step title — tappable on mobile to open stepper menu */}
+              {isMobile ? (
+                <UnstyledButton onClick={openStepper} className="step-title-btn">
+                  <Group gap="xs" align="center" wrap="nowrap">
+                    <ThemeIcon size={36} radius="xl" variant="light" color="blue">
+                      <Text size="xs" fw={700}>{activeStep + 1}</Text>
+                    </ThemeIcon>
+                    <Box style={{ flex: 1 }}>
+                      <Text size="xs" c="dimmed" tt="uppercase" fw={600}>
+                        Paso {activeStep + 1} de {STEP_LABELS.length}
+                      </Text>
+                      <Title order={3}>{STEP_LABELS[activeStep]}</Title>
+                    </Box>
+                    <IconChevronDown size={20} color="var(--mantine-color-dimmed)" />
+                  </Group>
+                </UnstyledButton>
+              ) : (
+                <Group justify="space-between" align="flex-start">
+                  <Box>
+                    <Text size="xs" c="dimmed" tt="uppercase" fw={600} mb={4}>
+                      Paso {activeStep + 1} de {STEP_LABELS.length}
+                    </Text>
+                    <Title order={2}>{STEP_LABELS[activeStep]}</Title>
+                  </Box>
+                  {!readOnly && (
+                    <Tooltip label="Guardar" position="left">
+                      <ActionIcon
+                        variant="filled"
+                        color="green"
+                        size="xl"
+                        radius="xl"
+                        onClick={handleSave}
+                        loading={saving}
+                      >
+                        <IconDeviceFloppy size={22} />
+                      </ActionIcon>
+                    </Tooltip>
+                  )}
+                </Group>
+              )}
+
+              {/* Step content */}
+              <Box py="sm">
+                {renderStepContent()}
+              </Box>
+
+              {/* Navigation */}
+              <Group justify="space-between">
+                <Button variant="default" onClick={prevStep} disabled={activeStep === 0}>
+                  ← Anterior
+                </Button>
+                <Button
+                  onClick={nextStep}
+                  disabled={activeStep === STEP_LABELS.length - 1}
+                >
+                  Siguiente →
+                </Button>
+              </Group>
+
+              {saveMsg && (
+                <Alert color={saveMsg.includes('Error') ? 'red' : 'green'} variant="light">
+                  {saveMsg}
+                </Alert>
+              )}
+
+              {/* Status transition actions */}
+              {report.status === 'en_campo' && !isAdmin && (
+                <Alert color="blue" variant="light" title="Reporte en campo">
+                  <Group justify="space-between" align="center" mt="xs">
+                    <Text size="sm">Cuando el reporte esté completo, envíelo a revisión.</Text>
+                    <Button color="orange" onClick={handleSubmitForReview}>
+                      Enviar a Revisión
+                    </Button>
+                  </Group>
+                </Alert>
+              )}
+
+              {report.status === 'en_revision' && isAdmin && (
+                <Alert color="orange" variant="light" title="Reporte en revisión">
+                  <Group justify="space-between" align="center" mt="xs">
+                    <Text size="sm">Revise los datos y apruebe el reporte cuando esté correcto.</Text>
+                    <Button color="teal" onClick={handleApprove}>
+                      Marcar como Listo para generar
+                    </Button>
+                  </Group>
+                </Alert>
+              )}
+            </Stack>
+          </Container>
+        </div>
+      </div>
+    </>
   );
 }
