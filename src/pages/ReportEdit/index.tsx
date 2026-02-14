@@ -14,8 +14,9 @@ import {
   Drawer,
   UnstyledButton,
   ThemeIcon,
+  Divider,
 } from '@mantine/core';
-import { IconDeviceFloppy, IconCheck, IconChevronDown } from '@tabler/icons-react';
+import { IconDeviceFloppy, IconCheck, IconChevronDown, IconEye } from '@tabler/icons-react';
 import { useMediaQuery, useDisclosure } from '@mantine/hooks';
 import type { Report } from '../../types/Report';
 import { useAuth } from '../../features/auth/AuthContext';
@@ -27,6 +28,7 @@ import { ReportEditStep4 } from './ReportEditStep4';
 import { ReportEditStep5 } from './ReportEditStep5';
 import { ReportEditStep6 } from './ReportEditStep6';
 import { ReportEditStep7 } from './ReportEditStep7';
+import { PdfPreviewPanel } from './PdfPreviewPanel';
 import './ReportEdit.css';
 
 const STEP_LABELS = [
@@ -54,6 +56,7 @@ export function ReportEdit() {
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState<string | null>(null);
   const [stepperOpened, { open: openStepper, close: closeStepper }] = useDisclosure(false);
+  const [showPreview, setShowPreview] = useState(false);
 
   useEffect(() => {
     if (!id) {
@@ -191,6 +194,7 @@ export function ReportEdit() {
   const handleStepClick = (step: number) => {
     if (report) persistReport(report);
     setActiveStep(step);
+    setShowPreview(false);
   };
 
   const handleStepClickMobile = (step: number) => {
@@ -202,7 +206,7 @@ export function ReportEdit() {
     <div className="vertical-stepper">
       {STEP_LABELS.map((label, i) => {
         const isCompleted = i < activeStep;
-        const isActive = i === activeStep;
+        const isActive = i === activeStep && !showPreview;
         return (
           <UnstyledButton
             key={i}
@@ -272,6 +276,30 @@ export function ReportEdit() {
         >
           <Box p="md">
             {renderStepper(handleStepClickMobile)}
+            <Divider my="lg" />
+            <UnstyledButton
+              onClick={() => { setShowPreview(true); closeStepper(); }}
+              className={`stepper-item${showPreview ? ' active' : ''}`}
+            >
+              <div className="stepper-indicator-col">
+                <ThemeIcon
+                  size={42}
+                  radius="xl"
+                  variant={showPreview ? 'filled' : 'light'}
+                  color={showPreview ? 'violet' : 'gray'}
+                >
+                  <IconEye size={20} />
+                </ThemeIcon>
+              </div>
+              <div className="stepper-label-col">
+                <Text size="xs" c="dimmed" tt="uppercase" fw={600}>
+                  Documento
+                </Text>
+                <Text fw={showPreview ? 700 : 500} size={showPreview ? 'lg' : 'md'}>
+                  Vista previa PDF
+                </Text>
+              </div>
+            </UnstyledButton>
           </Box>
         </Drawer>
       )}
@@ -285,6 +313,30 @@ export function ReportEdit() {
               <Text size="xs" c="dimmed">ID: {report.id}</Text>
             </Box>
             {renderStepper(handleStepClick)}
+            <Divider my="lg" />
+            <UnstyledButton
+              onClick={() => setShowPreview(true)}
+              className={`stepper-item${showPreview ? ' active' : ''}`}
+            >
+              <div className="stepper-indicator-col">
+                <ThemeIcon
+                  size={42}
+                  radius="xl"
+                  variant={showPreview ? 'filled' : 'light'}
+                  color={showPreview ? 'violet' : 'gray'}
+                >
+                  <IconEye size={20} />
+                </ThemeIcon>
+              </div>
+              <div className="stepper-label-col">
+                <Text size="xs" c="dimmed" tt="uppercase" fw={600}>
+                  Documento
+                </Text>
+                <Text fw={showPreview ? 700 : 500} size={showPreview ? 'lg' : 'md'}>
+                  Vista previa PDF
+                </Text>
+              </div>
+            </UnstyledButton>
           </aside>
         )}
 
@@ -295,8 +347,10 @@ export function ReportEdit() {
               {/* Mobile: title row with save button */}
               {isMobile && (
                 <Group justify="space-between" align="center">
-                  <Text size="sm" c="dimmed" fw={500}>Editar reporte</Text>
-                  {!readOnly && (
+                  <Text size="sm" c="dimmed" fw={500}>
+                    {showPreview ? 'Vista previa' : 'Editar reporte'}
+                  </Text>
+                  {!readOnly && !showPreview && (
                     <Tooltip label="Guardar" position="left">
                       <ActionIcon
                         variant="filled"
@@ -315,29 +369,38 @@ export function ReportEdit() {
 
               {/* Step title — tappable on mobile to open stepper menu */}
               {isMobile ? (
-                <UnstyledButton onClick={openStepper} className="step-title-btn">
-                  <Group gap="xs" align="center" wrap="nowrap">
-                    <ThemeIcon size={36} radius="xl" variant="light" color="blue">
-                      <Text size="xs" fw={700}>{activeStep + 1}</Text>
-                    </ThemeIcon>
-                    <Box style={{ flex: 1 }}>
-                      <Text size="xs" c="dimmed" tt="uppercase" fw={600}>
-                        Paso {activeStep + 1} de {STEP_LABELS.length}
-                      </Text>
-                      <Title order={3}>{STEP_LABELS[activeStep]}</Title>
-                    </Box>
-                    <IconChevronDown size={20} color="var(--mantine-color-dimmed)" />
-                  </Group>
-                </UnstyledButton>
+                showPreview ? (
+                  <Box>
+                    <Text size="xs" c="dimmed" tt="uppercase" fw={600}>
+                      Documento
+                    </Text>
+                    <Title order={3}>Vista previa PDF</Title>
+                  </Box>
+                ) : (
+                  <UnstyledButton onClick={openStepper} className="step-title-btn">
+                    <Group gap="xs" align="center" wrap="nowrap">
+                      <ThemeIcon size={36} radius="xl" variant="light" color="blue">
+                        <Text size="xs" fw={700}>{activeStep + 1}</Text>
+                      </ThemeIcon>
+                      <Box style={{ flex: 1 }}>
+                        <Text size="xs" c="dimmed" tt="uppercase" fw={600}>
+                          Paso {activeStep + 1} de {STEP_LABELS.length}
+                        </Text>
+                        <Title order={3}>{STEP_LABELS[activeStep]}</Title>
+                      </Box>
+                      <IconChevronDown size={20} style={{ color: 'var(--mantine-color-dimmed)' }} />
+                    </Group>
+                  </UnstyledButton>
+                )
               ) : (
                 <Group justify="space-between" align="flex-start">
                   <Box>
                     <Text size="xs" c="dimmed" tt="uppercase" fw={600} mb={4}>
-                      Paso {activeStep + 1} de {STEP_LABELS.length}
+                      {showPreview ? 'Documento' : `Paso ${activeStep + 1} de ${STEP_LABELS.length}`}
                     </Text>
-                    <Title order={2}>{STEP_LABELS[activeStep]}</Title>
+                    <Title order={2}>{showPreview ? 'Vista previa PDF' : STEP_LABELS[activeStep]}</Title>
                   </Box>
-                  {!readOnly && (
+                  {!readOnly && !showPreview && (
                     <Tooltip label="Guardar" position="left">
                       <ActionIcon
                         variant="filled"
@@ -354,51 +417,60 @@ export function ReportEdit() {
                 </Group>
               )}
 
-              {/* Step content */}
-              <Box py="sm">
-                {renderStepContent()}
-              </Box>
+              {showPreview ? (
+                <PdfPreviewPanel
+                  report={report}
+                  onBack={() => setShowPreview(false)}
+                />
+              ) : (
+                <>
+                  {/* Step content */}
+                  <Box py="sm">
+                    {renderStepContent()}
+                  </Box>
 
-              {/* Navigation */}
-              <Group justify="space-between">
-                <Button variant="default" onClick={prevStep} disabled={activeStep === 0}>
-                  ← Anterior
-                </Button>
-                <Button
-                  onClick={nextStep}
-                  disabled={activeStep === STEP_LABELS.length - 1}
-                >
-                  Siguiente →
-                </Button>
-              </Group>
-
-              {saveMsg && (
-                <Alert color={saveMsg.includes('Error') ? 'red' : 'green'} variant="light">
-                  {saveMsg}
-                </Alert>
-              )}
-
-              {/* Status transition actions */}
-              {report.status === 'en_campo' && !isAdmin && (
-                <Alert color="blue" variant="light" title="Reporte en campo">
-                  <Group justify="space-between" align="center" mt="xs">
-                    <Text size="sm">Cuando el reporte esté completo, envíelo a revisión.</Text>
-                    <Button color="orange" onClick={handleSubmitForReview}>
-                      Enviar a Revisión
+                  {/* Navigation */}
+                  <Group justify="space-between">
+                    <Button variant="default" onClick={prevStep} disabled={activeStep === 0}>
+                      ← Anterior
+                    </Button>
+                    <Button
+                      onClick={nextStep}
+                      disabled={activeStep === STEP_LABELS.length - 1}
+                    >
+                      Siguiente →
                     </Button>
                   </Group>
-                </Alert>
-              )}
 
-              {report.status === 'en_revision' && isAdmin && (
-                <Alert color="orange" variant="light" title="Reporte en revisión">
-                  <Group justify="space-between" align="center" mt="xs">
-                    <Text size="sm">Revise los datos y apruebe el reporte cuando esté correcto.</Text>
-                    <Button color="teal" onClick={handleApprove}>
-                      Marcar como Listo para generar
-                    </Button>
-                  </Group>
-                </Alert>
+                  {saveMsg && (
+                    <Alert color={saveMsg.includes('Error') ? 'red' : 'green'} variant="light">
+                      {saveMsg}
+                    </Alert>
+                  )}
+
+                  {/* Status transition actions */}
+                  {report.status === 'en_campo' && !isAdmin && (
+                    <Alert color="blue" variant="light" title="Reporte en campo">
+                      <Group justify="space-between" align="center" mt="xs">
+                        <Text size="sm">Cuando el reporte esté completo, envíelo a revisión.</Text>
+                        <Button color="orange" onClick={handleSubmitForReview}>
+                          Enviar a Revisión
+                        </Button>
+                      </Group>
+                    </Alert>
+                  )}
+
+                  {report.status === 'en_revision' && isAdmin && (
+                    <Alert color="orange" variant="light" title="Reporte en revisión">
+                      <Group justify="space-between" align="center" mt="xs">
+                        <Text size="sm">Revise los datos y apruebe el reporte cuando esté correcto.</Text>
+                        <Button color="teal" onClick={handleApprove}>
+                          Marcar como Listo para generar
+                        </Button>
+                      </Group>
+                    </Alert>
+                  )}
+                </>
               )}
             </Stack>
           </Container>
