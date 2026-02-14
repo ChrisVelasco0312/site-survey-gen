@@ -11,7 +11,7 @@ export function ReportEditStep7({ report, setReport, readOnly }: ReportEditStep7
   if (readOnly) {
     return (
       <Stack gap="md">
-        <Divider label="Cierre del reporte" />
+        <Text size="md" fw={800}>Cierre del reporte</Text>
         <Box>
           <Text size="sm" fw={500} c="dimmed">Este punto de cámara pertenece a</Text>
           <Text>{report.owner_name || '—'}</Text>
@@ -26,7 +26,7 @@ export function ReportEditStep7({ report, setReport, readOnly }: ReportEditStep7
 
   return (
     <Stack gap="md">
-      <Divider label="Cierre del reporte" />
+      <Text size="md" fw={800}>Cierre del reporte</Text>
       <TextInput
         label="Este punto de cámara pertenece a"
         placeholder="Nombre o entidad"

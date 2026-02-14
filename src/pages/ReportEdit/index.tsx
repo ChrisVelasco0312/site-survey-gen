@@ -12,7 +12,10 @@ import {
   Box,
   ScrollArea,
   Select,
+  ActionIcon,
+  Tooltip,
 } from '@mantine/core';
+import { IconDeviceFloppy } from '@tabler/icons-react';
 import { useMediaQuery } from '@mantine/hooks';
 import type { Report } from '../../types/Report';
 import { useAuth } from '../../features/auth/AuthContext';
@@ -204,12 +207,28 @@ export function ReportEdit() {
   return (
     <Container size="md" py="xl">
       <Stack gap="lg">
-        <Box>
-          <Title order={2}>Editar reporte</Title>
-          <Text c="dimmed" mt="xs" size="sm">
-            ID: {report.id}
-          </Text>
-        </Box>
+        <Group justify="space-between" align="flex-start">
+          <Box>
+            <Title order={2}>Editar reporte</Title>
+            <Text c="dimmed" mt="xs" size="sm">
+              ID: {report.id}
+            </Text>
+          </Box>
+          {!readOnly && (
+            <Tooltip label="Guardar" position="left">
+              <ActionIcon
+                variant="filled"
+                color="green"
+                size="xl"
+                radius="xl"
+                onClick={handleSave}
+                loading={saving}
+              >
+                <IconDeviceFloppy size={22} />
+              </ActionIcon>
+            </Tooltip>
+          )}
+        </Group>
 
         <Tabs value={stepValue} onChange={setStepValue} variant="outline">
           {isMobile ? (
@@ -287,11 +306,6 @@ export function ReportEdit() {
           <Button variant="default" onClick={prevStep} disabled={activeStep === 0}>
             Anterior
           </Button>
-          {!readOnly && (
-            <Button color="green" onClick={handleSave} loading={saving}>
-              Guardar
-            </Button>
-          )}
           <Button
             onClick={nextStep}
             disabled={activeStep === STEP_LABELS.length - 1}

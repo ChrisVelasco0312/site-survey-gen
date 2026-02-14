@@ -74,7 +74,7 @@ export function ReportEditStep6({ report, setReport, readOnly }: ReportEditStep6
 
   return (
     <Stack gap="md">
-      <Divider label="Metrajes — Poste" />
+      <Text size="sm" fw={800}>Metrajes - Poste</Text>
       <Text size="xs" c="dimmed">
         Ingrese los metros de cableado según el tipo de superficie. Al menos un campo debe tener valor mayor a 0.
       </Text>
@@ -114,7 +114,8 @@ export function ReportEditStep6({ report, setReport, readOnly }: ReportEditStep6
         </Alert>
       )}
 
-      <Divider label="Instalación en Fachada" />
+      <Divider />
+      <Text size="sm" fw={800}>Instalación en Fachada</Text>
       <Textarea
         label="Descripción"
         placeholder="Descripción breve de la instalación en fachada"

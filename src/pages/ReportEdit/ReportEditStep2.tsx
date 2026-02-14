@@ -1,4 +1,5 @@
 import { useState } from 'preact/hooks';
+import "./ReportEdit.css"
 import {
   Select,
   Stack,
@@ -130,7 +131,7 @@ export function ReportEditStep2({ report, setReport, readOnly }: ReportEditStep2
         onChange={onContractComponentChange}
       />
       <Box>
-        <Text size="sm" fw={500} mb="xs" component="label" display="block">
+        <Text size="md" fw={800} mb="xs" component="label" display="block">
           Observaciones
         </Text>
         <Text size="xs" c="dimmed" mb="xs">

@@ -98,7 +98,7 @@ export function ReportEditStep3({ report, setReport, readOnly }: ReportEditStep3
 
   return (
     <Stack gap="md">
-      <Text size="sm" fw={600}>Conectividad</Text>
+      <Text size="md" fw={800}>Conectividad</Text>
       <Switch
         label="Tiene línea de vista"
         checked={c.has_line_of_sight}
@@ -119,7 +119,11 @@ export function ReportEditStep3({ report, setReport, readOnly }: ReportEditStep3
         onChange={(v) => v != null && setReport(setConnectivity(report, { cabling_type: v as CablingType }))}
       />
 
-      <Divider label="Inventario de hardware" />
+      <Divider />
+
+      <Text size="md" fw={800}>
+        Inventario de hardware
+      </Text>
       <NumberInput
         label="Cajas adicionales"
         min={0}
@@ -145,8 +149,10 @@ export function ReportEditStep3({ report, setReport, readOnly }: ReportEditStep3
         onChange={(n) => setReport(setHardware(report, { cameras_fixed: typeof n === 'string' ? parseInt(n, 10) || 0 : n ?? 0 }))}
       />
 
-      <Divider label="Infraestructura adicional" />
-      <Text size="xs" c="dimmed" mb="xs">Acometida</Text>
+      <Divider />
+
+      <Text size="md" fw={800}>Infraestructura Adicional</Text>
+      <Text size="sm" fw={800}>Acometida</Text>
       <TextInput
         label="Tipo de tubería"
         placeholder="Ej. PVC"
@@ -171,7 +177,7 @@ export function ReportEditStep3({ report, setReport, readOnly }: ReportEditStep3
           service_entrance: { ...se, other: (e.target as HTMLInputElement).value },
         }))}
       />
-      <Text size="xs" c="dimmed" mt="sm" mb="xs">Punto de cámara</Text>
+      <Text size="sm" fw={800}>Punto de cámara</Text>
       <TextInput
         label="Tipo de tubería"
         placeholder="Ej. PVC"
