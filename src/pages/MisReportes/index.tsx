@@ -98,15 +98,18 @@ export function MisReportes() {
         {filteredReports.map((report) => (
             <Card key={report.id} shadow="sm" padding="lg" radius="md" withBorder>
                 <Group justify="space-between" mb="xs">
-                    <Text fw={500}>{report.address?.site_name || report.address?.full_address || 'Sin dirección'}</Text>
+                    <Text fw={500}>{report.address?.site_name || 'Sin punto'}</Text>
                     <Badge color={getStatusColor(report.status)}>
                         {report.status.replace(/_/g, ' ')}
                     </Badge>
                 </Group>
-                
+
                 <Text size="sm" c="dimmed" mb="xs">
-                    {report.date}
+                    {[report.date, report.address?.municipio, report.address?.distrito].filter(Boolean).join(' · ')}
                 </Text>
+                {report.address?.full_address && (
+                    <Text size="xs" c="dimmed" mb="xs">{report.address.full_address}</Text>
+                )}
 
                 <Group mt="md" grow>
                   {report.status === 'en_campo' ? (
@@ -169,7 +172,17 @@ export function MisReportes() {
           {filtered.map((report) => (
             <Table.Tr key={report.id}>
               <Table.Td>{report.date}</Table.Td>
-              <Table.Td>{report.address?.site_name || report.address?.full_address || 'Sin dirección'}</Table.Td>
+              <Table.Td>
+                <Text size="sm" fw={500}>{report.address?.site_name || 'Sin punto'}</Text>
+                {(report.address?.municipio || report.address?.distrito) && (
+                  <Text size="xs" c="dimmed">
+                    {[report.address?.municipio, report.address?.distrito].filter(Boolean).join(' · ')}
+                  </Text>
+                )}
+                {report.address?.full_address && (
+                  <Text size="xs" c="dimmed">{report.address.full_address}</Text>
+                )}
+              </Table.Td>
               <Table.Td>
                 <Badge color={getStatusColor(report.status)}>
                   {report.status.replace(/_/g, ' ')}
