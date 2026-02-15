@@ -20,7 +20,7 @@ import { IconDeviceFloppy, IconCheck, IconChevronDown, IconEye } from '@tabler/i
 import { useMediaQuery, useDisclosure } from '@mantine/hooks';
 import type { Report } from '../../types/Report';
 import { useAuth } from '../../features/auth/AuthContext';
-import { getReport, saveReport, updateReportStatus } from '../../services/reportsService';
+import { getReport, saveReport, saveReportLocally, updateReportStatus } from '../../services/reportsService';
 import { ReportEditStep1 } from './ReportEditStep1';
 import { ReportEditStep2 } from './ReportEditStep2';
 import { ReportEditStep3 } from './ReportEditStep3';
@@ -84,31 +84,81 @@ export function ReportEdit() {
     };
   }, [id]);
 
-  const persistReport = (r: Report) => {
-    saveReport(r).catch((e) =>
-      console.error('Error al guardar reporte:', e)
-    );
+  // --- Dirty tracking & debounced saves ---
+  const isDirty = useRef(false);
+  const isInitialLoad = useRef(true);
+  const localSaveTimer = useRef<ReturnType<typeof setTimeout>>();
+  const firestoreSaveTimer = useRef<ReturnType<typeof setTimeout>>();
+  const reportRef = useRef<Report | null>(null);
+
+  /** Wraps setReport so edits are tracked as dirty. */
+  const updateReport: typeof setReport = (value) => {
+    isDirty.current = true;
+    setReport(value);
   };
 
-  // Debounced auto-save: persist 2s after last change
-  const autoSaveTimer = useRef<ReturnType<typeof setTimeout>>();
-  const isInitialLoad = useRef(true);
+  // Keep reportRef in sync for unmount flush
+  useEffect(() => { reportRef.current = report; }, [report]);
 
+  // Debounced auto-save: IndexedDB (1s) + Firestore (5s, only when dirty)
   useEffect(() => {
     if (!report) return;
     if (isInitialLoad.current) {
       isInitialLoad.current = false;
       return;
     }
-    clearTimeout(autoSaveTimer.current);
-    autoSaveTimer.current = setTimeout(() => {
-      persistReport(report);
-    }, 2000);
-    return () => clearTimeout(autoSaveTimer.current);
+
+    // Quick local save for offline safety
+    clearTimeout(localSaveTimer.current);
+    localSaveTimer.current = setTimeout(() => {
+      saveReportLocally(report).catch(() => {});
+    }, 1000);
+
+    // Slower Firestore save to reduce network writes
+    clearTimeout(firestoreSaveTimer.current);
+    firestoreSaveTimer.current = setTimeout(() => {
+      if (isDirty.current) {
+        isDirty.current = false;
+        saveReport(report).catch((e) =>
+          console.error('Error al guardar reporte:', e)
+        );
+      }
+    }, 5000);
+
+    return () => {
+      clearTimeout(localSaveTimer.current);
+      clearTimeout(firestoreSaveTimer.current);
+    };
   }, [report]);
+
+  // Flush pending saves on unmount (navigating away from the page)
+  useEffect(() => {
+    return () => {
+      clearTimeout(localSaveTimer.current);
+      clearTimeout(firestoreSaveTimer.current);
+      if (isDirty.current && reportRef.current) {
+        saveReport(reportRef.current).catch(() => {});
+      }
+    };
+  }, []);
+
+  /** Flush pending saves immediately — only writes to Firestore if dirty. */
+  const flushSave = (r: Report) => {
+    clearTimeout(localSaveTimer.current);
+    clearTimeout(firestoreSaveTimer.current);
+    if (isDirty.current) {
+      isDirty.current = false;
+      saveReport(r).catch((e) =>
+        console.error('Error al guardar reporte:', e)
+      );
+    }
+  };
 
   const handleSave = async () => {
     if (!report) return;
+    clearTimeout(localSaveTimer.current);
+    clearTimeout(firestoreSaveTimer.current);
+    isDirty.current = false;
     setSaving(true);
     setSaveMsg(null);
     try {
@@ -124,11 +174,11 @@ export function ReportEdit() {
   };
 
   const nextStep = () => {
-    if (report) persistReport(report);
+    if (report) flushSave(report);
     setActiveStep((c) => (c < STEP_LABELS.length - 1 ? c + 1 : c));
   };
   const prevStep = () => {
-    if (report) persistReport(report);
+    if (report) flushSave(report);
     setActiveStep((c) => (c > 0 ? c - 1 : c));
   };
 
@@ -192,7 +242,7 @@ export function ReportEdit() {
   }
 
   const handleStepClick = (step: number) => {
-    if (report) persistReport(report);
+    if (report) flushSave(report);
     setActiveStep(step);
     setShowPreview(false);
   };
@@ -250,7 +300,7 @@ export function ReportEdit() {
   );
 
   const renderStepContent = () => {
-    const props = { report, setReport, readOnly };
+    const props = { report, setReport: updateReport, readOnly };
     switch (activeStep) {
       case 0: return <ReportEditStep1 {...props} />;
       case 1: return <ReportEditStep2 {...props} />;

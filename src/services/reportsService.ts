@@ -22,6 +22,14 @@ import {
 } from '../utils/reportImagesStorage';
 
 /**
+ * Save a report to IndexedDB only (local cache).
+ * Use for frequent, low-cost local persistence (e.g. debounced auto-save).
+ */
+export async function saveReportLocally(report: Report): Promise<void> {
+  await saveReportToDB(report);
+}
+
+/**
  * Save a report to Firestore (primary) and IndexedDB (cache).
  * - IndexedDB: stores the report as-is (with base64 images for offline).
  * - Firestore: images are uploaded to Firebase Storage; report stores storage URLs only.
