@@ -10,6 +10,7 @@ import { NotFound } from './pages/_404';
 import { MisReportes } from './pages/MisReportes';
 import { ReportEdit } from './pages/ReportEdit';
 import { ReportNew } from './pages/ReportNew';
+import { ReportesFinales } from './pages/ReportesFinales';
 import { AuthProvider } from './features/auth/AuthContext';
 import { withProtectedLayout } from './components/ProtectedLayout';
 import './style.css';
@@ -25,6 +26,7 @@ export function App() {
             <Route path="/" component={withProtectedLayout(Home)} />
             <Route path="/mis-reportes" component={withProtectedLayout(MisReportes)} />
             <Route path="/crear-reporte" component={withProtectedLayout(ReportNew)} />
+            <Route path="/reportes-finales" component={withProtectedLayout(ReportesFinales)} />
             <Route path="/reporte/:id" component={withProtectedLayout(ReportEdit)} />
             <Route default component={NotFound} />
           </Router>

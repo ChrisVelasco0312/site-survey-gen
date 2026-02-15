@@ -131,7 +131,6 @@ export function AdminDashboard() {
           <Tabs.List mb="md">
             <Tabs.Tab value="en_campo">En Campo</Tabs.Tab>
             <Tabs.Tab value="en_revision">En Revisión</Tabs.Tab>
-            <Tabs.Tab value="historial">Historial</Tabs.Tab>
           </Tabs.List>
 
           <Tabs.Panel value="en_campo">
@@ -139,11 +138,7 @@ export function AdminDashboard() {
           </Tabs.Panel>
 
           <Tabs.Panel value="en_revision">
-            {renderContent(['en_revision', 'listo_para_generar'])}
-          </Tabs.Panel>
-
-          <Tabs.Panel value="historial">
-            {renderContent(['generado'])}
+            {renderContent(['en_revision'])}
           </Tabs.Panel>
         </Tabs>
       )}

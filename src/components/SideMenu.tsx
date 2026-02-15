@@ -18,7 +18,8 @@ import {
   IconFileCheck,
   IconPlus,
   IconLogout,
-  IconLayoutDashboard
+  IconLayoutDashboard,
+  IconFileExport,
 } from '@tabler/icons-react';
 import { JSX } from 'preact';
 
@@ -80,6 +81,9 @@ export function SideMenu({ children }: SideMenuProps) {
 
     // Both roles can see "Mis Reportes"
     items.push({ label: 'Mis Reportes', path: '/mis-reportes', icon: IconFileCheck });
+
+    // Both roles can see "Reportes Finales"
+    items.push({ label: 'Reportes Finales', path: '/reportes-finales', icon: IconFileExport });
 
     return items;
   };

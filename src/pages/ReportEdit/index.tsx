@@ -16,11 +16,14 @@ import {
   ThemeIcon,
   Divider,
 } from '@mantine/core';
-import { IconDeviceFloppy, IconCheck, IconChevronDown, IconEye } from '@tabler/icons-react';
+import { IconDeviceFloppy, IconCheck, IconChevronDown, IconEye, IconLock, IconLockOpen } from '@tabler/icons-react';
 import { useMediaQuery, useDisclosure } from '@mantine/hooks';
 import type { Report } from '../../types/Report';
 import { useAuth } from '../../features/auth/AuthContext';
 import { getReport, saveReport, saveReportLocally, updateReportStatus } from '../../services/reportsService';
+import { uploadGeneratedPdf, createGeneratedReport, getGeneratedReportByReportId } from '../../services/generatedReportsService';
+import { generateReportPdf } from '../../utils/pdfGenerator';
+import { useConnectivity } from '../../hooks/useConnectivity';
 import { ReportEditStep1 } from './ReportEditStep1';
 import { ReportEditStep2 } from './ReportEditStep2';
 import { ReportEditStep3 } from './ReportEditStep3';
@@ -57,6 +60,9 @@ export function ReportEdit() {
   const [saveMsg, setSaveMsg] = useState<string | null>(null);
   const [stepperOpened, { open: openStepper, close: closeStepper }] = useDisclosure(false);
   const [showPreview, setShowPreview] = useState(false);
+  const [adminEditOverride, setAdminEditOverride] = useState(false);
+  const [generatedPdfUrl, setGeneratedPdfUrl] = useState<string | null>(null);
+  const isOnline = useConnectivity();
 
   useEffect(() => {
     if (!id) {
@@ -83,6 +89,20 @@ export function ReportEdit() {
       cancelled = true;
     };
   }, [id]);
+
+  // Fetch the generated PDF URL for generado reports
+  useEffect(() => {
+    if (!report || report.status !== 'generado' || !isOnline) return;
+    let cancelled = false;
+    getGeneratedReportByReportId(report.id)
+      .then((genReport) => {
+        if (!cancelled && genReport) {
+          setGeneratedPdfUrl(genReport.pdf_url);
+        }
+      })
+      .catch((e) => console.warn('Failed to fetch generated report PDF URL:', e));
+    return () => { cancelled = true; };
+  }, [report?.id, report?.status, isOnline]);
 
   // --- Dirty tracking & debounced saves ---
   const isDirty = useRef(false);
@@ -188,7 +208,7 @@ export function ReportEdit() {
 
     const updated = await updateReportStatus(report, 'en_revision');
     setReport(updated);
-    location.route('/mis-reportes');
+    location.route(isAdmin ? '/' : '/mis-reportes');
   };
 
   const handleApprove = async () => {
@@ -200,10 +220,32 @@ export function ReportEdit() {
     location.route('/');
   };
 
-  // Admin can edit en_campo and en_revision; workers can only edit en_campo
+  const handleGenerateFinal = async () => {
+    if (!report || report.status !== 'listo_para_generar' || !isAdmin || !userData) return;
+
+    // 1. Generate PDF
+    const pdfBytes = await generateReportPdf(report);
+
+    // 2. Upload to Firebase Storage
+    const pdfUrl = await uploadGeneratedPdf(report.id, pdfBytes);
+
+    // 3. Create generated_reports document
+    await createGeneratedReport(report.id, pdfUrl, userData.uid);
+
+    // 4. Update report status to generado
+    await updateReportStatus(report, 'generado');
+
+    // 5. Navigate to Reportes Finales
+    location.route('/reportes-finales');
+  };
+
+  // Admin can edit en_campo, en_revision, and listo_para_generar (with explicit toggle); workers can only edit en_campo
   const readOnly = isAdmin
-    ? report?.status === 'listo_para_generar' || report?.status === 'generado'
+    ? report?.status === 'generado' || (report?.status === 'listo_para_generar' && !adminEditOverride)
     : report?.status !== 'en_campo';
+
+  // Show admin editing toggle only for admin + listo_para_generar
+  const showAdminEditToggle = isAdmin && report?.status === 'listo_para_generar';
 
   const isMobile = useMediaQuery('(max-width: 48em)');
 
@@ -400,20 +442,35 @@ export function ReportEdit() {
                   <Text size="sm" c="dimmed" fw={500}>
                     {showPreview ? 'Vista previa' : 'Editar reporte'}
                   </Text>
-                  {!readOnly && !showPreview && (
-                    <Tooltip label="Guardar" position="left">
-                      <ActionIcon
-                        variant="filled"
-                        color="green"
-                        size="xl"
-                        radius="xl"
-                        onClick={handleSave}
-                        loading={saving}
-                      >
-                        <IconDeviceFloppy size={22} />
-                      </ActionIcon>
-                    </Tooltip>
-                  )}
+                  <Group gap="xs">
+                    {showAdminEditToggle && !showPreview && (
+                      <Tooltip label={adminEditOverride ? 'Deshabilitar edición' : 'Habilitar edición'} position="left">
+                        <ActionIcon
+                          variant="filled"
+                          color={adminEditOverride ? 'yellow' : 'gray'}
+                          size="xl"
+                          radius="xl"
+                          onClick={() => setAdminEditOverride((v) => !v)}
+                        >
+                          {adminEditOverride ? <IconLockOpen size={22} /> : <IconLock size={22} />}
+                        </ActionIcon>
+                      </Tooltip>
+                    )}
+                    {!readOnly && !showPreview && (
+                      <Tooltip label="Guardar" position="left">
+                        <ActionIcon
+                          variant="filled"
+                          color="green"
+                          size="xl"
+                          radius="xl"
+                          onClick={handleSave}
+                          loading={saving}
+                        >
+                          <IconDeviceFloppy size={22} />
+                        </ActionIcon>
+                      </Tooltip>
+                    )}
+                  </Group>
                 </Group>
               )}
 
@@ -450,20 +507,33 @@ export function ReportEdit() {
                     </Text>
                     <Title order={2}>{showPreview ? 'Vista previa PDF' : STEP_LABELS[activeStep]}</Title>
                   </Box>
-                  {!readOnly && !showPreview && (
-                    <Tooltip label="Guardar" position="left">
-                      <ActionIcon
-                        variant="filled"
-                        color="green"
-                        size="xl"
-                        radius="xl"
-                        onClick={handleSave}
-                        loading={saving}
+                  <Group gap="sm">
+                    {showAdminEditToggle && !showPreview && (
+                      <Button
+                        variant={adminEditOverride ? 'filled' : 'light'}
+                        color={adminEditOverride ? 'yellow' : 'gray'}
+                        leftSection={adminEditOverride ? <IconLockOpen size={18} /> : <IconLock size={18} />}
+                        onClick={() => setAdminEditOverride((v) => !v)}
+                        size="sm"
                       >
-                        <IconDeviceFloppy size={22} />
-                      </ActionIcon>
-                    </Tooltip>
-                  )}
+                        {adminEditOverride ? 'Deshabilitar edición' : 'Habilitar edición'}
+                      </Button>
+                    )}
+                    {!readOnly && !showPreview && (
+                      <Tooltip label="Guardar" position="left">
+                        <ActionIcon
+                          variant="filled"
+                          color="green"
+                          size="xl"
+                          radius="xl"
+                          onClick={handleSave}
+                          loading={saving}
+                        >
+                          <IconDeviceFloppy size={22} />
+                        </ActionIcon>
+                      </Tooltip>
+                    )}
+                  </Group>
                 </Group>
               )}
 
@@ -471,6 +541,10 @@ export function ReportEdit() {
                 <PdfPreviewPanel
                   report={report}
                   onBack={() => setShowPreview(false)}
+                  isAdmin={isAdmin}
+                  isOnline={isOnline}
+                  onGenerate={handleGenerateFinal}
+                  generatedPdfUrl={generatedPdfUrl}
                 />
               ) : (
                 <>
@@ -499,7 +573,7 @@ export function ReportEdit() {
                   )}
 
                   {/* Status transition actions */}
-                  {report.status === 'en_campo' && !isAdmin && (
+                  {report.status === 'en_campo' && (
                     <Alert color="blue" variant="light" title="Reporte en campo">
                       <Group justify="space-between" align="center" mt="xs">
                         <Text size="sm">Cuando el reporte esté completo, envíelo a revisión.</Text>
