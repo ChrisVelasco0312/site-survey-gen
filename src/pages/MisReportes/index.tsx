@@ -64,18 +64,15 @@ export function MisReportes() {
 
     try {
         setLoading(true);
+        const { map_image_url, edited_map_image_url, camera_view_photo_url, service_entrance_photo_url, ...rest } = report;
         const newReport: Report = {
-            ...report,
+            ...rest,
             id: crypto.randomUUID(),
             user_id: effectiveUid,
             status: 'en_campo',
             created_at: Date.now(),
             updated_at: Date.now(),
             date: new Date().toLocaleDateString('es-CO'),
-            map_image_url: undefined,
-            edited_map_image_url: undefined,
-            camera_view_photo_url: undefined,
-            service_entrance_photo_url: undefined,
         };
 
         await saveReport(newReport);

@@ -153,6 +153,34 @@ export function SideMenu({ children }: SideMenuProps) {
         })}
       </Stack>
 
+      {/* User info */}
+      {userData && (
+        <Box px="md" pb="xs" style={{ textAlign: collapsed ? 'center' : 'left' }}>
+          {collapsed ? (
+            <Text size="xs" c="dimmed" title={userData.full_name}>
+              {userData.full_name.charAt(0).toUpperCase()}
+            </Text>
+          ) : (
+            <>
+              <Text size="sm" fw={500} truncate>
+                {userData.full_name}
+              </Text>
+              <Text size="xs" c="dimmed" truncate>
+                {userData.email}
+              </Text>
+              <Text size="xs" c="dimmed" truncate>
+                {userData.role === 'admin' ? 'Administrador' : 'Trabajador'}
+              </Text>
+              {userData.role === 'field_worker' && (
+                <Text size="xs" c="dimmed" truncate tt="capitalize">
+                  {userData.group_assignment.replace('_', ' ')}
+                </Text>
+              )}
+            </>
+          )}
+        </Box>
+      )}
+
       {/* Cerrar sesión button */}
       <Box px="md" pb="md">
         <Button
