@@ -39,7 +39,7 @@ export default defineConfig({
 			},
 		workbox: {
 			maximumFileSizeToCacheInBytes: 3 * 1024 * 1024, // 3 MB
-			globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+			globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2,json}'],
 				// Don't cache Firebase API calls
 				navigateFallback: 'index.html',
 				runtimeCaching: [
