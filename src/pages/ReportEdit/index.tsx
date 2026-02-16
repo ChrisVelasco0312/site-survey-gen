@@ -545,6 +545,7 @@ export function ReportEdit() {
                   isOnline={isOnline}
                   onGenerate={handleGenerateFinal}
                   generatedPdfUrl={generatedPdfUrl}
+                  onSendToReview={handleSubmitForReview}
                 />
               ) : (
                 <>
@@ -569,18 +570,6 @@ export function ReportEdit() {
                   {saveMsg && (
                     <Alert color={saveMsg.includes('Error') ? 'red' : 'green'} variant="light">
                       {saveMsg}
-                    </Alert>
-                  )}
-
-                  {/* Status transition actions */}
-                  {report.status === 'en_campo' && (
-                    <Alert color="blue" variant="light" title="Reporte en campo">
-                      <Group justify="space-between" align="center" mt="xs">
-                        <Text size="sm">Cuando el reporte esté completo, envíelo a revisión.</Text>
-                        <Button color="orange" onClick={handleSubmitForReview}>
-                          Enviar a Revisión
-                        </Button>
-                      </Group>
                     </Alert>
                   )}
 

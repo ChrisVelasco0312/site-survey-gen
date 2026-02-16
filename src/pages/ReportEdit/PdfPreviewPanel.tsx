@@ -11,7 +11,7 @@ import {
   Modal,
 } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
-import { IconDownload, IconRefresh, IconArrowLeft, IconFileExport, IconWifiOff } from '@tabler/icons-react';
+import { IconDownload, IconRefresh, IconArrowLeft, IconFileExport, IconWifiOff, IconSend } from '@tabler/icons-react';
 import type { Report, ReportStatus } from '../../types/Report';
 import { generateReportPdf } from '../../utils/pdfGenerator';
 
@@ -26,6 +26,8 @@ interface PdfPreviewPanelProps {
   onGenerate?: () => Promise<void>;
   /** URL of the stored PDF for generado reports */
   generatedPdfUrl?: string | null;
+  /** Called when user sends to review */
+  onSendToReview?: () => Promise<void>;
 }
 
 export function PdfPreviewPanel({
@@ -35,6 +37,7 @@ export function PdfPreviewPanel({
   isOnline = true,
   onGenerate,
   generatedPdfUrl,
+  onSendToReview,
 }: PdfPreviewPanelProps) {
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -252,6 +255,19 @@ export function PdfPreviewPanel({
               size="sm"
             >
               Generar Reporte Final
+            </Button>
+          )}
+
+          {/* Enviar a Revisión button */}
+          {report.status === 'en_campo' && onSendToReview && (
+            <Button
+              color="orange"
+              leftSection={<IconSend size={16} />}
+              onClick={onSendToReview}
+              disabled={loading}
+              size="sm"
+            >
+              Enviar a Revisión
             </Button>
           )}
         </Group>
