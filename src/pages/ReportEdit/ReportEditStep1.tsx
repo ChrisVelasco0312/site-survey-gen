@@ -306,7 +306,7 @@ export function ReportEditStep1({ report, setReport, readOnly }: ReportEditStep1
               style={{ border: '1px solid var(--mantine-color-default-border)', borderRadius: 'var(--mantine-radius-sm)' }}
             >
               <Text size="sm" fw={500}>{report.address.site_name}</Text>
-              <Text size="xs" c="dimmed">{report.address.pm_number} — {report.address.full_address}</Text>
+              <Text size="xs" c="dimmed">{report.address.full_address}</Text>
               {(report.address.distrito || report.address.municipio) && (
                 <Text size="xs" c="dimmed">{report.address.distrito} / {report.address.municipio}</Text>
               )}
@@ -401,7 +401,7 @@ export function ReportEditStep1({ report, setReport, readOnly }: ReportEditStep1
                   onClick={() => onSelectSite(site)}
                   role="button"
                 >
-                  <Text size="sm" fw={500}>{site.site_code} — {site.name}</Text>
+                  <Text size="sm" fw={500}>{site.site_code}</Text>
                   <Text size="xs" c="dimmed">{site.address}</Text>
                   <Text size="xs" c="dimmed">{site.distrito} / {site.municipio}</Text>
                   {site.location && (
