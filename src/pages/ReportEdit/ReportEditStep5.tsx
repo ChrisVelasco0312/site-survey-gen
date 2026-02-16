@@ -8,10 +8,12 @@ import {
   Group,
   Alert,
   Loader,
+  Modal,
 } from '@mantine/core';
-import { IconPhoto, IconTrash } from '@tabler/icons-react';
+import { IconPhoto, IconTrash, IconEdit } from '@tabler/icons-react';
 import imageCompression from 'browser-image-compression';
 import type { Report } from '../../types/Report';
+import { ImageEditor } from '../../components/ImageEditor/ImageEditor';
 
 /* ── Compression options ──────────────────────────────────── */
 
@@ -31,7 +33,6 @@ interface ReportEditStep5Props {
 }
 
 type PhotoField = 'camera_view_photo_url' | 'service_entrance_photo_url';
-
 interface PhotoSectionConfig {
   field: PhotoField;
   label: string;
@@ -68,6 +69,11 @@ async function compressAndEncode(file: File): Promise<string> {
 export function ReportEditStep5({ report, setReport, readOnly }: ReportEditStep5Props) {
   const [compressing, setCompressing] = useState<PhotoField | null>(null);
   const [error, setError] = useState<string | null>(null);
+  
+  // Editor state
+  const [editingField, setEditingField] = useState<PhotoField | null>(null);
+  const [editorOpen, setEditorOpen] = useState(false);
+  const [editorImageMeta, setEditorImageMeta] = useState<{ width: number; height: number } | null>(null);
 
   const handleFileChange = async (field: PhotoField, file: File | null) => {
     setError(null);
@@ -91,6 +97,29 @@ export function ReportEditStep5({ report, setReport, readOnly }: ReportEditStep5
 
   const clearPhoto = (field: PhotoField) => {
     setReport({ ...report, [field]: undefined, updated_at: Date.now() });
+  };
+
+  const openEditor = (field: PhotoField) => {
+    const src = report[field];
+    if (!src) return;
+    
+    // Load image to get original dimensions
+    const img = new Image();
+    img.onload = () => {
+        setEditorImageMeta({ width: img.width, height: img.height });
+        setEditingField(field);
+        setEditorOpen(true);
+    };
+    img.src = src;
+  };
+
+  const handleEditorSave = (dataUrl: string) => {
+    if (editingField) {
+      setReport({ ...report, [editingField]: dataUrl, updated_at: Date.now() });
+    }
+    setEditorOpen(false);
+    setEditingField(null);
+    setEditorImageMeta(null);
   };
 
   /* ── Read-only view ── */
@@ -181,6 +210,15 @@ export function ReportEditStep5({ report, setReport, readOnly }: ReportEditStep5
                   />
                   <Button
                     variant="light"
+                    size="xs"
+                    leftSection={<IconEdit size={14} />}
+                    onClick={() => openEditor(field)}
+                    disabled={isCompressing}
+                  >
+                    Editar
+                  </Button>
+                  <Button
+                    variant="light"
                     color="red"
                     size="xs"
                     leftSection={<IconTrash size={14} />}
@@ -202,6 +240,26 @@ export function ReportEditStep5({ report, setReport, readOnly }: ReportEditStep5
           </Stack>
         );
       })}
+
+      {/* Image Editor Modal */}
+      <Modal 
+        opened={editorOpen} 
+        onClose={() => setEditorOpen(false)}
+        title="Editar Imagen"
+        size="xl"
+      >
+        {editorOpen && editingField && report[editingField] && editorImageMeta && (
+            <Box p="md">
+                <ImageEditor
+                    width={editorImageMeta.width}
+                    height={editorImageMeta.height}
+                    baseImage={report[editingField]}
+                    onSave={handleEditorSave}
+                    onCancel={() => setEditorOpen(false)}
+                />
+            </Box>
+        )}
+      </Modal>
     </Stack>
   );
 }
