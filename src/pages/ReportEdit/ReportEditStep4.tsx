@@ -12,6 +12,7 @@ import {
   Center,
   ThemeIcon,
 } from '@mantine/core';
+import { useMediaQuery } from '@mantine/hooks';
 import {
   IconDownload,
   IconExternalLink,
@@ -187,6 +188,7 @@ export function ReportEditStep4({ report, setReport, readOnly }: ReportEditStep4
   const [loading, setLoading] = useState(false);
   const [imageWarning, setImageWarning] = useState<string | null>(null);
   const isOnline = useConnectivity();
+  const isMobile = useMediaQuery('(max-width: 768px)');
 
   /* ── Editor State ── */
   const [isEditing, setIsEditing] = useState(false);

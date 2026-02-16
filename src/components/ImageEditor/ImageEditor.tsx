@@ -366,17 +366,68 @@ export function ImageEditor({
     }
   };
 
-  const getCanvasCoords = (e: React.MouseEvent<HTMLCanvasElement>) => {
+  const getCanvasCoords = (
+    e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement> | MouseEvent | TouchEvent
+  ) => {
     const canvas = tempCanvasRef.current || drawingCanvasRef.current;
     if (!canvas) return { x: 0, y: 0 };
     const rect = canvas.getBoundingClientRect();
     const scaleX = canvas.width / rect.width;
     const scaleY = canvas.height / rect.height;
+
+    let clientX = 0;
+    let clientY = 0;
+
+    if ('touches' in e && e.touches.length > 0) {
+        clientX = e.touches[0].clientX;
+        clientY = e.touches[0].clientY;
+    } else if ('changedTouches' in e && e.changedTouches.length > 0) {
+        // Fallback for touchend
+        clientX = e.changedTouches[0].clientX;
+        clientY = e.changedTouches[0].clientY;
+    } else if ('clientX' in e) {
+        clientX = e.clientX;
+        clientY = e.clientY;
+    }
+
     return {
-      x: (e.clientX - rect.left) * scaleX,
-      y: (e.clientY - rect.top) * scaleY,
+      x: (clientX - rect.left) * scaleX,
+      y: (clientY - rect.top) * scaleY,
     };
   };
+
+  /* ── Touch Handling ── */
+  // Double tap detection
+  const lastTapRef = useRef(0);
+  
+  const handleTouchStart = (e: React.TouchEvent<HTMLCanvasElement>) => {
+      // Prevent default to avoid scrolling
+      // However, we want to allow scrolling if user touches outside shapes? 
+      // No, editor usually captures all touch.
+      if (e.cancelable) e.preventDefault(); 
+      
+      // Double tap check
+      const now = Date.now();
+      if (now - lastTapRef.current < 300) {
+          // Double tap
+          handleDoubleClick(e as any);
+      }
+      lastTapRef.current = now;
+
+      // Call mouse down logic
+      handleMouseDown(e as any);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent<HTMLCanvasElement>) => {
+      if (e.cancelable) e.preventDefault();
+      handleMouseMove(e as any);
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent<HTMLCanvasElement>) => {
+      if (e.cancelable) e.preventDefault();
+      handleMouseUp(e as any);
+  };
+
 
   const hitTest = (x: number, y: number): { shapeId: string | null, handle: string | null } => {
      if (selectedShapeId) {
@@ -881,7 +932,10 @@ export function ImageEditor({
           onMouseUp={handleMouseUp}
           onMouseLeave={handleMouseUp}
           onDblClick={handleDoubleClick}
-          style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', cursor: 'crosshair' }}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+          style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', cursor: 'crosshair', touchAction: 'none' }}
         />
       </Box>
     </Stack>
