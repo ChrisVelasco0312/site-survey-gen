@@ -12,8 +12,28 @@ import {
   Center,
   ThemeIcon,
   SegmentedControl,
+  ActionIcon,
+  ColorSwatch,
+  Tooltip,
 } from '@mantine/core';
-import { IconDownload, IconExternalLink, IconWifiOff } from '@tabler/icons-react';
+import {
+  IconDownload,
+  IconExternalLink,
+  IconWifiOff,
+  IconEdit,
+  IconCheck,
+  IconX,
+  IconTrash,
+  IconPencil,
+  IconSquare,
+  IconSquareFilled,
+  IconCircle,
+  IconCircleFilled,
+  IconPointer,
+  IconEraser,
+  IconArrowBackUp,
+  IconArrowForwardUp,
+} from '@tabler/icons-react';
 import type { Report } from '../../types/Report';
 import { useConnectivity } from '../../hooks/useConnectivity';
 
@@ -31,6 +51,39 @@ const ZOOM_MIN = 15;
 const ZOOM_MAX = 21;
 const ZOOM_DEFAULT = 17;
 const MAX_NATIVE_ZOOM = 19;
+
+
+/* ── Types ── */
+type Tool = 'select' | 'eraser' | 'pencil' | 'square' | 'square-fill' | 'circle' | 'circle-fill';
+
+interface BaseShape {
+  id: string;
+  type: string;
+  color: string;
+  strokeWidth: number;
+}
+
+interface RectShape extends BaseShape {
+  type: 'square' | 'square-fill';
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+interface CircleShape extends BaseShape {
+  type: 'circle' | 'circle-fill';
+  x: number;
+  y: number;
+  radius: number;
+}
+
+interface PencilShape extends BaseShape {
+  type: 'pencil';
+  points: { x: number; y: number }[];
+}
+
+type Shape = RectShape | CircleShape | PencilShape;
 
 /* ── Tile math ─────────────────────────────────────────────── */
 
@@ -183,6 +236,33 @@ export function ReportEditStep4({ report, setReport, readOnly }: ReportEditStep4
   const [imageWarning, setImageWarning] = useState<string | null>(null);
   const isOnline = useConnectivity();
 
+  /* ── Editor State ── */
+  const [isEditing, setIsEditing] = useState(false);
+  const [activeTool, setActiveTool] = useState<Tool>('select');
+  const [strokeWidth, setStrokeWidth] = useState(3);
+  const [drawColor, setDrawColor] = useState('#fa5252'); // Red
+  
+  const [shapes, setShapes] = useState<Shape[]>([]);
+  const [history, setHistory] = useState<Shape[][]>([]);
+  const [historyIndex, setHistoryIndex] = useState(-1);
+  const [selectedShapeId, setSelectedShapeId] = useState<string | null>(null);
+  const [hoveredShapeId, setHoveredShapeId] = useState<string | null>(null);
+
+  const drawingCanvasRef = useRef<HTMLCanvasElement>(null);
+  const tempCanvasRef = useRef<HTMLCanvasElement>(null);
+  
+  const interactionRef = useRef<{
+    isDown: boolean;
+    startPos: { x: number; y: number };
+    currentShape?: Shape;
+    movingShapeStart?: Shape; // Snapshot of shape before move/resize
+    resizeHandle?: string; // 'tl', 'tr', 'bl', 'br'
+    lastMousePos?: { x: number; y: number };
+  }>({
+    isDown: false,
+    startPos: { x: 0, y: 0 },
+  });
+
   const hasEditedMap = Boolean(report.edited_map_image_url?.trim());
 
   // Re-render tiles whenever lat, lon or zoom changes
@@ -247,6 +327,496 @@ export function ReportEditStep4({ report, setReport, readOnly }: ReportEditStep4
     setReport({ ...report, edited_map_image_url: undefined, updated_at: Date.now() });
   };
 
+  /* ── Editor Logic ── */
+
+  // Sync internal state with ref for events
+  const shapesRef = useRef<Shape[]>([]);
+  useEffect(() => {
+    shapesRef.current = shapes;
+    renderCanvas();
+  }, [shapes, selectedShapeId, hoveredShapeId]);
+
+  // Handle undo/redo shortcuts or buttons
+  const undo = () => {
+    if (historyIndex > 0) {
+      const newIndex = historyIndex - 1;
+      setHistoryIndex(newIndex);
+      setShapes(history[newIndex]);
+      setSelectedShapeId(null);
+    }
+  };
+
+  const redo = () => {
+    if (historyIndex < history.length - 1) {
+      const newIndex = historyIndex + 1;
+      setHistoryIndex(newIndex);
+      setShapes(history[newIndex]);
+      setSelectedShapeId(null);
+    }
+  };
+
+  const pushHistory = (newShapes: Shape[]) => {
+    const newHistory = history.slice(0, historyIndex + 1);
+    newHistory.push(newShapes);
+    setHistory(newHistory);
+    setHistoryIndex(newHistory.length - 1);
+    setShapes(newShapes);
+  };
+  
+  // Initialize history
+  useEffect(() => {
+    if (isEditing && history.length === 0) {
+      setHistory([[]]);
+      setHistoryIndex(0);
+    }
+  }, [isEditing]);
+
+  const deleteSelected = () => {
+    if (selectedShapeId) {
+      const newShapes = shapes.filter((s) => s.id !== selectedShapeId);
+      pushHistory(newShapes);
+      setSelectedShapeId(null);
+    }
+  };
+
+  const renderCanvas = () => {
+    const canvas = drawingCanvasRef.current;
+    const ctx = canvas?.getContext('2d');
+    if (!canvas || !ctx) return;
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    // Draw all shapes
+    shapesRef.current.forEach(shape => {
+      ctx.lineWidth = shape.strokeWidth;
+      ctx.strokeStyle = shape.color;
+      ctx.fillStyle = shape.color;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.beginPath();
+
+      if (shape.type === 'pencil') {
+        const s = shape as PencilShape;
+        if (s.points.length > 0) {
+          ctx.moveTo(s.points[0].x, s.points[0].y);
+          s.points.forEach(p => ctx.lineTo(p.x, p.y));
+          ctx.stroke();
+        }
+      } else if (shape.type === 'square' || shape.type === 'square-fill') {
+        const s = shape as RectShape;
+        if (s.type === 'square-fill') {
+            ctx.fillRect(s.x, s.y, s.width, s.height);
+        } else {
+            ctx.strokeRect(s.x, s.y, s.width, s.height);
+        }
+      } else if (shape.type === 'circle' || shape.type === 'circle-fill') {
+        const s = shape as CircleShape;
+        ctx.arc(s.x, s.y, s.radius, 0, 2 * Math.PI);
+        if (s.type === 'circle-fill') ctx.fill();
+        else ctx.stroke();
+      }
+    });
+
+    // Draw selection overlay
+    if (selectedShapeId) {
+      const shape = shapesRef.current.find(s => s.id === selectedShapeId);
+      if (shape) {
+        ctx.save();
+        ctx.strokeStyle = '#00a8ff';
+        ctx.lineWidth = 1;
+        ctx.setLineDash([5, 5]);
+        
+        let bounds = { x: 0, y: 0, w: 0, h: 0 };
+        
+        if (shape.type === 'pencil') {
+           const s = shape as PencilShape;
+           const xs = s.points.map(p => p.x);
+           const ys = s.points.map(p => p.y);
+           const minX = Math.min(...xs);
+           const maxX = Math.max(...xs);
+           const minY = Math.min(...ys);
+           const maxY = Math.max(...ys);
+           bounds = { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
+        } else if (shape.type.includes('square')) {
+           const s = shape as RectShape;
+           bounds = { x: s.x, y: s.y, w: s.width, h: s.height };
+        } else if (shape.type.includes('circle')) {
+           const s = shape as CircleShape;
+           bounds = { x: s.x - s.radius, y: s.y - s.radius, w: s.radius * 2, h: s.radius * 2 };
+        }
+
+        // Selection Box
+        ctx.strokeRect(bounds.x - 5, bounds.y - 5, bounds.w + 10, bounds.h + 10);
+        
+        // Resize Handles (Corners)
+        ctx.setLineDash([]);
+        ctx.fillStyle = '#fff';
+        ctx.strokeStyle = '#00a8ff';
+        const handleSize = 8;
+        const half = handleSize / 2;
+        
+        const corners = [
+            { x: bounds.x - 5, y: bounds.y - 5 }, // TL
+            { x: bounds.x + bounds.w + 5, y: bounds.y - 5 }, // TR
+            { x: bounds.x - 5, y: bounds.y + bounds.h + 5 }, // BL
+            { x: bounds.x + bounds.w + 5, y: bounds.y + bounds.h + 5 }, // BR
+        ];
+
+        corners.forEach(c => {
+            ctx.fillRect(c.x - half, c.y - half, handleSize, handleSize);
+            ctx.strokeRect(c.x - half, c.y - half, handleSize, handleSize);
+        });
+
+        ctx.restore();
+      }
+    }
+  };
+
+  const getCanvasCoords = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    const canvas = tempCanvasRef.current || drawingCanvasRef.current;
+    if (!canvas) return { x: 0, y: 0 };
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    return {
+      x: (e.clientX - rect.left) * scaleX,
+      y: (e.clientY - rect.top) * scaleY,
+    };
+  };
+
+  const hitTest = (x: number, y: number): { shapeId: string | null, handle: string | null } => {
+     // Check handles first if selected
+     if (selectedShapeId) {
+         const shape = shapesRef.current.find(s => s.id === selectedShapeId);
+         if (shape) {
+             let bounds = { x: 0, y: 0, w: 0, h: 0 };
+             if (shape.type === 'pencil') {
+                const s = shape as PencilShape;
+                const xs = s.points.map(p => p.x);
+                const ys = s.points.map(p => p.y);
+                const minX = Math.min(...xs);
+                const maxX = Math.max(...xs);
+                const minY = Math.min(...ys);
+                const maxY = Math.max(...ys);
+                bounds = { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
+             } else if (shape.type.includes('square')) {
+                const s = shape as RectShape;
+                bounds = { x: s.x, y: s.y, w: s.width, h: s.height };
+             } else if (shape.type.includes('circle')) {
+                const s = shape as CircleShape;
+                bounds = { x: s.x - s.radius, y: s.y - s.radius, w: s.radius * 2, h: s.radius * 2 };
+             }
+             
+             const margin = 10;
+             const corners = {
+                 tl: { x: bounds.x - 5, y: bounds.y - 5 },
+                 tr: { x: bounds.x + bounds.w + 5, y: bounds.y - 5 },
+                 bl: { x: bounds.x - 5, y: bounds.y + bounds.h + 5 },
+                 br: { x: bounds.x + bounds.w + 5, y: bounds.y + bounds.h + 5 },
+             };
+             
+             for (const [key, pos] of Object.entries(corners)) {
+                 if (Math.abs(x - pos.x) < margin && Math.abs(y - pos.y) < margin) {
+                     return { shapeId: selectedShapeId, handle: key };
+                 }
+             }
+         }
+     }
+
+     // Check shapes (reverse order for top-most)
+     for (let i = shapesRef.current.length - 1; i >= 0; i--) {
+         const s = shapesRef.current[i];
+         if (s.type === 'pencil') {
+             // Simple point distance check
+             const ps = (s as PencilShape).points;
+             for (const p of ps) {
+                 if (Math.hypot(p.x - x, p.y - y) < s.strokeWidth + 5) {
+                     return { shapeId: s.id, handle: null };
+                 }
+             }
+         } else if (s.type.includes('square')) {
+             const r = s as RectShape;
+             // Check if point inside rect
+             // If filled, inside; if outlined, near border
+             if (x >= r.x && x <= r.x + r.width && y >= r.y && y <= r.y + r.height) {
+                 if (r.type === 'square-fill') return { shapeId: s.id, handle: null };
+                 // Border check for outline
+                 const border = 5 + r.strokeWidth;
+                 const onLeft = Math.abs(x - r.x) < border;
+                 const onRight = Math.abs(x - (r.x + r.width)) < border;
+                 const onTop = Math.abs(y - r.y) < border;
+                 const onBottom = Math.abs(y - (r.y + r.height)) < border;
+                 if (onLeft || onRight || onTop || onBottom) return { shapeId: s.id, handle: null };
+             }
+         } else if (s.type.includes('circle')) {
+             const c = s as CircleShape;
+             const dist = Math.hypot(x - c.x, y - c.y);
+             if (c.type === 'circle-fill') {
+                 if (dist <= c.radius) return { shapeId: s.id, handle: null };
+             } else {
+                 if (Math.abs(dist - c.radius) < 5 + c.strokeWidth) return { shapeId: s.id, handle: null };
+             }
+         }
+     }
+     return { shapeId: null, handle: null };
+  };
+
+  const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (!isEditing) return;
+    const { x, y } = getCanvasCoords(e);
+    
+    if (activeTool === 'select' || activeTool === 'eraser') {
+        const hit = hitTest(x, y);
+        if (activeTool === 'eraser') {
+            if (hit.shapeId) {
+                const newShapes = shapes.filter(s => s.id !== hit.shapeId);
+                pushHistory(newShapes);
+            }
+            return;
+        }
+
+        // Select mode
+        if (hit.shapeId) {
+            setSelectedShapeId(hit.shapeId);
+            interactionRef.current = {
+                isDown: true,
+                startPos: { x, y },
+                resizeHandle: hit.handle || undefined,
+                lastMousePos: { x, y },
+                movingShapeStart: JSON.parse(JSON.stringify(shapesRef.current.find(s => s.id === hit.shapeId))),
+            };
+        } else {
+            setSelectedShapeId(null);
+            interactionRef.current = { isDown: false, startPos: { x: 0, y: 0 } };
+        }
+        return;
+    }
+
+    // Drawing mode
+    interactionRef.current.isDown = true;
+    interactionRef.current.startPos = { x, y };
+    
+    const newId = Math.random().toString(36).substr(2, 9);
+    let newShape: Shape | null = null;
+
+    if (activeTool === 'pencil') {
+        newShape = { id: newId, type: 'pencil', color: drawColor, strokeWidth, points: [{ x, y }] };
+    } else if (activeTool.includes('square')) {
+        newShape = { id: newId, type: activeTool as any, color: drawColor, strokeWidth, x, y, width: 0, height: 0 };
+    } else if (activeTool.includes('circle')) {
+        newShape = { id: newId, type: activeTool as any, color: drawColor, strokeWidth, x, y, radius: 0 };
+    }
+
+    if (newShape) {
+        interactionRef.current.currentShape = newShape;
+        // Don't add to shapes yet, draw on temp canvas or overlay in render
+        // Actually, easiest is to add to shapes immediately for "live" render if performant, 
+        // or just use temp canvas. Let's use shapes state for pencil, but temp for others?
+        // Let's use a "tempShape" approach.
+    }
+  };
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (!isEditing) return;
+    const { x, y } = getCanvasCoords(e);
+    
+    // Hover effect
+    if (!interactionRef.current.isDown && (activeTool === 'select' || activeTool === 'eraser')) {
+       const hit = hitTest(x, y);
+       if (hit.shapeId !== hoveredShapeId) setHoveredShapeId(hit.shapeId);
+       e.currentTarget.style.cursor = hit.handle ? (hit.handle === 'tl' || hit.handle === 'br' ? 'nwse-resize' : 'nesw-resize') : (hit.shapeId ? 'move' : 'default');
+       if (activeTool === 'eraser') e.currentTarget.style.cursor = hit.shapeId ? 'crosshair' : 'default';
+       return;
+    }
+
+    if (!interactionRef.current.isDown) return;
+
+    if (activeTool === 'select' && selectedShapeId) {
+        const dx = x - interactionRef.current.lastMousePos!.x;
+        const dy = y - interactionRef.current.lastMousePos!.y;
+        interactionRef.current.lastMousePos = { x, y };
+
+        const shapeIndex = shapes.findIndex(s => s.id === selectedShapeId);
+        if (shapeIndex === -1) return;
+        
+        const newShapes = [...shapes];
+        const shape = { ...newShapes[shapeIndex] };
+
+        if (interactionRef.current.resizeHandle) {
+            // Resizing
+            const handle = interactionRef.current.resizeHandle;
+            if (shape.type.includes('square')) {
+               const r = shape as RectShape;
+               if (handle.includes('l')) { r.x += dx; r.width -= dx; }
+               if (handle.includes('r')) { r.width += dx; }
+               if (handle.includes('t')) { r.y += dy; r.height -= dy; }
+               if (handle.includes('b')) { r.height += dy; }
+            } else if (shape.type.includes('circle')) {
+               const c = shape as CircleShape;
+               // Simple radius resize based on dist from center
+               const dist = Math.hypot(x - c.x, y - c.y);
+               c.radius = dist;
+            } else if (shape.type === 'pencil') {
+               // Scale pencil? Complex. Let's just move for now or simple scale bounding box
+               // Skip resize for pencil for MVP simplicity unless essential
+            }
+        } else {
+            // Moving
+            if (shape.type === 'pencil') {
+                const p = shape as PencilShape;
+                p.points = p.points.map(pt => ({ x: pt.x + dx, y: pt.y + dy }));
+            } else {
+                (shape as any).x += dx;
+                (shape as any).y += dy;
+            }
+        }
+        newShapes[shapeIndex] = shape;
+        setShapes(newShapes); // Live update
+        return;
+    }
+
+    // Drawing
+    const current = interactionRef.current.currentShape;
+    if (!current) return;
+    
+    // We can just use the temp canvas for drawing preview
+    const tempCtx = tempCanvasRef.current?.getContext('2d');
+    if (!tempCtx) return;
+    tempCtx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+    
+    tempCtx.lineWidth = current.strokeWidth;
+    tempCtx.strokeStyle = current.color;
+    tempCtx.fillStyle = current.color;
+    tempCtx.lineCap = 'round';
+    tempCtx.lineJoin = 'round';
+
+    const startX = interactionRef.current.startPos.x;
+    const startY = interactionRef.current.startPos.y;
+
+    if (current.type === 'pencil') {
+        const p = current as PencilShape;
+        p.points.push({ x, y });
+        
+        // Draw path
+        tempCtx.beginPath();
+        if (p.points.length > 0) {
+            tempCtx.moveTo(p.points[0].x, p.points[0].y);
+            for (let i = 1; i < p.points.length; i++) tempCtx.lineTo(p.points[i].x, p.points[i].y);
+        }
+        tempCtx.stroke();
+    } else {
+        const width = x - startX;
+        const height = y - startY;
+        
+        tempCtx.beginPath();
+        if (current.type.includes('square')) {
+            if (current.type === 'square-fill') tempCtx.fillRect(startX, startY, width, height);
+            else tempCtx.strokeRect(startX, startY, width, height);
+            (current as RectShape).width = width;
+            (current as RectShape).height = height;
+        } else if (current.type.includes('circle')) {
+             const radius = Math.sqrt(width * width + height * height);
+             tempCtx.arc(startX, startY, radius, 0, 2 * Math.PI);
+             if (current.type === 'circle-fill') tempCtx.fill();
+             else tempCtx.stroke();
+             (current as CircleShape).radius = radius;
+        }
+    }
+  };
+
+  const handleMouseUp = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (!isEditing || !interactionRef.current.isDown) return;
+    interactionRef.current.isDown = false;
+    
+    // Clear temp
+    const tempCtx = tempCanvasRef.current?.getContext('2d');
+    tempCtx?.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+    if (activeTool === 'select') {
+        // Commit move/resize to history
+        if (selectedShapeId && interactionRef.current.movingShapeStart) {
+             // Compare with start to see if changed
+             // For now just push to history
+             pushHistory([...shapes]);
+        }
+        return;
+    }
+
+    if (interactionRef.current.currentShape) {
+        // Fix negative width/height for rects
+        const s = interactionRef.current.currentShape;
+        if (s.type.includes('square')) {
+            const r = s as RectShape;
+            if (r.width < 0) { r.x += r.width; r.width = Math.abs(r.width); }
+            if (r.height < 0) { r.y += r.height; r.height = Math.abs(r.height); }
+        }
+        
+        const newShapes = [...shapes, s];
+        pushHistory(newShapes);
+        interactionRef.current.currentShape = undefined;
+    }
+  };
+
+  const handleSaveEdit = () => {
+    const mapCanvas = canvasRef.current;
+    const drawingCanvas = drawingCanvasRef.current;
+    if (!mapCanvas || !drawingCanvas) return;
+    // ... same as before
+    const finalCanvas = document.createElement('canvas');
+    finalCanvas.width = CANVAS_WIDTH;
+    finalCanvas.height = CANVAS_HEIGHT;
+    const ctx = finalCanvas.getContext('2d');
+    if (!ctx) return;
+    ctx.drawImage(mapCanvas, 0, 0);
+    ctx.drawImage(drawingCanvas, 0, 0);
+    const dataUrl = finalCanvas.toDataURL('image/png');
+    setReport({ ...report, edited_map_image_url: dataUrl, updated_at: Date.now() });
+    setIsEditing(false);
+  };
+
+  const handleCancelEdit = () => {
+    setIsEditing(false);
+  };
+  
+  /* ── Shortcuts ── */
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => {
+        if (!isEditing) return;
+        if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+            e.preventDefault();
+            if (e.shiftKey) redo();
+            else undo();
+        }
+        if (e.key === 'Delete' || e.key === 'Backspace') {
+            deleteSelected();
+        }
+    };
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, [isEditing, historyIndex, history, selectedShapeId]);
+
+  useEffect(() => {
+    if (!isEditing) return;
+    const drawingCanvas = drawingCanvasRef.current;
+    const tempCanvas = tempCanvasRef.current;
+    if (drawingCanvas) {
+      drawingCanvas.width = CANVAS_WIDTH;
+      drawingCanvas.height = CANVAS_HEIGHT;
+    }
+    if (tempCanvas) {
+      tempCanvas.width = CANVAS_WIDTH;
+      tempCanvas.height = CANVAS_HEIGHT;
+    }
+    // Re-render when switching to edit mode
+    renderCanvas();
+  }, [isEditing]);
+  
+  // Fix for negative width/height in handleMouseUp was incomplete in previous chunk replacement due to scope
+  // The logic is embedded in handleMouseUp in the new chunk, so it should be fine.
+  // However, I need to make sure handleSaveEdit uses shapesRef to draw, not just drawingCanvasRef because drawingCanvas is redrawn every frame.
+  // Actually, renderCanvas draws to drawingCanvasRef. So as long as renderCanvas is called, drawingCanvasRef has the content.
+  // The previous handleSaveEdit used drawingCanvas directly. Since renderCanvas keeps drawingCanvas up to date, it works.
+  
   /* ── Read-only view ── */
   if (readOnly) {
     return (
@@ -288,13 +858,32 @@ export function ReportEditStep4({ report, setReport, readOnly }: ReportEditStep4
       >
         {isOnline ? (
           <>
-            {/* Map canvas */}
+            {/* Map canvas & Editor Layer */}
             <Box style={{ position: 'relative' }}>
               <canvas
                 ref={canvasRef}
                 style={{ width: '100%', height: 'auto', display: 'block' }}
               />
-              {loading && (
+              
+              {/* Editor Overlay */}
+              {isEditing && (
+                <>
+                  <canvas
+                    ref={drawingCanvasRef}
+                    style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none' }}
+                  />
+                  <canvas
+                    ref={tempCanvasRef}
+                    onMouseDown={handleMouseDown}
+                    onMouseMove={handleMouseMove}
+                    onMouseUp={handleMouseUp}
+                    onMouseLeave={handleMouseUp}
+                    style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', cursor: 'crosshair' }}
+                  />
+                </>
+              )}
+
+              {loading && !isEditing && (
                 <Box
                   style={{
                     position: 'absolute',
@@ -318,66 +907,158 @@ export function ReportEditStep4({ report, setReport, readOnly }: ReportEditStep4
                 background: 'var(--mantine-color-body)',
               }}
             >
-              {!hasCoords && (
-                <Alert color="blue" mb="sm">
-                  Complete la dirección en el paso 1 para ver la ubicación exacta.
-                </Alert>
-              )}
+              {isEditing ? (
+                /* Editor Toolbar */
+                <Stack gap="xs">
+                  <Group justify="space-between" align="center">
+                    <Text size="sm" fw={500}>Editor de mapa</Text>
 
-              <Group align="flex-end" gap="md" wrap="wrap">
-                <Box>
-                  <Text size="xs" fw={500} mb={4}>Tipo de mapa</Text>
-                  <SegmentedControl
-                    size="xs"
-                    value={mapType}
-                    onChange={(val) => setMapType(val as 'osm' | 'satellite')}
-                    data={[
-                      { label: 'Mapa', value: 'osm' },
-                      { label: 'Satélite', value: 'satellite' },
-                    ]}
-                  />
-                </Box>
-                <Box style={{ flex: 1, minWidth: 160, paddingBottom: 16 }}>
-                  <Text size="xs" fw={500} mb={4}>
-                    Zoom: {zoom.toFixed(1)} {zoom > 20 && <span style={{ color: 'red' }}>(Digital)</span>}
-                  </Text>
-                  <Slider
-                    min={ZOOM_MIN}
-                    max={ZOOM_MAX}
-                    step={0.1}
-                    color={zoom > 20 ? 'red' : 'blue'}
-                    value={zoom}
-                    onChange={setZoom}
-                    marks={[
-                      { value: ZOOM_MIN, label: String(ZOOM_MIN) },
-                      { value: 20, label: '20' },
-                      { value: ZOOM_MAX, label: String(ZOOM_MAX) },
-                    ]}
-                  />
-                </Box>
-                <Button
-                  leftSection={<IconDownload size={14} />}
-                  variant="light"
-                  size="xs"
-                  onClick={handleDownload}
-                  disabled={loading}
-                >
-                  Descargar imagen
-                </Button>
-                {hasCoords && (
-                  <Button
-                    component="a"
-                    href={`https://www.google.com/maps/search/?api=1&query=${lat},${lon}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    variant="subtle"
-                    size="xs"
-                    leftSection={<IconExternalLink size={14} />}
-                  >
-                    Ver en Google Maps
-                  </Button>
-                )}
-              </Group>
+                    <Group gap="xs">
+                       <Tooltip label="Deshacer (Ctrl+Z)" withArrow>
+                          <ActionIcon variant="default" size="sm" onClick={undo} disabled={historyIndex <= 0}>
+                             <IconArrowBackUp size={16} />
+                          </ActionIcon>
+                       </Tooltip>
+                       <Tooltip label="Rehacer (Ctrl+Shift+Z)" withArrow>
+                          <ActionIcon variant="default" size="sm" onClick={redo} disabled={historyIndex >= history.length - 1}>
+                             <IconArrowForwardUp size={16} />
+                          </ActionIcon>
+                       </Tooltip>
+                       <Tooltip label="Eliminar seleccionado (Supr)" withArrow>
+                          <ActionIcon variant="light" color="red" size="sm" onClick={deleteSelected} disabled={!selectedShapeId}>
+                             <IconTrash size={16} />
+                          </ActionIcon>
+                       </Tooltip>
+                    </Group>
+                    <Group gap="xs">
+                      <Button size="xs" variant="default" onClick={handleCancelEdit} leftSection={<IconX size={14} />}>Cancelar</Button>
+                      <Button size="xs" color="blue" onClick={handleSaveEdit} leftSection={<IconCheck size={14} />}>Guardar Edición</Button>
+                    </Group>
+                  </Group>
+                  <Group align="center" gap="md" wrap="wrap">
+                    {/* Tools */}
+                    <SegmentedControl
+                      size="xs"
+                      value={activeTool}
+                      onChange={(v) => setActiveTool(v as any)}
+                      data={[
+                        { value: 'select', label: <Tooltip label="Seleccionar / Mover / Redimensionar" withArrow><Center><IconPointer size={16} /></Center></Tooltip> },
+                        { value: 'pencil', label: <Tooltip label="Lápiz" withArrow><Center><IconPencil size={16} /></Center></Tooltip> },
+                        { value: 'square', label: <Tooltip label="Cuadrado (Borde)" withArrow><Center><IconSquare size={16} /></Center></Tooltip> },
+                        { value: 'square-fill', label: <Tooltip label="Cuadrado (Relleno)" withArrow><Center><IconSquareFilled size={16} /></Center></Tooltip> },
+                        { value: 'circle', label: <Tooltip label="Círculo (Borde)" withArrow><Center><IconCircle size={16} /></Center></Tooltip> },
+                        { value: 'circle-fill', label: <Tooltip label="Círculo (Relleno)" withArrow><Center><IconCircleFilled size={16} /></Center></Tooltip> },
+                        { value: 'eraser', label: <Tooltip label="Borrador (Click para eliminar)" withArrow><Center><IconEraser size={16} /></Center></Tooltip> },
+                      ]}
+                    />
+
+                    {/* Colors */}
+                    <Group gap={6}>
+                       {['#fa5252', '#228be6', '#40c057', '#fcc419', '#000000', '#ffffff'].map((c) => (
+                         <ColorSwatch
+                           key={c}
+                           component="button"
+                           color={c}
+                           onClick={() => setDrawColor(c)}
+                           style={{ color: '#fff', cursor: 'pointer' }}
+                           size={22}
+                         >
+                           {drawColor === c && <IconCheck size={12} />}
+                         </ColorSwatch>
+                       ))}
+                    </Group>
+                    
+                    {/* Stroke Width */}
+                    <Box style={{ width: 100 }}>
+                       <Text size="xs" c="dimmed" mb={2}>Grosor: {strokeWidth}</Text>
+                       <Slider
+                         min={1}
+                         max={10}
+                         value={strokeWidth}
+                         onChange={setStrokeWidth}
+                         size="sm"
+                       />
+                    </Box>
+                  </Group>
+                </Stack>
+              ) : (
+                /* Standard Controls */
+                <>
+                  {!hasCoords && (
+                    <Alert color="blue" mb="sm">
+                      Complete la dirección en el paso 1 para ver la ubicación exacta.
+                    </Alert>
+                  )}
+
+                  <Group align="flex-end" gap="md" wrap="wrap">
+                    <Box>
+                      <Text size="xs" fw={500} mb={4}>Tipo de mapa</Text>
+                      <SegmentedControl
+                        size="xs"
+                        value={mapType}
+                        onChange={(val) => setMapType(val as 'osm' | 'satellite')}
+                        data={[
+                          { label: 'Mapa', value: 'osm' },
+                          { label: 'Satélite', value: 'satellite' },
+                        ]}
+                      />
+                    </Box>
+                    <Box style={{ flex: 1, minWidth: 160, paddingBottom: 16 }}>
+                      <Text size="xs" fw={500} mb={4}>
+                        Zoom: {zoom.toFixed(1)} {zoom > 20 && <span style={{ color: 'red' }}>(Digital)</span>}
+                      </Text>
+                      <Slider
+                        min={ZOOM_MIN}
+                        max={ZOOM_MAX}
+                        step={0.1}
+                        color={zoom > 20 ? 'red' : 'blue'}
+                        value={zoom}
+                        onChange={setZoom}
+                        marks={[
+                          { value: ZOOM_MIN, label: String(ZOOM_MIN) },
+                          { value: 20, label: '20' },
+                          { value: ZOOM_MAX, label: String(ZOOM_MAX) },
+                        ]}
+                      />
+                    </Box>
+                    
+                    <Button
+                        leftSection={<IconEdit size={14} />}
+                        variant="filled"
+                        color="grape"
+                        size="xs"
+                        onClick={() => setIsEditing(true)}
+                        disabled={loading}
+                    >
+                        Editar Mapa
+                    </Button>
+
+                    <Button
+                      leftSection={<IconDownload size={14} />}
+                      variant="light"
+                      size="xs"
+                      onClick={handleDownload}
+                      disabled={loading}
+                    >
+                      Descargar
+                    </Button>
+                    
+                    {hasCoords && (
+                      <Button
+                        component="a"
+                        href={`https://www.google.com/maps/search/?api=1&query=${lat},${lon}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        variant="subtle"
+                        size="xs"
+                        leftSection={<IconExternalLink size={14} />}
+                      >
+                        Google Maps
+                      </Button>
+                    )}
+                  </Group>
+                </>
+              )}
             </Box>
           </>
         ) : (
