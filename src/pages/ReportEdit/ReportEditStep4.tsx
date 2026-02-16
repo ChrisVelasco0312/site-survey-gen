@@ -61,6 +61,7 @@ interface BaseShape {
   type: string;
   color: string;
   strokeWidth: number;
+  rotation?: number; // radians
 }
 
 interface RectShape extends BaseShape {
@@ -84,6 +85,20 @@ interface PencilShape extends BaseShape {
 }
 
 type Shape = RectShape | CircleShape | PencilShape;
+
+/* ── Helpers ── */
+
+/** Rotate a point (x,y) around center (cx,cy) by angle (radians). */
+const rotatePoint = (x: number, y: number, cx: number, cy: number, angle: number) => {
+  const cos = Math.cos(angle);
+  const sin = Math.sin(angle);
+  const dx = x - cx;
+  const dy = y - cy;
+  return {
+    x: cx + dx * cos - dy * sin,
+    y: cy + dx * sin + dy * cos,
+  };
+};
 
 /* ── Tile math ─────────────────────────────────────────────── */
 
@@ -248,6 +263,8 @@ export function ReportEditStep4({ report, setReport, readOnly }: ReportEditStep4
   const [selectedShapeId, setSelectedShapeId] = useState<string | null>(null);
   const [hoveredShapeId, setHoveredShapeId] = useState<string | null>(null);
 
+  const [transformMode, setTransformMode] = useState<'scale' | 'rotate'>('scale');
+
   const drawingCanvasRef = useRef<HTMLCanvasElement>(null);
   const tempCanvasRef = useRef<HTMLCanvasElement>(null);
   
@@ -258,6 +275,7 @@ export function ReportEditStep4({ report, setReport, readOnly }: ReportEditStep4
     movingShapeStart?: Shape; // Snapshot of shape before move/resize
     resizeHandle?: string; // 'tl', 'tr', 'bl', 'br'
     lastMousePos?: { x: number; y: number };
+    startRotation?: number; // for rotation
   }>({
     isDown: false,
     startPos: { x: 0, y: 0 },
@@ -334,7 +352,7 @@ export function ReportEditStep4({ report, setReport, readOnly }: ReportEditStep4
   useEffect(() => {
     shapesRef.current = shapes;
     renderCanvas();
-  }, [shapes, selectedShapeId, hoveredShapeId]);
+  }, [shapes, selectedShapeId, hoveredShapeId, transformMode]);
 
   // Handle undo/redo shortcuts or buttons
   const undo = () => {
@@ -388,33 +406,66 @@ export function ReportEditStep4({ report, setReport, readOnly }: ReportEditStep4
     
     // Draw all shapes
     shapesRef.current.forEach(shape => {
+      ctx.save();
       ctx.lineWidth = shape.strokeWidth;
       ctx.strokeStyle = shape.color;
       ctx.fillStyle = shape.color;
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
-      ctx.beginPath();
+      
+      const rotation = shape.rotation || 0;
+      let cx = 0, cy = 0;
 
+      // Draw Shape
       if (shape.type === 'pencil') {
         const s = shape as PencilShape;
         if (s.points.length > 0) {
-          ctx.moveTo(s.points[0].x, s.points[0].y);
-          s.points.forEach(p => ctx.lineTo(p.x, p.y));
-          ctx.stroke();
+            const xs = s.points.map(p => p.x);
+            const ys = s.points.map(p => p.y);
+            const minX = Math.min(...xs);
+            const maxX = Math.max(...xs);
+            const minY = Math.min(...ys);
+            const maxY = Math.max(...ys);
+            cx = (minX + maxX) / 2;
+            cy = (minY + maxY) / 2;
+            
+            ctx.translate(cx, cy);
+            ctx.rotate(rotation);
+            ctx.translate(-cx, -cy);
+            
+            ctx.beginPath();
+            ctx.moveTo(s.points[0].x, s.points[0].y);
+            s.points.forEach(p => ctx.lineTo(p.x, p.y));
+            ctx.stroke();
         }
       } else if (shape.type === 'square' || shape.type === 'square-fill') {
         const s = shape as RectShape;
+        cx = s.x + s.width / 2;
+        cy = s.y + s.height / 2;
+
+        ctx.translate(cx, cy);
+        ctx.rotate(rotation);
+        
+        ctx.beginPath();
         if (s.type === 'square-fill') {
-            ctx.fillRect(s.x, s.y, s.width, s.height);
+            ctx.fillRect(-s.width / 2, -s.height / 2, s.width, s.height);
         } else {
-            ctx.strokeRect(s.x, s.y, s.width, s.height);
+            ctx.strokeRect(-s.width / 2, -s.height / 2, s.width, s.height);
         }
       } else if (shape.type === 'circle' || shape.type === 'circle-fill') {
         const s = shape as CircleShape;
-        ctx.arc(s.x, s.y, s.radius, 0, 2 * Math.PI);
+        cx = s.x;
+        cy = s.y;
+        
+        ctx.translate(cx, cy);
+        ctx.rotate(rotation);
+
+        ctx.beginPath();
+        ctx.arc(0, 0, s.radius, 0, 2 * Math.PI);
         if (s.type === 'circle-fill') ctx.fill();
         else ctx.stroke();
       }
+      ctx.restore();
     });
 
     // Draw selection overlay
@@ -422,12 +473,11 @@ export function ReportEditStep4({ report, setReport, readOnly }: ReportEditStep4
       const shape = shapesRef.current.find(s => s.id === selectedShapeId);
       if (shape) {
         ctx.save();
-        ctx.strokeStyle = '#00a8ff';
-        ctx.lineWidth = 1;
-        ctx.setLineDash([5, 5]);
         
-        let bounds = { x: 0, y: 0, w: 0, h: 0 };
-        
+        const rotation = shape.rotation || 0;
+        let bounds = { w: 0, h: 0 };
+        let cx = 0, cy = 0;
+
         if (shape.type === 'pencil') {
            const s = shape as PencilShape;
            const xs = s.points.map(p => p.x);
@@ -436,36 +486,66 @@ export function ReportEditStep4({ report, setReport, readOnly }: ReportEditStep4
            const maxX = Math.max(...xs);
            const minY = Math.min(...ys);
            const maxY = Math.max(...ys);
-           bounds = { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
+           bounds = { w: maxX - minX, h: maxY - minY };
+           cx = minX + bounds.w / 2;
+           cy = minY + bounds.h / 2;
         } else if (shape.type.includes('square')) {
            const s = shape as RectShape;
-           bounds = { x: s.x, y: s.y, w: s.width, h: s.height };
+           bounds = { w: s.width, h: s.height };
+           cx = s.x + s.width / 2;
+           cy = s.y + s.height / 2;
         } else if (shape.type.includes('circle')) {
            const s = shape as CircleShape;
-           bounds = { x: s.x - s.radius, y: s.y - s.radius, w: s.radius * 2, h: s.radius * 2 };
+           bounds = { w: s.radius * 2, h: s.radius * 2 };
+           cx = s.x;
+           cy = s.y;
         }
 
-        // Selection Box
-        ctx.strokeRect(bounds.x - 5, bounds.y - 5, bounds.w + 10, bounds.h + 10);
+        // Apply transform to draw selection box at center
+        ctx.translate(cx, cy);
+        ctx.rotate(rotation);
+
+        const halfW = bounds.w / 2;
+        const halfH = bounds.h / 2;
         
-        // Resize Handles (Corners)
+        // Selection Box Style
+        ctx.strokeStyle = transformMode === 'rotate' ? '#e67e22' : '#00a8ff'; // Orange for rotate, Blue for scale
+        ctx.lineWidth = 1;
+        ctx.setLineDash(transformMode === 'rotate' ? [] : [5, 5]); // Solid for rotate, dashed for scale
+        
+        ctx.strokeRect(-halfW - 5, -halfH - 5, bounds.w + 10, bounds.h + 10);
+        
+        // Handles
         ctx.setLineDash([]);
         ctx.fillStyle = '#fff';
-        ctx.strokeStyle = '#00a8ff';
         const handleSize = 8;
         const half = handleSize / 2;
         
         const corners = [
-            { x: bounds.x - 5, y: bounds.y - 5 }, // TL
-            { x: bounds.x + bounds.w + 5, y: bounds.y - 5 }, // TR
-            { x: bounds.x - 5, y: bounds.y + bounds.h + 5 }, // BL
-            { x: bounds.x + bounds.w + 5, y: bounds.y + bounds.h + 5 }, // BR
+            { x: -halfW - 5, y: -halfH - 5 }, // TL
+            { x: halfW + 5, y: -halfH - 5 }, // TR
+            { x: -halfW - 5, y: halfH + 5 }, // BL
+            { x: halfW + 5, y: halfH + 5 }, // BR
         ];
 
         corners.forEach(c => {
-            ctx.fillRect(c.x - half, c.y - half, handleSize, handleSize);
-            ctx.strokeRect(c.x - half, c.y - half, handleSize, handleSize);
+            ctx.beginPath();
+            if (transformMode === 'rotate') {
+                ctx.arc(c.x, c.y, handleSize/2, 0, 2 * Math.PI); // Circle handles for rotate
+                ctx.fill();
+                ctx.stroke();
+            } else {
+                ctx.fillRect(c.x - half, c.y - half, handleSize, handleSize); // Square handles for scale
+                ctx.strokeRect(c.x - half, c.y - half, handleSize, handleSize);
+            }
         });
+
+        // Center Point (Pivot)
+        if (transformMode === 'rotate') {
+            ctx.beginPath();
+            ctx.arc(0, 0, 3, 0, 2 * Math.PI);
+            ctx.fill();
+        }
 
         ctx.restore();
       }
@@ -489,7 +569,10 @@ export function ReportEditStep4({ report, setReport, readOnly }: ReportEditStep4
      if (selectedShapeId) {
          const shape = shapesRef.current.find(s => s.id === selectedShapeId);
          if (shape) {
-             let bounds = { x: 0, y: 0, w: 0, h: 0 };
+             let cx = 0, cy = 0;
+             let halfW = 0, halfH = 0;
+             
+             // Calculate local center and dimensions
              if (shape.type === 'pencil') {
                 const s = shape as PencilShape;
                 const xs = s.points.map(p => p.x);
@@ -498,25 +581,38 @@ export function ReportEditStep4({ report, setReport, readOnly }: ReportEditStep4
                 const maxX = Math.max(...xs);
                 const minY = Math.min(...ys);
                 const maxY = Math.max(...ys);
-                bounds = { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
+                cx = (minX + maxX) / 2;
+                cy = (minY + maxY) / 2;
+                halfW = (maxX - minX) / 2;
+                halfH = (maxY - minY) / 2;
              } else if (shape.type.includes('square')) {
                 const s = shape as RectShape;
-                bounds = { x: s.x, y: s.y, w: s.width, h: s.height };
+                cx = s.x + s.width / 2;
+                cy = s.y + s.height / 2;
+                halfW = s.width / 2;
+                halfH = s.height / 2;
              } else if (shape.type.includes('circle')) {
                 const s = shape as CircleShape;
-                bounds = { x: s.x - s.radius, y: s.y - s.radius, w: s.radius * 2, h: s.radius * 2 };
+                cx = s.x;
+                cy = s.y;
+                halfW = s.radius;
+                halfH = s.radius;
              }
+             
+             // Transform mouse into shape local space (un-rotate)
+             const angle = -(shape.rotation || 0);
+             const local = rotatePoint(x, y, cx, cy, angle);
              
              const margin = 10;
              const corners = {
-                 tl: { x: bounds.x - 5, y: bounds.y - 5 },
-                 tr: { x: bounds.x + bounds.w + 5, y: bounds.y - 5 },
-                 bl: { x: bounds.x - 5, y: bounds.y + bounds.h + 5 },
-                 br: { x: bounds.x + bounds.w + 5, y: bounds.y + bounds.h + 5 },
+                 tl: { x: cx - halfW - 5, y: cy - halfH - 5 },
+                 tr: { x: cx + halfW + 5, y: cy - halfH - 5 },
+                 bl: { x: cx - halfW - 5, y: cy + halfH + 5 },
+                 br: { x: cx + halfW + 5, y: cy + halfH + 5 },
              };
              
              for (const [key, pos] of Object.entries(corners)) {
-                 if (Math.abs(x - pos.x) < margin && Math.abs(y - pos.y) < margin) {
+                 if (Math.abs(local.x - pos.x) < margin && Math.abs(local.y - pos.y) < margin) {
                      return { shapeId: selectedShapeId, handle: key };
                  }
              }
@@ -526,31 +622,52 @@ export function ReportEditStep4({ report, setReport, readOnly }: ReportEditStep4
      // Check shapes (reverse order for top-most)
      for (let i = shapesRef.current.length - 1; i >= 0; i--) {
          const s = shapesRef.current[i];
+         const rotation = s.rotation || 0;
+         
+         // Calculate center
+         let cx = 0, cy = 0;
          if (s.type === 'pencil') {
-             // Simple point distance check
+            const p = s as PencilShape;
+            const xs = p.points.map(pt => pt.x);
+            const ys = p.points.map(pt => pt.y);
+            cx = (Math.min(...xs) + Math.max(...xs)) / 2;
+            cy = (Math.min(...ys) + Math.max(...ys)) / 2;
+         } else if (s.type.includes('square')) {
+            const r = s as RectShape;
+            cx = r.x + r.width / 2;
+            cy = r.y + r.height / 2;
+         } else if (s.type.includes('circle')) {
+            const c = s as CircleShape;
+            cx = c.x;
+            cy = c.y;
+         }
+         
+         // Un-rotate mouse
+         const local = rotatePoint(x, y, cx, cy, -rotation);
+         const lx = local.x;
+         const ly = local.y;
+         
+         if (s.type === 'pencil') {
              const ps = (s as PencilShape).points;
              for (const p of ps) {
-                 if (Math.hypot(p.x - x, p.y - y) < s.strokeWidth + 5) {
+                 if (Math.hypot(p.x - lx, p.y - ly) < s.strokeWidth + 5) {
                      return { shapeId: s.id, handle: null };
                  }
              }
          } else if (s.type.includes('square')) {
              const r = s as RectShape;
-             // Check if point inside rect
-             // If filled, inside; if outlined, near border
-             if (x >= r.x && x <= r.x + r.width && y >= r.y && y <= r.y + r.height) {
+             if (lx >= r.x && lx <= r.x + r.width && ly >= r.y && ly <= r.y + r.height) {
                  if (r.type === 'square-fill') return { shapeId: s.id, handle: null };
-                 // Border check for outline
                  const border = 5 + r.strokeWidth;
-                 const onLeft = Math.abs(x - r.x) < border;
-                 const onRight = Math.abs(x - (r.x + r.width)) < border;
-                 const onTop = Math.abs(y - r.y) < border;
-                 const onBottom = Math.abs(y - (r.y + r.height)) < border;
+                 const onLeft = Math.abs(lx - r.x) < border;
+                 const onRight = Math.abs(lx - (r.x + r.width)) < border;
+                 const onTop = Math.abs(ly - r.y) < border;
+                 const onBottom = Math.abs(ly - (r.y + r.height)) < border;
                  if (onLeft || onRight || onTop || onBottom) return { shapeId: s.id, handle: null };
              }
          } else if (s.type.includes('circle')) {
              const c = s as CircleShape;
-             const dist = Math.hypot(x - c.x, y - c.y);
+             const dist = Math.hypot(lx - c.x, ly - c.y);
              if (c.type === 'circle-fill') {
                  if (dist <= c.radius) return { shapeId: s.id, handle: null };
              } else {
@@ -559,6 +676,15 @@ export function ReportEditStep4({ report, setReport, readOnly }: ReportEditStep4
          }
      }
      return { shapeId: null, handle: null };
+  };
+
+  const handleDoubleClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (!isEditing || !selectedShapeId) return;
+    const { x, y } = getCanvasCoords(e);
+    const hit = hitTest(x, y);
+    if (hit.shapeId === selectedShapeId) {
+        setTransformMode(prev => prev === 'scale' ? 'rotate' : 'scale');
+    }
   };
 
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -577,13 +703,18 @@ export function ReportEditStep4({ report, setReport, readOnly }: ReportEditStep4
 
         // Select mode
         if (hit.shapeId) {
-            setSelectedShapeId(hit.shapeId);
+            if (hit.shapeId !== selectedShapeId) {
+                setSelectedShapeId(hit.shapeId);
+                setTransformMode('scale'); // Reset to scale on new selection
+            }
+            
             interactionRef.current = {
                 isDown: true,
                 startPos: { x, y },
                 resizeHandle: hit.handle || undefined,
                 lastMousePos: { x, y },
                 movingShapeStart: JSON.parse(JSON.stringify(shapesRef.current.find(s => s.id === hit.shapeId))),
+                startRotation: shapesRef.current.find(s => s.id === hit.shapeId)?.rotation || 0,
             };
         } else {
             setSelectedShapeId(null);
@@ -609,10 +740,6 @@ export function ReportEditStep4({ report, setReport, readOnly }: ReportEditStep4
 
     if (newShape) {
         interactionRef.current.currentShape = newShape;
-        // Don't add to shapes yet, draw on temp canvas or overlay in render
-        // Actually, easiest is to add to shapes immediately for "live" render if performant, 
-        // or just use temp canvas. Let's use shapes state for pencil, but temp for others?
-        // Let's use a "tempShape" approach.
     }
   };
 
@@ -624,8 +751,21 @@ export function ReportEditStep4({ report, setReport, readOnly }: ReportEditStep4
     if (!interactionRef.current.isDown && (activeTool === 'select' || activeTool === 'eraser')) {
        const hit = hitTest(x, y);
        if (hit.shapeId !== hoveredShapeId) setHoveredShapeId(hit.shapeId);
-       e.currentTarget.style.cursor = hit.handle ? (hit.handle === 'tl' || hit.handle === 'br' ? 'nwse-resize' : 'nesw-resize') : (hit.shapeId ? 'move' : 'default');
-       if (activeTool === 'eraser') e.currentTarget.style.cursor = hit.shapeId ? 'crosshair' : 'default';
+       
+       let cursor = 'default';
+       if (hit.shapeId) {
+           if (activeTool === 'eraser') cursor = 'crosshair';
+           else if (hit.handle) {
+               if (transformMode === 'rotate') {
+                   cursor = 'alias'; 
+               } else {
+                   cursor = (hit.handle === 'tl' || hit.handle === 'br') ? 'nwse-resize' : 'nesw-resize';
+               }
+           } else {
+               cursor = 'move';
+           }
+       }
+       e.currentTarget.style.cursor = cursor;
        return;
     }
 
@@ -643,23 +783,53 @@ export function ReportEditStep4({ report, setReport, readOnly }: ReportEditStep4
         const shape = { ...newShapes[shapeIndex] };
 
         if (interactionRef.current.resizeHandle) {
-            // Resizing
-            const handle = interactionRef.current.resizeHandle;
-            if (shape.type.includes('square')) {
-               const r = shape as RectShape;
-               if (handle.includes('l')) { r.x += dx; r.width -= dx; }
-               if (handle.includes('r')) { r.width += dx; }
-               if (handle.includes('t')) { r.y += dy; r.height -= dy; }
-               if (handle.includes('b')) { r.height += dy; }
-            } else if (shape.type.includes('circle')) {
-               const c = shape as CircleShape;
-               // Simple radius resize based on dist from center
-               const dist = Math.hypot(x - c.x, y - c.y);
-               c.radius = dist;
-            } else if (shape.type === 'pencil') {
-               // Scale pencil? Complex. Let's just move for now or simple scale bounding box
-               // Skip resize for pencil for MVP simplicity unless essential
-            }
+             const handle = interactionRef.current.resizeHandle;
+             // Rotation
+             if (transformMode === 'rotate') {
+                 let cx = 0, cy = 0;
+                 if (shape.type === 'pencil') {
+                     const s = shape as PencilShape;
+                     const xs = s.points.map(p => p.x);
+                     const ys = s.points.map(p => p.y);
+                     cx = (Math.min(...xs) + Math.max(...xs)) / 2;
+                     cy = (Math.min(...ys) + Math.max(...ys)) / 2;
+                 } else if (shape.type.includes('square')) {
+                     const s = shape as RectShape;
+                     cx = s.x + s.width / 2;
+                     cy = s.y + s.height / 2;
+                 } else if (shape.type.includes('circle')) {
+                     const s = shape as CircleShape;
+                     cx = s.x;
+                     cy = s.y;
+                 }
+                 
+                 const angle = Math.atan2(y - cy, x - cx);
+                 let handleAngle = 0;
+                 if (handle === 'tl') handleAngle = -Math.PI * 0.75;
+                 if (handle === 'tr') handleAngle = -Math.PI * 0.25;
+                 if (handle === 'br') handleAngle = Math.PI * 0.25;
+                 if (handle === 'bl') handleAngle = Math.PI * 0.75;
+                 
+                 shape.rotation = angle - handleAngle;
+                 newShapes[shapeIndex] = shape;
+                 setShapes(newShapes);
+                 return;
+             }
+
+             // Resize
+             if (shape.type.includes('square')) {
+                if (Math.abs(shape.rotation || 0) < 0.1) {
+                    const r = shape as RectShape;
+                    if (handle.includes('l')) { r.x += dx; r.width -= dx; }
+                    if (handle.includes('r')) { r.width += dx; }
+                    if (handle.includes('t')) { r.y += dy; r.height -= dy; }
+                    if (handle.includes('b')) { r.height += dy; }
+                }
+             } else if (shape.type.includes('circle')) {
+                const c = shape as CircleShape;
+                const dist = Math.hypot(x - c.x, y - c.y);
+                c.radius = dist;
+             }
         } else {
             // Moving
             if (shape.type === 'pencil') {
@@ -761,14 +931,16 @@ export function ReportEditStep4({ report, setReport, readOnly }: ReportEditStep4
     const mapCanvas = canvasRef.current;
     const drawingCanvas = drawingCanvasRef.current;
     if (!mapCanvas || !drawingCanvas) return;
-    // ... same as before
+
     const finalCanvas = document.createElement('canvas');
     finalCanvas.width = CANVAS_WIDTH;
     finalCanvas.height = CANVAS_HEIGHT;
     const ctx = finalCanvas.getContext('2d');
     if (!ctx) return;
+
     ctx.drawImage(mapCanvas, 0, 0);
     ctx.drawImage(drawingCanvas, 0, 0);
+
     const dataUrl = finalCanvas.toDataURL('image/png');
     setReport({ ...report, edited_map_image_url: dataUrl, updated_at: Date.now() });
     setIsEditing(false);
@@ -810,12 +982,6 @@ export function ReportEditStep4({ report, setReport, readOnly }: ReportEditStep4
     // Re-render when switching to edit mode
     renderCanvas();
   }, [isEditing]);
-  
-  // Fix for negative width/height in handleMouseUp was incomplete in previous chunk replacement due to scope
-  // The logic is embedded in handleMouseUp in the new chunk, so it should be fine.
-  // However, I need to make sure handleSaveEdit uses shapesRef to draw, not just drawingCanvasRef because drawingCanvas is redrawn every frame.
-  // Actually, renderCanvas draws to drawingCanvasRef. So as long as renderCanvas is called, drawingCanvasRef has the content.
-  // The previous handleSaveEdit used drawingCanvas directly. Since renderCanvas keeps drawingCanvas up to date, it works.
   
   /* ── Read-only view ── */
   if (readOnly) {
@@ -878,6 +1044,7 @@ export function ReportEditStep4({ report, setReport, readOnly }: ReportEditStep4
                     onMouseMove={handleMouseMove}
                     onMouseUp={handleMouseUp}
                     onMouseLeave={handleMouseUp}
+                    onDblClick={handleDoubleClick}
                     style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', cursor: 'crosshair' }}
                   />
                 </>
