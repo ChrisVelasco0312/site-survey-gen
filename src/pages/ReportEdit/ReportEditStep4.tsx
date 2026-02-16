@@ -8,9 +8,13 @@ import {
   Button,
   Slider,
   Group,
+  Anchor,
+  Center,
+  ThemeIcon,
 } from '@mantine/core';
-import { IconDownload } from '@tabler/icons-react';
+import { IconDownload, IconExternalLink, IconWifiOff } from '@tabler/icons-react';
 import type { Report } from '../../types/Report';
+import { useConnectivity } from '../../hooks/useConnectivity';
 
 /* ── Constants ─────────────────────────────────────────────── */
 
@@ -110,11 +114,16 @@ export function ReportEditStep4({ report, setReport, readOnly }: ReportEditStep4
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [zoom, setZoom] = useState(ZOOM_DEFAULT);
   const [loading, setLoading] = useState(false);
+  const isOnline = useConnectivity();
 
   const hasEditedMap = Boolean(report.edited_map_image_url?.trim());
 
   // Re-render tiles whenever lat, lon or zoom changes
   useEffect(() => {
+    if (!isOnline) {
+      setLoading(false);
+      return;
+    }
     const canvas = canvasRef.current;
     if (!canvas) return;
     let cancelled = false;
@@ -123,7 +132,7 @@ export function ReportEditStep4({ report, setReport, readOnly }: ReportEditStep4
       if (!cancelled) setLoading(false);
     });
     return () => { cancelled = true; };
-  }, [lat, lon, zoom]);
+  }, [lat, lon, zoom, isOnline]);
 
   const handleDownload = useCallback(() => {
     const canvas = canvasRef.current;
@@ -190,67 +199,112 @@ export function ReportEditStep4({ report, setReport, readOnly }: ReportEditStep4
           overflow: 'hidden',
         }}
       >
-        {/* Map canvas */}
-        <Box style={{ position: 'relative' }}>
-          <canvas
-            ref={canvasRef}
-            style={{ width: '100%', height: 'auto', display: 'block' }}
-          />
-          {loading && (
+        {isOnline ? (
+          <>
+            {/* Map canvas */}
+            <Box style={{ position: 'relative' }}>
+              <canvas
+                ref={canvasRef}
+                style={{ width: '100%', height: 'auto', display: 'block' }}
+              />
+              {loading && (
+                <Box
+                  style={{
+                    position: 'absolute',
+                    inset: 0,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    background: 'rgba(255,255,255,0.6)',
+                  }}
+                >
+                  <Text size="sm" c="dimmed">Cargando mapa…</Text>
+                </Box>
+              )}
+            </Box>
+
+            {/* Controls bar below the map */}
             <Box
               style={{
-                position: 'absolute',
-                inset: 0,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                background: 'rgba(255,255,255,0.6)',
+                padding: 'var(--mantine-spacing-sm) var(--mantine-spacing-md)',
+                borderTop: '1px solid var(--mantine-color-default-border)',
+                background: 'var(--mantine-color-body)',
               }}
             >
-              <Text size="sm" c="dimmed">Cargando mapa…</Text>
-            </Box>
-          )}
-        </Box>
+              {!hasCoords && (
+                <Alert color="blue" mb="sm">
+                  Complete la dirección en el paso 1 para ver la ubicación exacta.
+                </Alert>
+              )}
 
-        {/* Controls bar below the map */}
-        <Box
-          style={{
-            padding: 'var(--mantine-spacing-sm) var(--mantine-spacing-md)',
-            borderTop: '1px solid var(--mantine-color-default-border)',
-            background: 'var(--mantine-color-body)',
-          }}
-        >
-          {!hasCoords && (
-            <Alert color="blue" mb="sm">
-              Complete la dirección en el paso 1 para ver la ubicación exacta.
-            </Alert>
-          )}
-
-          <Group align="flex-end" gap="md" wrap="wrap">
-            <Box style={{ flex: 1, minWidth: 160, paddingBottom: 16 }}>
-              <Text size="xs" fw={500} mb={4}>Zoom: {zoom}</Text>
-              <Slider
-                min={ZOOM_MIN}
-                max={ZOOM_MAX}
-                value={zoom}
-                onChange={setZoom}
-                marks={[
-                  { value: ZOOM_MIN, label: String(ZOOM_MIN) },
-                  { value: ZOOM_MAX, label: String(ZOOM_MAX) },
-                ]}
-              />
+              <Group align="flex-end" gap="md" wrap="wrap">
+                <Box style={{ flex: 1, minWidth: 160, paddingBottom: 16 }}>
+                  <Text size="xs" fw={500} mb={4}>Zoom: {zoom}</Text>
+                  <Slider
+                    min={ZOOM_MIN}
+                    max={ZOOM_MAX}
+                    value={zoom}
+                    onChange={setZoom}
+                    marks={[
+                      { value: ZOOM_MIN, label: String(ZOOM_MIN) },
+                      { value: ZOOM_MAX, label: String(ZOOM_MAX) },
+                    ]}
+                  />
+                </Box>
+                <Button
+                  leftSection={<IconDownload size={14} />}
+                  variant="light"
+                  size="xs"
+                  onClick={handleDownload}
+                  disabled={loading}
+                >
+                  Descargar imagen
+                </Button>
+                {hasCoords && (
+                  <Button
+                    component="a"
+                    href={`https://www.google.com/maps/search/?api=1&query=${lat},${lon}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    variant="subtle"
+                    size="xs"
+                    leftSection={<IconExternalLink size={14} />}
+                  >
+                    Ver en Google Maps
+                  </Button>
+                )}
+              </Group>
             </Box>
-            <Button
-              leftSection={<IconDownload size={14} />}
-              variant="light"
-              size="xs"
-              onClick={handleDownload}
-              disabled={loading}
-            >
-              Descargar imagen
-            </Button>
-          </Group>
-        </Box>
+          </>
+        ) : (
+          /* Offline placeholder */
+          <Box p="xl">
+            <Center style={{ flexDirection: 'column', gap: 16 }}>
+              <ThemeIcon variant="light" color="gray" size={64} radius="xl">
+                <IconWifiOff size={32} />
+              </ThemeIcon>
+              <Text ta="center" size="sm" fw={500}>
+                Sin conexión a internet
+              </Text>
+              <Text ta="center" size="xs" c="dimmed" style={{ maxWidth: 300 }}>
+                Para visualizar el mapa satelital y descargar la imagen base, es necesaria una conexión a internet activa.
+              </Text>
+              {hasCoords && (
+                <Button
+                  component="a"
+                  href={`https://www.google.com/maps/search/?api=1&query=${lat},${lon}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  variant="outline"
+                  size="sm"
+                  leftSection={<IconExternalLink size={16} />}
+                >
+                  Abrir ubicación en Google Maps
+                </Button>
+              )}
+            </Center>
+          </Box>
+        )}
       </Box>
 
       <Text size="xs" c="dimmed" mt={-12}>
