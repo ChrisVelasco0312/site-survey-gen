@@ -11,6 +11,7 @@ import {
   Anchor,
   Center,
   ThemeIcon,
+  SegmentedControl,
 } from '@mantine/core';
 import { IconDownload, IconExternalLink, IconWifiOff } from '@tabler/icons-react';
 import type { Report } from '../../types/Report';
@@ -41,15 +42,21 @@ function latLonToTile(lat: number, lon: number, z: number) {
   return { x, y };
 }
 
-/** Load a single OSM tile as an Image. Supports digital zoom beyond MAX_NATIVE_ZOOM. */
-async function loadTile(z: number, x: number, y: number): Promise<CanvasImageSource> {
+/** Load a single OSM or Satellite tile as an Image. Supports digital zoom beyond MAX_NATIVE_ZOOM. */
+async function loadTile(z: number, x: number, y: number, type: 'osm' | 'satellite'): Promise<CanvasImageSource> {
   if (z <= MAX_NATIVE_ZOOM) {
     return new Promise<HTMLImageElement>((resolve, reject) => {
       const img = new Image();
       img.crossOrigin = 'anonymous';
       img.onload = () => resolve(img);
       img.onerror = () => reject(new Error(`Tile ${z}/${x}/${y} failed`));
-      img.src = `https://tile.openstreetmap.org/${z}/${x}/${y}.png`;
+      if (type === 'satellite') {
+        // Esri World Imagery (uses z/y/x ordering in REST URL)
+        img.src = `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/${z}/${y}/${x}`;
+      } else {
+        // OpenStreetMap (standard z/x/y)
+        img.src = `https://tile.openstreetmap.org/${z}/${x}/${y}.png`;
+      }
     });
   }
 
@@ -58,7 +65,7 @@ async function loadTile(z: number, x: number, y: number): Promise<CanvasImageSou
   const xParent = Math.floor(x / scale);
   const yParent = Math.floor(y / scale);
   
-  const parentImg = await loadTile(MAX_NATIVE_ZOOM, xParent, yParent);
+  const parentImg = await loadTile(MAX_NATIVE_ZOOM, xParent, yParent, type);
 
   const canvas = document.createElement('canvas');
   canvas.width = TILE_SIZE;
@@ -80,6 +87,7 @@ async function renderTilesToCanvas(
   lat: number,
   lon: number,
   zoom: number,
+  type: 'osm' | 'satellite',
 ) {
   const ctx = canvas.getContext('2d');
   if (!ctx) return;
@@ -127,7 +135,7 @@ async function renderTilesToCanvas(
       const drawY = Math.floor(dy * TILE_SIZE + offsetY);
 
       try {
-        const img = await loadTile(intZoom, tx, ty);
+        const img = await loadTile(intZoom, tx, ty, type);
         ctx.drawImage(img, drawX, drawY, TILE_SIZE, TILE_SIZE);
       } catch {
         ctx.fillStyle = '#ddd';
@@ -170,6 +178,7 @@ export function ReportEditStep4({ report, setReport, readOnly }: ReportEditStep4
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [zoom, setZoom] = useState(ZOOM_DEFAULT);
+  const [mapType, setMapType] = useState<'osm' | 'satellite'>('osm');
   const [loading, setLoading] = useState(false);
   const [imageWarning, setImageWarning] = useState<string | null>(null);
   const isOnline = useConnectivity();
@@ -186,11 +195,11 @@ export function ReportEditStep4({ report, setReport, readOnly }: ReportEditStep4
     if (!canvas) return;
     let cancelled = false;
     setLoading(true);
-    renderTilesToCanvas(canvas, lat, lon, zoom).finally(() => {
+    renderTilesToCanvas(canvas, lat, lon, zoom, mapType).finally(() => {
       if (!cancelled) setLoading(false);
     });
     return () => { cancelled = true; };
-  }, [lat, lon, zoom, isOnline]);
+  }, [lat, lon, zoom, isOnline, mapType]);
 
   const handleDownload = useCallback(() => {
     const canvas = canvasRef.current;
@@ -316,6 +325,18 @@ export function ReportEditStep4({ report, setReport, readOnly }: ReportEditStep4
               )}
 
               <Group align="flex-end" gap="md" wrap="wrap">
+                <Box>
+                  <Text size="xs" fw={500} mb={4}>Tipo de mapa</Text>
+                  <SegmentedControl
+                    size="xs"
+                    value={mapType}
+                    onChange={(val) => setMapType(val as 'osm' | 'satellite')}
+                    data={[
+                      { label: 'Mapa', value: 'osm' },
+                      { label: 'Satélite', value: 'satellite' },
+                    ]}
+                  />
+                </Box>
                 <Box style={{ flex: 1, minWidth: 160, paddingBottom: 16 }}>
                   <Text size="xs" fw={500} mb={4}>
                     Zoom: {zoom.toFixed(1)} {zoom > 20 && <span style={{ color: 'red' }}>(Digital)</span>}
