@@ -9,11 +9,13 @@ import {
   Loader,
   Alert,
   Modal,
+  Tooltip,
 } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { IconDownload, IconRefresh, IconArrowLeft, IconFileExport, IconWifiOff, IconSend } from '@tabler/icons-react';
 import type { Report, ReportStatus } from '../../types/Report';
 import { generateReportPdf } from '../../utils/pdfGenerator';
+import { validateReportForReview } from '../../utils/reportValidation';
 
 interface PdfPreviewPanelProps {
   report: Report;
@@ -46,6 +48,7 @@ export function PdfPreviewPanel({
   const blobUrlRef = useRef<string | null>(null);
   const [confirmOpened, { open: openConfirm, close: closeConfirm }] = useDisclosure(false);
 
+  const validation = validateReportForReview(report);
   const isGenerado = report.status === 'generado';
 
   // --- Generado reports: use stored PDF URL ---
@@ -260,15 +263,31 @@ export function PdfPreviewPanel({
 
           {/* Enviar a Revisión button */}
           {report.status === 'en_campo' && onSendToReview && (
-            <Button
-              color="orange"
-              leftSection={<IconSend size={16} />}
-              onClick={onSendToReview}
-              disabled={loading}
-              size="sm"
+            <Tooltip
+              label={
+                validation.isValid
+                  ? 'Enviar a revisión'
+                  : `Faltan campos:\n${validation.missingFields.join('\n')}`
+              }
+              multiline
+              color={validation.isValid ? 'black' : 'red'}
+              position="bottom"
+              withArrow
             >
-              Enviar a Revisión
-            </Button>
+              {/* Wrapper needed to show tooltip on disabled button */}
+              <div style={{ display: 'inline-block' }}>
+                <Button
+                  color="orange"
+                  leftSection={<IconSend size={16} />}
+                  onClick={onSendToReview}
+                  disabled={loading || !validation.isValid}
+                  size="sm"
+                  style={{ pointerEvents: validation.isValid ? 'auto' : 'none' }}
+                >
+                  Enviar a Revisión
+                </Button>
+              </div>
+            </Tooltip>
           )}
         </Group>
       </Group>
