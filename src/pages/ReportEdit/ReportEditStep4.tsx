@@ -21,11 +21,15 @@ import { useConnectivity } from '../../hooks/useConnectivity';
 const DEFAULT_LAT = 4.5709;
 const DEFAULT_LON = -74.2973;
 const TILE_SIZE = 256;
-const GRID = 3; // 3×3 tiles
-const CANVAS_PX = TILE_SIZE * GRID; // 768
+const GRID_W = 7; // Covers 1792px width
+const GRID_H = 4; // Covers 1024px height
+// Exact resolution requested by user
+const CANVAS_WIDTH = 1732;
+const CANVAS_HEIGHT = 974;
 const ZOOM_MIN = 15;
-const ZOOM_MAX = 19;
+const ZOOM_MAX = 21;
 const ZOOM_DEFAULT = 17;
+const MAX_NATIVE_ZOOM = 19;
 
 /* ── Tile math ─────────────────────────────────────────────── */
 
@@ -37,16 +41,37 @@ function latLonToTile(lat: number, lon: number, z: number) {
   return { x, y };
 }
 
-/** Load a single OSM tile as an Image. OSM serves Access-Control-Allow-Origin: *
- *  so crossOrigin='anonymous' is enough — no proxy needed. */
-function loadTile(z: number, x: number, y: number): Promise<HTMLImageElement> {
-  return new Promise<HTMLImageElement>((resolve, reject) => {
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    img.onload = () => resolve(img);
-    img.onerror = () => reject(new Error(`Tile ${z}/${x}/${y} failed`));
-    img.src = `https://tile.openstreetmap.org/${z}/${x}/${y}.png`;
-  });
+/** Load a single OSM tile as an Image. Supports digital zoom beyond MAX_NATIVE_ZOOM. */
+async function loadTile(z: number, x: number, y: number): Promise<CanvasImageSource> {
+  if (z <= MAX_NATIVE_ZOOM) {
+    return new Promise<HTMLImageElement>((resolve, reject) => {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => resolve(img);
+      img.onerror = () => reject(new Error(`Tile ${z}/${x}/${y} failed`));
+      img.src = `https://tile.openstreetmap.org/${z}/${x}/${y}.png`;
+    });
+  }
+
+  // Overzoom logic: fetch parent tile from MAX_NATIVE_ZOOM and crop/scale
+  const scale = 2 ** (z - MAX_NATIVE_ZOOM);
+  const xParent = Math.floor(x / scale);
+  const yParent = Math.floor(y / scale);
+  
+  const parentImg = await loadTile(MAX_NATIVE_ZOOM, xParent, yParent);
+
+  const canvas = document.createElement('canvas');
+  canvas.width = TILE_SIZE;
+  canvas.height = TILE_SIZE;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('Canvas context failed');
+
+  const cropSize = TILE_SIZE / scale;
+  const srcX = (x % scale) * cropSize;
+  const srcY = (y % scale) * cropSize;
+
+  ctx.drawImage(parentImg, srcX, srcY, cropSize, cropSize, 0, 0, TILE_SIZE, TILE_SIZE);
+  return canvas;
 }
 
 /** Render a GRID×GRID tile mosaic centered on (lat, lon) onto the given canvas. */
@@ -59,35 +84,67 @@ async function renderTilesToCanvas(
   const ctx = canvas.getContext('2d');
   if (!ctx) return;
 
-  canvas.width = CANVAS_PX;
-  canvas.height = CANVAS_PX;
+  // Handle fractional zoom:
+  // We load tiles for the integer zoom level (intZoom)
+  // and scale the canvas context by the fractional difference.
+  const intZoom = Math.floor(zoom);
+  const scale = 2 ** (zoom - intZoom);
+
+  canvas.width = CANVAS_WIDTH;
+  canvas.height = CANVAS_HEIGHT;
+
+  // Reset transform to identity before clearing
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
 
   // Clear with a neutral background while tiles load
   ctx.fillStyle = '#e8e8e8';
-  ctx.fillRect(0, 0, CANVAS_PX, CANVAS_PX);
+  ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
-  const center = latLonToTile(lat, lon, zoom);
-  const max = 2 ** zoom - 1;
+  const center = latLonToTile(lat, lon, intZoom);
+  const max = 2 ** intZoom - 1;
   const clamp = (v: number) => Math.max(0, Math.min(max, v));
-  const half = Math.floor(GRID / 2);
+  const halfW = Math.floor(GRID_W / 2);
+  const halfH = Math.floor(GRID_H / 2);
 
-  for (let dy = 0; dy < GRID; dy++) {
-    for (let dx = 0; dx < GRID; dx++) {
-      const tx = clamp(center.x - half + dx);
-      const ty = clamp(center.y - half + dy);
+  // Calculate offsets to center the TILE_SIZE*GRID grid within the custom CANVAS size
+  const gridPixelWidth = GRID_W * TILE_SIZE;
+  const gridPixelHeight = GRID_H * TILE_SIZE;
+  const offsetX = (CANVAS_WIDTH - gridPixelWidth) / 2;
+  const offsetY = (CANVAS_HEIGHT - gridPixelHeight) / 2;
+
+  // Apply scaling for fractional zoom, centered on the canvas
+  const scaleCx = CANVAS_WIDTH / 2;
+  const scaleCy = CANVAS_HEIGHT / 2;
+  ctx.translate(scaleCx, scaleCy);
+  ctx.scale(scale, scale);
+  ctx.translate(-scaleCx, -scaleCy);
+
+  for (let dy = 0; dy < GRID_H; dy++) {
+    for (let dx = 0; dx < GRID_W; dx++) {
+      const tx = clamp(center.x - halfW + dx);
+      const ty = clamp(center.y - halfH + dy);
+      const drawX = Math.floor(dx * TILE_SIZE + offsetX);
+      const drawY = Math.floor(dy * TILE_SIZE + offsetY);
+
       try {
-        const img = await loadTile(zoom, tx, ty);
-        ctx.drawImage(img, dx * TILE_SIZE, dy * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+        const img = await loadTile(intZoom, tx, ty);
+        ctx.drawImage(img, drawX, drawY, TILE_SIZE, TILE_SIZE);
       } catch {
         ctx.fillStyle = '#ddd';
-        ctx.fillRect(dx * TILE_SIZE, dy * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+        ctx.fillRect(drawX, drawY, TILE_SIZE, TILE_SIZE);
       }
     }
   }
 
+  // Reset transform to draw crosshair crisp and centered (ignoring zoom scale? No, crosshair should stay centered)
+  // Actually, usually crosshair is UI overlay, but here it is burnt into canvas.
+  // If we scale the map, we probably want the crosshair to remain constant size or scale?
+  // Constant size is usually better for a "sight".
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+
   // Draw crosshair at center
-  const cx = CANVAS_PX / 2;
-  const cy = CANVAS_PX / 2;
+  const cx = CANVAS_WIDTH / 2;
+  const cy = CANVAS_HEIGHT / 2;
   ctx.strokeStyle = 'rgba(220, 50, 50, 0.8)';
   ctx.lineWidth = 2;
   ctx.beginPath();
@@ -114,6 +171,7 @@ export function ReportEditStep4({ report, setReport, readOnly }: ReportEditStep4
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [zoom, setZoom] = useState(ZOOM_DEFAULT);
   const [loading, setLoading] = useState(false);
+  const [imageWarning, setImageWarning] = useState<string | null>(null);
   const isOnline = useConnectivity();
 
   const hasEditedMap = Boolean(report.edited_map_image_url?.trim());
@@ -145,18 +203,38 @@ export function ReportEditStep4({ report, setReport, readOnly }: ReportEditStep4
   }, [report.address.pm_number, report.id]);
 
   const onDiagramFileChange = (file: File | null) => {
+    setImageWarning(null);
     if (!file) {
       setReport({ ...report, edited_map_image_url: undefined, updated_at: Date.now() });
       return;
     }
     const reader = new FileReader();
-    reader.onload = () => {
-      setReport({ ...report, edited_map_image_url: reader.result as string, updated_at: Date.now() });
+    reader.onload = (e) => {
+      const result = e.target?.result as string;
+      
+      // Validate image dimensions/ratio
+      const img = new Image();
+      img.onload = () => {
+        const { width, height } = img;
+        const ratio = width / height;
+        // Ideal: ~1.77 (16:9). Accept 1.5 to 2.0. Min width 1000px.
+        const isRatioOk = ratio >= 1.5 && ratio <= 2.2;
+        const isResOk = width >= 1000;
+        
+        if (!isRatioOk || !isResOk) {
+          setImageWarning(
+            'Para un ajuste perfecto en el PDF, se recomienda una imagen de 1732x974 píxeles (aprox. 16:9) y alta resolución.'
+          );
+        }
+        setReport({ ...report, edited_map_image_url: result, updated_at: Date.now() });
+      };
+      img.src = result;
     };
     reader.readAsDataURL(file);
   };
 
   const clearDiagram = () => {
+    setImageWarning(null);
     setReport({ ...report, edited_map_image_url: undefined, updated_at: Date.now() });
   };
 
@@ -169,7 +247,7 @@ export function ReportEditStep4({ report, setReport, readOnly }: ReportEditStep4
           {!hasCoords ? (
             <Text size="sm" c="dimmed">Sin coordenadas (complete el paso 1).</Text>
           ) : (
-            <Box style={{ width: '100%', maxWidth: CANVAS_PX, borderRadius: 'var(--mantine-radius-sm)', overflow: 'hidden' }}>
+            <Box style={{ width: '100%', maxWidth: 800, borderRadius: 'var(--mantine-radius-sm)', overflow: 'hidden' }}>
               <canvas ref={canvasRef} style={{ width: '100%', height: 'auto', display: 'block' }} />
             </Box>
           )}
@@ -239,14 +317,19 @@ export function ReportEditStep4({ report, setReport, readOnly }: ReportEditStep4
 
               <Group align="flex-end" gap="md" wrap="wrap">
                 <Box style={{ flex: 1, minWidth: 160, paddingBottom: 16 }}>
-                  <Text size="xs" fw={500} mb={4}>Zoom: {zoom}</Text>
+                  <Text size="xs" fw={500} mb={4}>
+                    Zoom: {zoom.toFixed(1)} {zoom > 20 && <span style={{ color: 'red' }}>(Digital)</span>}
+                  </Text>
                   <Slider
                     min={ZOOM_MIN}
                     max={ZOOM_MAX}
+                    step={0.1}
+                    color={zoom > 20 ? 'red' : 'blue'}
                     value={zoom}
                     onChange={setZoom}
                     marks={[
                       { value: ZOOM_MIN, label: String(ZOOM_MIN) },
+                      { value: 20, label: '20' },
                       { value: ZOOM_MAX, label: String(ZOOM_MAX) },
                     ]}
                   />
@@ -323,7 +406,12 @@ export function ReportEditStep4({ report, setReport, readOnly }: ReportEditStep4
 
         {hasEditedMap ? (
           <Stack gap="sm">
-            <Box style={{ maxWidth: 400, border: '1px solid var(--mantine-color-default-border)', borderRadius: 'var(--mantine-radius-sm)', overflow: 'hidden' }}>
+            {imageWarning && (
+              <Alert color="yellow" title="Sugerencia de imagen">
+                {imageWarning}
+              </Alert>
+            )}
+            <Box style={{ maxWidth: 500, border: '1px solid var(--mantine-color-default-border)', borderRadius: 'var(--mantine-radius-sm)', overflow: 'hidden' }}>
               <img src={report.edited_map_image_url} alt="Diagrama del sitio" style={{ width: '100%', height: 'auto', display: 'block' }} />
             </Box>
             <Group gap="xs">
