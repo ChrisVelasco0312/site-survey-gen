@@ -1,0 +1,4 @@
+- [Inicio](/)
+- [Arquitectura](architecture.md)
+- [Flujos y Estados](workflow.md)
+- [Manual de Usuario](user_manual.md)
