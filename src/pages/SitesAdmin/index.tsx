@@ -3,10 +3,10 @@ import { useLocation } from 'preact-iso';
 import {
   Title, Table, Button, Loader, Text, Group, ActionIcon, Tooltip,
   Card, Stack, Badge, Modal, TextInput, Select, NumberInput, Textarea,
-  Pagination,
+  Pagination, Divider, Grid,
 } from '@mantine/core';
 import { useDebouncedValue, useMediaQuery, useDisclosure } from '@mantine/hooks';
-import { IconEdit, IconTrash, IconPlus, IconRefresh, IconSearch } from '@tabler/icons-react';
+import { IconEdit, IconTrash, IconPlus, IconRefresh, IconSearch, IconLink, IconLinkOff, IconEye, IconMapPin } from '@tabler/icons-react';
 import { useAuth } from '../../features/auth/AuthContext';
 import { fetchSitesAndPersist, createSite, updateSite, deleteSite } from '../../services/sitesService';
 import type { SiteRecord } from '../../types/Report';
@@ -23,6 +23,41 @@ const EMPTY_FORM: Omit<SiteRecord, 'id'> = {
   description: '',
 };
 
+const GMS_REGEX = /^(\d+)°(\d+)'(\d+)"([NSns])\s+(\d+)°(\d+)'(\d+)"([EWew])$/;
+
+function parseGMS(gms: string): { latitude: number; longitude: number } | null {
+  const match = gms.trim().match(GMS_REGEX);
+  if (!match) return null;
+
+  const [, latDeg, latMin, latSec, latDir, lonDeg, lonMin, lonSec, lonDir] = match;
+
+  let latitude = parseInt(latDeg) + parseInt(latMin) / 60 + parseInt(latSec) / 3600;
+  let longitude = parseInt(lonDeg) + parseInt(lonMin) / 60 + parseInt(lonSec) / 3600;
+
+  if (latDir.toUpperCase() === 'S') latitude = -latitude;
+  if (lonDir.toUpperCase() === 'W') longitude = -longitude;
+
+  return { latitude, longitude };
+}
+
+function formatToGMS(latitude: number, longitude: number): string {
+  const latDir = latitude >= 0 ? 'N' : 'S';
+  const lonDir = longitude >= 0 ? 'E' : 'W';
+
+  const absLat = Math.abs(latitude);
+  const absLon = Math.abs(longitude);
+
+  const latDeg = Math.floor(absLat);
+  const latMin = Math.floor((absLat - latDeg) * 60);
+  const latSec = Math.round((absLat - latDeg - latMin / 60) * 3600);
+
+  const lonDeg = Math.floor(absLon);
+  const lonMin = Math.floor((absLon - lonDeg) * 60);
+  const lonSec = Math.round((absLon - lonDeg - lonMin / 60) * 3600);
+
+  return `${latDeg}°${latMin}'${latSec}"${latDir} ${lonDeg}°${lonMin}'${lonSec}"${lonDir}`;
+}
+
 export function SitesAdmin() {
   const { userData } = useAuth();
   const location = useLocation();
@@ -38,11 +73,17 @@ export function SitesAdmin() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<Omit<SiteRecord, 'id'>>(EMPTY_FORM);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [gmsInput, setGmsInput] = useState('');
+  const [gmsError, setGmsError] = useState<string | null>(null);
+  const [gmsMode, setGmsMode] = useState(false);
+
+  const [viewOpened, { open: openView, close: closeView }] = useDisclosure(false);
+  const [viewingSite, setViewingSite] = useState<SiteRecord | null>(null);
 
   const [search, setSearch] = useState('');
   const [debouncedSearch] = useDebouncedValue(search, 250);
   const [page, setPage] = useState(1);
-  const PAGE_SIZE = 20;
+  const PAGE_SIZE = 10;
 
   const filtered = useMemo(() => {
     const q = debouncedSearch.trim().toLowerCase();
@@ -86,6 +127,9 @@ export function SitesAdmin() {
   const handleOpenCreate = () => {
     setEditingId(null);
     setForm(EMPTY_FORM);
+    setGmsInput('');
+    setGmsError(null);
+    setGmsMode(false);
     openForm();
   };
 
@@ -93,12 +137,25 @@ export function SitesAdmin() {
     setEditingId(site.id);
     const { id, ...rest } = site;
     setForm(rest);
+    if (site.location?.latitude && site.location?.longitude) {
+      setGmsInput(formatToGMS(site.location.latitude, site.location.longitude));
+      setGmsMode(true);
+    } else {
+      setGmsInput('');
+      setGmsMode(false);
+    }
+    setGmsError(null);
     openForm();
   };
 
   const handleOpenDelete = (id: string) => {
     setDeletingId(id);
     openDelete();
+  };
+
+  const handleOpenView = (site: SiteRecord) => {
+    setViewingSite(site);
+    openView();
   };
 
   const handleSave = async () => {
@@ -135,6 +192,40 @@ export function SitesAdmin() {
 
   const updateField = <K extends keyof Omit<SiteRecord, 'id'>>(key: K, value: Omit<SiteRecord, 'id'>[K]) => {
     setForm((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const handleGmsChange = (value: string) => {
+    setGmsInput(value);
+    if (!value.trim()) {
+      setGmsError(null);
+      return;
+    }
+    const parsed = parseGMS(value);
+    if (!parsed) {
+      setGmsError('Formato inválido. Ejemplo: 3°48\'44"N 76°37\'18"W');
+      return;
+    }
+    setGmsError(null);
+    updateField('location', { latitude: parsed.latitude, longitude: parsed.longitude });
+  };
+
+  useEffect(() => {
+    if (gmsMode && form.location?.latitude && form.location?.longitude) {
+      setGmsInput(formatToGMS(form.location.latitude, form.location.longitude));
+    }
+  }, [form.location?.latitude, form.location?.longitude, gmsMode]);
+
+  const handleToggleGmsMode = () => {
+    if (!gmsMode) {
+      setGmsMode(true);
+      if (form.location?.latitude && form.location?.longitude) {
+        setGmsInput(formatToGMS(form.location.latitude, form.location.longitude));
+      }
+    } else {
+      setGmsMode(false);
+      setGmsInput('');
+      setGmsError(null);
+    }
   };
 
   const siteTypeBadge = (type: string) => {
@@ -200,6 +291,23 @@ export function SitesAdmin() {
           onChange={(e) => updateField('address', (e.target as HTMLInputElement).value)}
           required
         />
+        <TextInput
+          label="Coordenadas GMS"
+          placeholder="3°48'44&quot;N 76°37'18&quot;W"
+          value={gmsInput}
+          onChange={(e) => handleGmsChange((e.target as HTMLInputElement).value)}
+          error={gmsError}
+          rightSection={
+            <ActionIcon
+              variant={gmsMode ? 'filled' : 'default'}
+              color={gmsMode ? 'blue' : 'gray'}
+              onClick={handleToggleGmsMode}
+              title={gmsMode ? 'Desactivar modo GMS' : 'Activar modo GMS'}
+            >
+              {gmsMode ? <IconLinkOff size={16} /> : <IconLink size={16} />}
+            </ActionIcon>
+          }
+        />
         <Group grow>
           <NumberInput
             label="Latitud"
@@ -261,6 +369,83 @@ export function SitesAdmin() {
     </Modal>
   );
 
+  const renderViewModal = () => {
+    if (!viewingSite) return null;
+    const gms = viewingSite.location?.latitude && viewingSite.location?.longitude
+      ? formatToGMS(viewingSite.location.latitude, viewingSite.location.longitude)
+      : 'No disponible';
+    const googleMapsUrl = viewingSite.location?.latitude && viewingSite.location?.longitude
+      ? `https://www.google.com/maps?q=${viewingSite.location.latitude},${viewingSite.location.longitude}`
+      : null;
+
+    return (
+      <Modal opened={viewOpened} onClose={closeView} title="Detalles del Sitio" size="md">
+        <Stack gap="sm">
+          <Group justify="space-between">
+            <Text fw={500} size="lg">{viewingSite.name}</Text>
+            {siteTypeBadge(viewingSite.site_type)}
+          </Group>
+          
+          <Divider />
+          
+          <Grid>
+            <Grid.Col span={6}>
+              <Text size="sm" c="dimmed">Código</Text>
+              <Text>{viewingSite.site_code}</Text>
+            </Grid.Col>
+            <Grid.Col span={6}>
+              <Text size="sm" c="dimmed">Cámaras</Text>
+              <Text>{viewingSite.cameras_count}</Text>
+            </Grid.Col>
+            <Grid.Col span={6}>
+              <Text size="sm" c="dimmed">Distrito</Text>
+              <Text>{viewingSite.distrito}</Text>
+            </Grid.Col>
+            <Grid.Col span={6}>
+              <Text size="sm" c="dimmed">Municipio</Text>
+              <Text>{viewingSite.municipio}</Text>
+            </Grid.Col>
+          </Grid>
+          
+          <div>
+            <Text size="sm" c="dimmed">Dirección</Text>
+            <Text>{viewingSite.address}</Text>
+          </div>
+          
+          <div>
+            <Text size="sm" c="dimmed">Coordenadas</Text>
+            <Text>GMS: {gms}</Text>
+            <Text>Decimal: {viewingSite.location?.latitude?.toFixed(6) ?? 'N/A'}, {viewingSite.location?.longitude?.toFixed(6) ?? 'N/A'}</Text>
+            {googleMapsUrl && (
+              <Button
+                component="a"
+                href={googleMapsUrl}
+                target="_blank"
+                variant="light"
+                size="xs"
+                leftSection={<IconMapPin size={14} />}
+                mt="xs"
+              >
+                Ver en Google Maps
+              </Button>
+            )}
+          </div>
+          
+          {viewingSite.description && (
+            <div>
+              <Text size="sm" c="dimmed">Descripción</Text>
+              <Text>{viewingSite.description}</Text>
+            </div>
+          )}
+          
+          <Group justify="flex-end" mt="md">
+            <Button variant="default" onClick={closeView}>Cerrar</Button>
+          </Group>
+        </Stack>
+      </Modal>
+    );
+  };
+
   const renderMobileList = () => (
     <Stack>
       {paged.map((site) => (
@@ -274,6 +459,15 @@ export function SitesAdmin() {
             {site.distrito} • {site.municipio} • {site.cameras_count} cámaras
           </Text>
           <Group mt="md">
+            <Button
+              variant="light"
+              size="xs"
+              leftSection={<IconEye size={14} />}
+              onClick={() => handleOpenView(site)}
+              style={{ flex: 1 }}
+            >
+              Ver
+            </Button>
             <Button
               variant="light"
               size="xs"
@@ -327,6 +521,11 @@ export function SitesAdmin() {
             <Table.Td>{site.cameras_count}</Table.Td>
             <Table.Td>
               <Group gap="xs">
+                <Tooltip label="Ver">
+                  <ActionIcon variant="subtle" color="gray" onClick={() => handleOpenView(site)}>
+                    <IconEye size={16} />
+                  </ActionIcon>
+                </Tooltip>
                 <Tooltip label="Editar">
                   <ActionIcon variant="subtle" color="blue" onClick={() => handleOpenEdit(site)}>
                     <IconEdit size={16} />
@@ -393,6 +592,7 @@ export function SitesAdmin() {
 
       {renderFormModal()}
       {renderDeleteModal()}
+      {renderViewModal()}
     </div>
   );
 }
