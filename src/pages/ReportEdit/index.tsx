@@ -22,7 +22,6 @@ import type { Report } from '../../types/Report';
 import { useAuth } from '../../features/auth/AuthContext';
 import { getReport, saveReport, saveReportLocally, updateReportStatus } from '../../services/reportsService';
 import { uploadGeneratedPdf, createGeneratedReport, getGeneratedReportByReportId } from '../../services/generatedReportsService';
-import { generateReportPdf } from '../../utils/pdfGenerator';
 import { useConnectivity } from '../../hooks/useConnectivity';
 import { ReportEditStep1 } from './ReportEditStep1';
 import { ReportEditStep2 } from './ReportEditStep2';
@@ -220,22 +219,12 @@ export function ReportEdit() {
     location.route('/');
   };
 
-  const handleGenerateFinal = async () => {
+  const handleGenerateFinal = async (signedPdfBytes: Uint8Array) => {
     if (!report || report.status !== 'listo_para_generar' || !isAdmin || !userData) return;
 
-    // 1. Generate PDF
-    const pdfBytes = await generateReportPdf(report);
-
-    // 2. Upload to Firebase Storage
-    const pdfUrl = await uploadGeneratedPdf(report.id, pdfBytes);
-
-    // 3. Create generated_reports document
+    const pdfUrl = await uploadGeneratedPdf(report.id, signedPdfBytes);
     await createGeneratedReport(report.id, pdfUrl, userData.uid);
-
-    // 4. Update report status to generado
     await updateReportStatus(report, 'generado');
-
-    // 5. Navigate to Reportes Finales
     location.route('/reportes-finales');
   };
 
@@ -546,6 +535,7 @@ export function ReportEdit() {
                   onGenerate={handleGenerateFinal}
                   generatedPdfUrl={generatedPdfUrl}
                   onSendToReview={handleSubmitForReview}
+                  onApprove={handleApprove}
                 />
               ) : (
                 <>
@@ -570,17 +560,6 @@ export function ReportEdit() {
                   {saveMsg && (
                     <Alert color={saveMsg.includes('Error') ? 'red' : 'green'} variant="light">
                       {saveMsg}
-                    </Alert>
-                  )}
-
-                  {report.status === 'en_revision' && isAdmin && (
-                    <Alert color="orange" variant="light" title="Reporte en revisión">
-                      <Group justify="space-between" align="center" mt="xs">
-                        <Text size="sm">Revise los datos y apruebe el reporte cuando esté correcto.</Text>
-                        <Button color="teal" onClick={handleApprove}>
-                          Marcar como Listo para generar
-                        </Button>
-                      </Group>
                     </Alert>
                   )}
                 </>

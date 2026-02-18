@@ -10,10 +10,11 @@ import {
   Alert,
   Modal,
   Tooltip,
+  FileInput,
 } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
-import { IconDownload, IconRefresh, IconArrowLeft, IconFileExport, IconWifiOff, IconSend } from '@tabler/icons-react';
-import type { Report, ReportStatus } from '../../types/Report';
+import { IconDownload, IconRefresh, IconArrowLeft, IconFileExport, IconWifiOff, IconSend, IconCheck, IconUpload } from '@tabler/icons-react';
+import type { Report } from '../../types/Report';
 import { generateReportPdf } from '../../utils/pdfGenerator';
 import { validateReportForReview } from '../../utils/reportValidation';
 
@@ -24,12 +25,14 @@ interface PdfPreviewPanelProps {
   isAdmin?: boolean;
   /** Current online status */
   isOnline?: boolean;
-  /** Called when admin confirms final generation */
-  onGenerate?: () => Promise<void>;
+  /** Called when admin confirms final generation — receives the signed PDF bytes */
+  onGenerate?: (signedPdfBytes: Uint8Array) => Promise<void>;
   /** URL of the stored PDF for generado reports */
   generatedPdfUrl?: string | null;
   /** Called when user sends to review */
   onSendToReview?: () => Promise<void>;
+  /** Called when admin approves report (en_revision → listo_para_generar) */
+  onApprove?: () => Promise<void>;
 }
 
 export function PdfPreviewPanel({
@@ -40,16 +43,21 @@ export function PdfPreviewPanel({
   onGenerate,
   generatedPdfUrl,
   onSendToReview,
+  onApprove,
 }: PdfPreviewPanelProps) {
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
   const blobUrlRef = useRef<string | null>(null);
+  const signedBlobUrlRef = useRef<string | null>(null);
   const [confirmOpened, { open: openConfirm, close: closeConfirm }] = useDisclosure(false);
+  const [signedPdfBytes, setSignedPdfBytes] = useState<Uint8Array | null>(null);
+  const [signedPdfUrl, setSignedPdfUrl] = useState<string | null>(null);
 
   const validation = validateReportForReview(report);
   const isGenerado = report.status === 'generado';
+  const isListoParaGenerar = report.status === 'listo_para_generar';
 
   // --- Generado reports: use stored PDF URL ---
   useEffect(() => {
@@ -111,12 +119,33 @@ export function PdfPreviewPanel({
     };
   }, [report, isGenerado]);
 
-  // Cleanup blob URL on unmount
+  // Cleanup blob URLs on unmount
   useEffect(() => {
     return () => {
       if (blobUrlRef.current) URL.revokeObjectURL(blobUrlRef.current);
+      if (signedBlobUrlRef.current) URL.revokeObjectURL(signedBlobUrlRef.current);
     };
   }, []);
+
+  const handleSignedPdfUpload = (file: File | null) => {
+    if (!file) {
+      setSignedPdfBytes(null);
+      if (signedBlobUrlRef.current) URL.revokeObjectURL(signedBlobUrlRef.current);
+      signedBlobUrlRef.current = null;
+      setSignedPdfUrl(null);
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const bytes = new Uint8Array(reader.result as ArrayBuffer);
+      setSignedPdfBytes(bytes);
+      if (signedBlobUrlRef.current) URL.revokeObjectURL(signedBlobUrlRef.current);
+      const url = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }));
+      signedBlobUrlRef.current = url;
+      setSignedPdfUrl(url);
+    };
+    reader.readAsArrayBuffer(file);
+  };
 
   const handleDownload = () => {
     if (!pdfUrl) return;
@@ -136,10 +165,10 @@ export function PdfPreviewPanel({
   };
 
   const handleConfirmGenerate = async () => {
-    if (!onGenerate) return;
+    if (!onGenerate || !signedPdfBytes) return;
     setGenerating(true);
     try {
-      await onGenerate();
+      await onGenerate(signedPdfBytes);
     } catch (e: any) {
       console.error('Error generating final report:', e);
       setError(e?.message ?? 'Error al generar el reporte final');
@@ -151,6 +180,9 @@ export function PdfPreviewPanel({
 
   // Show "Generar Reporte Final" button only for admin + listo_para_generar
   const showGenerarButton = isAdmin && report.status === 'listo_para_generar' && onGenerate;
+
+  // When a signed PDF is uploaded, preview it instead of the generated one
+  const displayPdfUrl = (isListoParaGenerar && signedPdfUrl) ? signedPdfUrl : pdfUrl;
 
   // For generado reports offline: show alert instead of PDF
   if (isGenerado && !isOnline) {
@@ -248,13 +280,13 @@ export function PdfPreviewPanel({
             </Button>
           )}
 
-          {/* Generar Reporte Final button */}
+          {/* Generar Reporte Final button — requires signed PDF */}
           {showGenerarButton && (
             <Button
               color="teal"
               leftSection={<IconFileExport size={16} />}
               onClick={openConfirm}
-              disabled={!pdfUrl || loading}
+              disabled={!signedPdfBytes || loading}
               size="sm"
             >
               Generar Reporte Final
@@ -289,6 +321,19 @@ export function PdfPreviewPanel({
               </div>
             </Tooltip>
           )}
+
+          {/* Marcar como Listo para generar (admin approval) */}
+          {report.status === 'en_revision' && onApprove && (
+            <Button
+              color="teal"
+              leftSection={<IconCheck size={16} />}
+              onClick={onApprove}
+              disabled={loading}
+              size="sm"
+            >
+              Marcar como Listo para generar
+            </Button>
+          )}
         </Group>
       </Group>
 
@@ -298,12 +343,29 @@ export function PdfPreviewPanel({
         </Alert>
       )}
 
+      {/* Signed PDF upload for listo_para_generar */}
+      {isListoParaGenerar && isAdmin && (
+        <Alert color="blue" variant="light" title="PDF firmado requerido" icon={<IconUpload size={20} />}>
+          <Stack gap="sm" mt="xs">
+            <Text size="sm">
+              Descargue el PDF, obtenga las firmas necesarias y vuelva a subir el documento firmado para generar el reporte final.
+            </Text>
+            <FileInput
+              placeholder="Seleccione el PDF firmado"
+              accept="application/pdf"
+              leftSection={<IconUpload size={16} />}
+              onChange={handleSignedPdfUpload}
+            />
+          </Stack>
+        </Alert>
+      )}
+
       <Paper
         shadow="sm"
         radius="md"
         style={{ overflow: 'hidden', position: 'relative', minHeight: 600 }}
       >
-        {loading && !pdfUrl ? (
+        {loading && !displayPdfUrl ? (
           <Box
             style={{
               display: 'flex',
@@ -319,10 +381,10 @@ export function PdfPreviewPanel({
               </Text>
             </Stack>
           </Box>
-        ) : pdfUrl ? (
+        ) : displayPdfUrl ? (
           <>
             <iframe
-              src={`${pdfUrl}#toolbar=1&navpanes=0`}
+              src={`${displayPdfUrl}#toolbar=1&navpanes=0`}
               style={{
                 width: '100%',
                 height: '80vh',
