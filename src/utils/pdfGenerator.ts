@@ -43,7 +43,7 @@ export function buildPdfInputs(report: Report): Record<string, string> {
     input_day: dia,
     input_month: mes,
     input_year: anio,
-    input_site_name: report.address?.site_name ?? '',
+    input_site_name: report.address?.site_name.replaceAll(/\D/g, "") ?? '',
 
     chk_install_type:
       `TIPO INSTALACIÓN:   Fachada/mástil [${chk(inst.includes('fachada_mastil'))}]` +
