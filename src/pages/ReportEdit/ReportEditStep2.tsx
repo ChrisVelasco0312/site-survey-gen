@@ -1,4 +1,4 @@
-import { useState } from 'preact/hooks';
+import { useState, useEffect } from 'preact/hooks';
 import "./ReportEdit.css"
 import {
   Select,
@@ -33,6 +33,30 @@ interface ReportEditStep2Props {
 
 export function ReportEditStep2({ report, setReport, readOnly }: ReportEditStep2Props) {
   const [newObservation, setNewObservation] = useState('');
+
+  useEffect(() => {
+    const siteType = report.address.site_type;
+    if (!siteType) return;
+    
+    let component: ContractComponent;
+    if (siteType === 'ptz') {
+      component = 'valle_seguro';
+    } else if (siteType === 'lpr') {
+      component = 'lpr';
+    } else if (siteType === 'cotejo_facial') {
+      component = 'cotejo_facial';
+    } else {
+      return;
+    }
+
+    if (report.contract_component !== component) {
+      setReport({
+        ...report,
+        contract_component: component,
+        updated_at: Date.now(),
+      });
+    }
+  }, [report.address.site_type]);
 
   const onSecurityLevelChange = (value: string | null) => {
     if (value == null) return;
@@ -93,7 +117,7 @@ export function ReportEditStep2({ report, setReport, readOnly }: ReportEditStep2
           </Text>
         </Box>
         <Box>
-          <Text size="sm" fw={500} c="dimmed">Componente del contrato</Text>
+          <Text size="sm" fw={500} c="dimmed">Componentes del contrato 001</Text>
           <Text>
             {CONTRACT_COMPONENT_OPTIONS.find((o) => o.value === report.contract_component)?.label ?? report.contract_component}
           </Text>
@@ -124,7 +148,7 @@ export function ReportEditStep2({ report, setReport, readOnly }: ReportEditStep2
         onChange={onSecurityLevelChange}
       />
       <Select
-        label="Componente del contrato"
+        label="Componentes del contrato 001"
         placeholder="Seleccione el componente"
         data={CONTRACT_COMPONENT_OPTIONS}
         value={report.contract_component}
