@@ -3,11 +3,12 @@ import { Report } from '../types/Report';
 import type { SiteRecord } from '../types/Report';
 
 const DB_NAME = 'site_survey_db';
-const DB_VERSION = 4;
+const DB_VERSION = 5;
 const USER_STORE_NAME = 'users';
 const REPORT_STORE_NAME = 'reports';
 const SYNC_QUEUE_STORE_NAME = 'sync_queue';
 const SITES_STORE_NAME = 'sites';
+const DISTRITO_MUNICIPIO_STORE_NAME = 'distrito_municipio';
 
 export interface SyncItem {
   id?: number;
@@ -32,6 +33,9 @@ function createStoresIfNeeded(db: IDBDatabase): void {
   }
   if (!db.objectStoreNames.contains(SITES_STORE_NAME)) {
     db.createObjectStore(SITES_STORE_NAME, { keyPath: 'id' });
+  }
+  if (!db.objectStoreNames.contains(DISTRITO_MUNICIPIO_STORE_NAME)) {
+    db.createObjectStore(DISTRITO_MUNICIPIO_STORE_NAME, { keyPath: 'distrito' });
   }
 }
 
@@ -275,6 +279,37 @@ export const getAllSitesFromDB = async (): Promise<SiteRecord[]> => {
   return new Promise((resolve, reject) => {
     const transaction = db.transaction([SITES_STORE_NAME], 'readonly');
     const store = transaction.objectStore(SITES_STORE_NAME);
+    const request = store.getAll();
+    request.onsuccess = () => resolve(request.result ?? []);
+    request.onerror = () => reject(request.error);
+  });
+};
+
+// Distrito → Municipio mapping (pre-computed in Firestore)
+export interface DistritoMunicipioEntry {
+  distrito: string;
+  municipios: string[];
+}
+
+export const saveDistritoMunicipioToDB = async (entries: DistritoMunicipioEntry[]): Promise<void> => {
+  const db = await initDB();
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction([DISTRITO_MUNICIPIO_STORE_NAME], 'readwrite');
+    const store = transaction.objectStore(DISTRITO_MUNICIPIO_STORE_NAME);
+    transaction.oncomplete = () => resolve();
+    transaction.onerror = () => reject(transaction.error);
+    store.clear();
+    for (const entry of entries) {
+      store.put(entry);
+    }
+  });
+};
+
+export const getDistritoMunicipioFromDB = async (): Promise<DistritoMunicipioEntry[]> => {
+  const db = await initDB();
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction([DISTRITO_MUNICIPIO_STORE_NAME], 'readonly');
+    const store = transaction.objectStore(DISTRITO_MUNICIPIO_STORE_NAME);
     const request = store.getAll();
     request.onsuccess = () => resolve(request.result ?? []);
     request.onerror = () => reject(request.error);

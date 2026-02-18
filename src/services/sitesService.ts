@@ -1,7 +1,7 @@
 import { collection, getDocs, type GeoPoint } from 'firebase/firestore';
 import { db } from '../firebase-config';
 import type { SiteRecord } from '../types/Report';
-import { saveSitesToDB } from '../utils/indexedDB';
+import { saveSitesToDB, saveDistritoMunicipioToDB, type DistritoMunicipioEntry } from '../utils/indexedDB';
 
 const SITES_COLLECTION = 'sites';
 
@@ -39,4 +39,19 @@ export async function fetchSitesAndPersist(): Promise<SiteRecord[]> {
   });
   await saveSitesToDB(sites);
   return sites;
+}
+
+const DISTRITO_MUNICIPIO_COLLECTION = 'distrito_municipio';
+
+export async function fetchDistritoMunicipioAndPersist(): Promise<DistritoMunicipioEntry[]> {
+  const snapshot = await getDocs(collection(db, DISTRITO_MUNICIPIO_COLLECTION));
+  const entries: DistritoMunicipioEntry[] = [];
+  snapshot.forEach((doc) => {
+    const data = doc.data();
+    if (data.distrito && Array.isArray(data.municipios)) {
+      entries.push({ distrito: data.distrito as string, municipios: data.municipios as string[] });
+    }
+  });
+  await saveDistritoMunicipioToDB(entries);
+  return entries;
 }

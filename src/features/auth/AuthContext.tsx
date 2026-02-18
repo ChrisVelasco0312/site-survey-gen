@@ -12,7 +12,7 @@ import { doc, getDoc } from 'firebase/firestore';
 import { auth, db } from '../../firebase-config';
 import { saveUserToDB, getUserFromDB } from '../../utils/indexedDB';
 import { UserProfile } from '../../types/User';
-import { fetchSitesAndPersist } from '../../services/sitesService';
+import { fetchSitesAndPersist, fetchDistritoMunicipioAndPersist } from '../../services/sitesService';
 
 interface AuthContextType {
   user: User | null;
@@ -70,11 +70,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
             saveUserToDB(profileData).catch((err) => {
               console.warn('Could not cache user for offline:', err);
             });
-            // Fetch and cache sites only when online
+            // Fetch and cache sites + distrito-municipio mapping only when online
             if (typeof navigator !== 'undefined' && navigator.onLine) {
               fetchSitesAndPersist()
                 .then((sites) => console.log(`Sites cached for offline: ${sites.length} sites`))
                 .catch((err) => console.warn('Could not cache sites for offline:', err));
+              fetchDistritoMunicipioAndPersist()
+                .then((entries) => console.log(`Distrito-municipio cached for offline: ${entries.length} distritos`))
+                .catch((err) => console.warn('Could not cache distrito-municipio for offline:', err));
             }
           } else {
             console.error("No such user document!");

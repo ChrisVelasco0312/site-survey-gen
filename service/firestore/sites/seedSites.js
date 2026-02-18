@@ -59,7 +59,7 @@ async function seedSites() {
       description: site.description ?? '',
     };
     if (location) data.location = location;
-    batch.set(docRef, data);
+    batch.set(docRef, data, { merge: true });
   }
 
   try {

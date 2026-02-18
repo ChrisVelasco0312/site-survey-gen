@@ -135,3 +135,20 @@
 |F.30|DISTRITO BUENAVENTURA|BUENAVENTURA|Viva Centro Comercial, Cl. 5b #45-64|3°52'03"N 76°59'49"W|
 |F.31|DISTRITO TULUÁ|TRUJILLO|Alcaldía, Cl. 20 #19-01|4°12'45"N 76°19'05"W|
 |F.32|DISTRITO BUGA|CALIMA|Alcaldía, Cl. 10 #6-25|3°55'52"N 76°29'03"W|
+
+## Actualización de la Base de Datos
+
+Para actualizar la colección `sites` en Firestore con los nuevos puntos (LPR, Cotejo Facial, PTZ), siga estos pasos:
+
+1.  **Credenciales:** Asegúrese de tener el archivo de credenciales de servicio de Firebase en `service/serviceAccountKey.json`.
+2.  **Dependencias:** Instale las dependencias del proyecto (incluyendo `firebase-admin` si no está instalado):
+    ```bash
+    npm install
+    npm list firebase-admin || npm install firebase-admin --save-dev
+    ```
+3.  **Ejecución:** Ejecute el script de población de datos:
+    ```bash
+    node service/firestore/sites/seedSites.js
+    ```
+
+El script tomará los datos definidos en `service/firestore/sites/sitesData.js` (que incluye LPR, Cotejo Facial y los nuevos puntos PTZ) y actualizará los documentos correspondientes en la colección `sites` de Firestore.

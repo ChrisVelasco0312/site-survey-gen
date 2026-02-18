@@ -11,8 +11,8 @@ import {
 } from '@mantine/core';
 import { DateInput } from '@mantine/dates';
 import type { Report, AddressData, InstallationType, SiteRecord } from '../../types/Report';
-import { getAllSitesFromDB } from '../../utils/indexedDB';
-import { fetchSitesAndPersist } from '../../services/sitesService';
+import { getAllSitesFromDB, getDistritoMunicipioFromDB, type DistritoMunicipioEntry } from '../../utils/indexedDB';
+import { fetchSitesAndPersist, fetchDistritoMunicipioAndPersist } from '../../services/sitesService';
 
 const INSTALLATION_TYPE_OPTIONS: { value: InstallationType; label: string }[] = [
   { value: 'fachada_mastil', label: 'Fachada / Mástil' },
@@ -129,6 +129,7 @@ export function ReportEditStep1({ report, setReport, readOnly }: ReportEditStep1
   const [filterMunicipio, setFilterMunicipio] = useState('');
   const [sites, setSites] = useState<SiteRecord[]>([]);
   const [sitesLoading, setSitesLoading] = useState(true);
+  const [distritoMunicipioMap, setDistritoMunicipioMap] = useState<DistritoMunicipioEntry[]>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -165,6 +166,32 @@ export function ReportEditStep1({ report, setReport, readOnly }: ReportEditStep1
     return () => { cancelled = true; };
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+    getDistritoMunicipioFromDB()
+      .then((cached) => {
+        if (cancelled) return;
+        if (cached.length > 0) {
+          setDistritoMunicipioMap(cached);
+          return;
+        }
+        if (typeof navigator !== 'undefined' && navigator.onLine) {
+          fetchDistritoMunicipioAndPersist()
+            .then((fresh) => { if (!cancelled) setDistritoMunicipioMap(fresh); })
+            .catch(() => {});
+        }
+      })
+      .catch(() => {
+        if (cancelled) return;
+        if (typeof navigator !== 'undefined' && navigator.onLine) {
+          fetchDistritoMunicipioAndPersist()
+            .then((fresh) => { if (!cancelled) setDistritoMunicipioMap(fresh); })
+            .catch(() => {});
+        }
+      });
+    return () => { cancelled = true; };
+  }, []);
+
   const dateDisplayText = useMemo(() => {
     if (!report.date) return '—';
     const d = parseStoredDate(report.date);
@@ -183,14 +210,29 @@ export function ReportEditStep1({ report, setReport, readOnly }: ReportEditStep1
   }, [report.address]);
 
   const uniqueDistritos = useMemo(() => {
+    if (distritoMunicipioMap.length > 0) {
+      return distritoMunicipioMap.map((e) => e.distrito).sort();
+    }
     const set = new Set(sites.map((s) => s.distrito).filter(Boolean));
     return Array.from(set).sort();
-  }, [sites]);
+  }, [sites, distritoMunicipioMap]);
 
-  const uniqueMunicipios = useMemo(() => {
-    const set = new Set(sites.map((s) => s.municipio).filter(Boolean));
+  const availableMunicipios = useMemo(() => {
+    if (distritoMunicipioMap.length > 0) {
+      if (filterDistrito) {
+        const entry = distritoMunicipioMap.find((e) => e.distrito === filterDistrito);
+        return entry ? entry.municipios : [];
+      }
+      const all = new Set<string>();
+      distritoMunicipioMap.forEach((e) => e.municipios.forEach((m) => all.add(m)));
+      return Array.from(all).sort();
+    }
+    const source = filterDistrito
+      ? sites.filter((s) => s.distrito === filterDistrito)
+      : sites;
+    const set = new Set(source.map((s) => s.municipio).filter(Boolean));
     return Array.from(set).sort();
-  }, [sites]);
+  }, [sites, distritoMunicipioMap, filterDistrito]);
 
   const filteredSites = useMemo(
     () =>
@@ -351,7 +393,10 @@ export function ReportEditStep1({ report, setReport, readOnly }: ReportEditStep1
             placeholder="Todos"
             data={uniqueDistritos.map((d) => ({ value: d, label: d }))}
             value={filterDistrito || null}
-            onChange={(v) => setFilterDistrito(v ?? '')}
+            onChange={(v) => {
+              setFilterDistrito(v ?? '');
+              setFilterMunicipio('');
+            }}
             clearable
             searchable
             comboboxProps={{ withinPortal: false }}
@@ -359,7 +404,7 @@ export function ReportEditStep1({ report, setReport, readOnly }: ReportEditStep1
           <Select
             label="Municipio"
             placeholder="Todos"
-            data={uniqueMunicipios.map((m) => ({ value: m, label: m }))}
+            data={availableMunicipios.map((m) => ({ value: m, label: m }))}
             value={filterMunicipio || null}
             onChange={(v) => setFilterMunicipio(v ?? '')}
             clearable
