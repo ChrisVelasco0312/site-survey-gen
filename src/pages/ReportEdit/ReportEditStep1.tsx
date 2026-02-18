@@ -24,6 +24,7 @@ const SITE_TYPE_OPTIONS = [
   { value: '', label: 'Todos' },
   { value: 'lpr', label: 'LPR' },
   { value: 'cotejo_facial', label: 'Cotejo Facial' },
+  { value: 'ptz', label: 'PTZ' },
 ];
 
 interface ReportEditStep1Props {
@@ -406,7 +407,19 @@ export function ReportEditStep1({ report, setReport, readOnly }: ReportEditStep1
             placeholder="Todos"
             data={availableMunicipios.map((m) => ({ value: m, label: m }))}
             value={filterMunicipio || null}
-            onChange={(v) => setFilterMunicipio(v ?? '')}
+            onChange={(v) => {
+              const mun = v ?? '';
+              setFilterMunicipio(mun);
+              if (mun && !filterDistrito) {
+                const parent = distritoMunicipioMap.find((e) => e.municipios.includes(mun));
+                if (parent) {
+                  setFilterDistrito(parent.distrito);
+                } else {
+                  const match = sites.find((s) => s.municipio === mun && s.distrito);
+                  if (match) setFilterDistrito(match.distrito);
+                }
+              }
+            }}
             clearable
             searchable
             comboboxProps={{ withinPortal: false }}

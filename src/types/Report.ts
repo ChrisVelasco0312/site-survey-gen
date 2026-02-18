@@ -18,7 +18,7 @@ export type CablingType = 'aereo' | 'subterraneo' | 'mixto';
 export interface SiteRecord {
   id: string;
   site_code: string;
-  site_type: 'lpr' | 'cotejo_facial';
+  site_type: 'lpr' | 'cotejo_facial' | 'ptz';
   distrito: string;
   municipio: string;
   name: string;
@@ -36,7 +36,7 @@ export interface AddressData {
   full_address: string;
   /** Set when selected from sites catalog (for filters and sync). */
   site_id?: string;
-  site_type?: 'lpr' | 'cotejo_facial';
+  site_type?: 'lpr' | 'cotejo_facial' | 'ptz';
   distrito?: string;
   municipio?: string;
 }

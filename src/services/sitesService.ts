@@ -1,4 +1,4 @@
-import { collection, getDocs, type GeoPoint } from 'firebase/firestore';
+import { collection, doc, getDocs, addDoc, updateDoc, deleteDoc, GeoPoint } from 'firebase/firestore';
 import { db } from '../firebase-config';
 import type { SiteRecord } from '../types/Report';
 import { saveSitesToDB, saveDistritoMunicipioToDB, type DistritoMunicipioEntry } from '../utils/indexedDB';
@@ -13,7 +13,7 @@ function mapFirestoreDocToSiteRecord(
   return {
     id,
     site_code: (data.site_code as string) ?? '',
-    site_type: (data.site_type as 'lpr' | 'cotejo_facial') ?? 'lpr',
+    site_type: (data.site_type as 'lpr' | 'cotejo_facial' | 'ptz') ?? 'lpr',
     distrito: (data.distrito as string) ?? '',
     municipio: (data.municipio as string) ?? '',
     name: (data.name as string) ?? '',
@@ -39,6 +39,28 @@ export async function fetchSitesAndPersist(): Promise<SiteRecord[]> {
   });
   await saveSitesToDB(sites);
   return sites;
+}
+
+export async function createSite(site: Omit<SiteRecord, 'id'>): Promise<string> {
+  const payload: Record<string, unknown> = { ...site };
+  if (site.location) {
+    payload.location = new GeoPoint(site.location.latitude, site.location.longitude);
+  }
+  delete payload.id;
+  const ref = await addDoc(collection(db, SITES_COLLECTION), payload);
+  return ref.id;
+}
+
+export async function updateSite(id: string, data: Partial<Omit<SiteRecord, 'id'>>): Promise<void> {
+  const payload: Record<string, unknown> = { ...data };
+  if (data.location) {
+    payload.location = new GeoPoint(data.location.latitude, data.location.longitude);
+  }
+  await updateDoc(doc(db, SITES_COLLECTION, id), payload);
+}
+
+export async function deleteSite(id: string): Promise<void> {
+  await deleteDoc(doc(db, SITES_COLLECTION, id));
 }
 
 const DISTRITO_MUNICIPIO_COLLECTION = 'distrito_municipio';

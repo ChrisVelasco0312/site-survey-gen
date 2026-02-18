@@ -20,6 +20,7 @@ import {
   IconLogout,
   IconLayoutDashboard,
   IconFileExport,
+  IconMapPin,
 } from '@tabler/icons-react';
 import { JSX } from 'preact';
 
@@ -77,6 +78,7 @@ export function SideMenu({ children }: SideMenuProps) {
     
     if (userData?.role === 'admin') {
       items.push({ label: 'Dashboard', path: '/', icon: IconLayoutDashboard });
+      items.push({ label: 'Sitios', path: '/admin/sitios', icon: IconMapPin });
     }
 
     // Both roles can see "Mis Reportes"
