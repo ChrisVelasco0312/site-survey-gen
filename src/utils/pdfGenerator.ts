@@ -48,8 +48,7 @@ export function buildPdfInputs(report: Report): Record<string, string> {
     chk_install_type:
       `TIPO INSTALACIÓN:   Fachada/mástil [${chk(inst.includes('fachada_mastil'))}]` +
       `    Poste [${chk(inst.includes('poste'))}]` +
-      `    Torre [${chk(inst.includes('torre'))}]` +
-      `    PM [  ]`,
+      `    Torre [${chk(inst.includes('torre'))}]`,
 
     // ─── Section 1: Geographic Info ──────────────────────────
     input_address: report.address?.full_address ?? '',

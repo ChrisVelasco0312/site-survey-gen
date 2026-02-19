@@ -1,13 +1,12 @@
 import { useMemo, useState, useEffect } from 'preact/hooks';
 import {
   TextInput,
-  MultiSelect,
+  Select,
   Stack,
   Text,
   Modal,
   Button,
   Box,
-  Select,
 } from '@mantine/core';
 import { DateInput } from '@mantine/dates';
 import type { Report, AddressData, InstallationType, SiteRecord } from '../../types/Report';
@@ -259,10 +258,10 @@ export function ReportEditStep1({ report, setReport, readOnly }: ReportEditStep1
     setReport({ ...report, date: dateStr, updated_at: Date.now() });
   };
 
-  const onInstallationTypeChange = (values: string[]) => {
+  const onInstallationTypeChange = (value: string | null) => {
     setReport({
       ...report,
-      installation_type: values as InstallationType[],
+      installation_type: value ? [value as InstallationType] : [],
       updated_at: Date.now(),
     });
   };
@@ -327,11 +326,11 @@ export function ReportEditStep1({ report, setReport, readOnly }: ReportEditStep1
         }}
         clearable
       />
-      <MultiSelect
+      <Select
         label="Tipo de instalación"
-        placeholder="Seleccione uno o más"
+        placeholder="Seleccione uno"
         data={INSTALLATION_TYPE_OPTIONS}
-        value={report.installation_type}
+        value={report.installation_type[0] || null}
         onChange={onInstallationTypeChange}
       />
       <Box>
