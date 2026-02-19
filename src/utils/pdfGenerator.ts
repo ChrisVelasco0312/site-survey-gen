@@ -30,6 +30,18 @@ function parseDate(dateStr: string): { dia: string; mes: string; anio: string } 
 /** Checkbox mark: returns 'X' when checked, two spaces when unchecked. */
 const chk = (v: boolean) => (v ? 'X' : '  ');
 
+/** Convert decimal degrees to DMS (Degrees Minutes Seconds) string. */
+function toDMS(decimal: number, isLat: boolean): string {
+  if (decimal == null || isNaN(decimal)) return '';
+  const dir = isLat ? (decimal >= 0 ? 'N' : 'S') : (decimal >= 0 ? 'E' : 'W');
+  const abs = Math.abs(decimal);
+  const deg = Math.floor(abs);
+  const minFloat = (abs - deg) * 60;
+  const min = Math.floor(minFloat);
+  const sec = ((minFloat - min) * 60).toFixed(2);
+  return `${deg}° ${min}' ${sec}" ${dir}`;
+}
+
 /**
  * Build the pdfme inputs record by mapping every Report field
  * to the corresponding template schema name.
@@ -54,6 +66,10 @@ export function buildPdfInputs(report: Report): Record<string, string> {
     input_address: report.address?.full_address ?? '',
     input_lat: report.address?.latitude ? String(report.address.latitude) : '',
     input_long: report.address?.longitude ? String(report.address.longitude) : '',
+    input_gms: [
+      report.address?.latitude ? toDMS(report.address.latitude, true) : '',
+      report.address?.longitude ? toDMS(report.address.longitude, false) : '',
+    ].filter(Boolean).join(' / '),
 
     input_description:
       `Descripción (Distancia energía, ruta acometida, infraestructura): ${(report.observations ?? []).join(', ')}`,
