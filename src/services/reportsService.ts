@@ -7,6 +7,7 @@ import {
   query,
   where,
   orderBy,
+  deleteDoc,
 } from 'firebase/firestore';
 import { db } from '../firebase-config';
 import type { Report, ReportStatus } from '../types/Report';
@@ -15,6 +16,7 @@ import {
   getReportFromDB,
   getAllReportsFromDB,
   addToSyncQueue,
+  deleteReportFromDB,
 } from '../utils/indexedDB';
 import {
   reportWithStorageUrls,
@@ -164,4 +166,32 @@ export async function updateReportStatus(
   };
   await saveReport(updated);
   return updated;
+}
+
+/**
+ * Delete a report from Firestore and IndexedDB.
+ */
+export async function deleteReport(id: string): Promise<void> {
+  // Always delete locally first
+  await deleteReportFromDB(id);
+
+  if (navigator.onLine) {
+    try {
+      const reportRef = doc(db, 'reports', id);
+      await deleteDoc(reportRef);
+    } catch (error) {
+      console.error('Firestore delete failed, queuing for sync:', error);
+      await addToSyncQueue({
+        reportId: id,
+        action: 'delete',
+        timestamp: Date.now(),
+      });
+    }
+  } else {
+    await addToSyncQueue({
+      reportId: id,
+      action: 'delete',
+      timestamp: Date.now(),
+    });
+  }
 }
