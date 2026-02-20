@@ -126,7 +126,7 @@ export function buildPdfInputs(report: Report): Record<string, string> {
     input_pc_mat: report.infrastructure_details?.camera_point?.material ?? '',
 
     // ─── Observations ────────────────────────────────────────
-    input_observations: `Este punto de cámara pertenece a: ${report.owner_name || '—'}\n\nOBSERVACIONES GENERALES:\n${report.final_observations ?? ''}`,
+    input_observations: `Este punto de cámara pertenece a:  ${report.owner_name || '—'}\n\n\nOBSERVACIONES GENERALES:\n\n${report.final_observations ?? ''}`,
   };
 
   // ─── Images: only include when present ─────────────────────
