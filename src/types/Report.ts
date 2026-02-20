@@ -59,6 +59,9 @@ export interface PoleInfrastructure {
   aerial_meters: number;
   grass_meters: number;
   asphalt_meters: number;
+  adoquin_meters: number;
+  concrete_meters: number;
+  fill_meters: number; // Relleno
   other_surface_meters: number;
 }
 
@@ -169,6 +172,9 @@ export const createInitialReport = (userId: string, group: GroupAssignment): Rep
     aerial_meters: 0,
     grass_meters: 0,
     asphalt_meters: 0,
+    adoquin_meters: 0,
+    concrete_meters: 0,
+    fill_meters: 0,
     other_surface_meters: 0
   },
   

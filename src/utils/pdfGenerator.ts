@@ -55,7 +55,7 @@ export function buildPdfInputs(report: Report): Record<string, string> {
     input_day: dia,
     input_month: mes,
     input_year: anio,
-    input_site_name: report.address?.site_name.replaceAll(/\D/g, "") ?? '',
+    input_site_name: report.address?.site_name.replace(/\D/g, "") ?? '',
 
     chk_install_type:
       `TIPO INSTALACIÓN:   Fachada/mástil [${chk(inst.includes('fachada_mastil'))}]` +
@@ -107,9 +107,9 @@ export function buildPdfInputs(report: Report): Record<string, string> {
       ['Aérea', String(report.pole_infrastructure?.aerial_meters ?? 0)],
       ['Prado', String(report.pole_infrastructure?.grass_meters ?? 0)],
       ['Asfalto', String(report.pole_infrastructure?.asphalt_meters ?? 0)],
-      ['Adoquín', '0'],
-      ['Concreto', '0'],
-      ['Relleno', String(report.pole_infrastructure?.other_surface_meters ?? 0)],
+      ['Adoquín', String(report.pole_infrastructure?.adoquin_meters ?? 0)],
+      ['Concreto', String(report.pole_infrastructure?.concrete_meters ?? 0)],
+      ['Relleno', String(report.pole_infrastructure?.fill_meters ?? 0)],
     ]),
 
     // ─── Facade ──────────────────────────────────────────────
@@ -126,7 +126,7 @@ export function buildPdfInputs(report: Report): Record<string, string> {
     input_pc_mat: report.infrastructure_details?.camera_point?.material ?? '',
 
     // ─── Observations ────────────────────────────────────────
-    input_observations: `OBSERVACIONES GENERALES:\n${report.final_observations ?? ''}`,
+    input_observations: `Este punto de cámara pertenece a: ${report.owner_name || '—'}\n\nOBSERVACIONES GENERALES:\n${report.final_observations ?? ''}`,
   };
 
   // ─── Images: only include when present ─────────────────────
