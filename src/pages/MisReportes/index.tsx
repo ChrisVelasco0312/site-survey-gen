@@ -173,14 +173,6 @@ export function MisReportes() {
                         >
                             Duplicar
                         </Button>
-                        <Button 
-                            variant="light" 
-                            color="red" 
-                            onClick={() => confirmDelete(report)}
-                            leftSection={<IconTrash size={16} />}
-                        >
-                            Eliminar
-                        </Button>
                     </>
                   )}
                 </Group>
@@ -256,11 +248,6 @@ export function MisReportes() {
                             <ActionIcon variant="subtle" color="grape" onClick={() => handleDuplicate(report)}>
                                 <IconCopy size={16} />
                             </ActionIcon>
-                        </Tooltip>
-                        <Tooltip label="Eliminar">
-                          <ActionIcon variant="light" color="red" onClick={() => confirmDelete(report)}>
-                            <IconTrash size={16} />
-                          </ActionIcon>
                         </Tooltip>
                     </>
                   )}

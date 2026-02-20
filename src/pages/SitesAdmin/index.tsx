@@ -632,7 +632,7 @@ export function SitesAdmin() {
             >
               Editar
             </Button>
-            <Button
+            {/* <Button
               variant="light"
               color="red"
               size="xs"
@@ -641,7 +641,7 @@ export function SitesAdmin() {
               style={{ flex: 1 }}
             >
               Eliminar
-            </Button>
+            </Button> */}
           </Group>
         </Card>
       ))}
@@ -701,11 +701,11 @@ export function SitesAdmin() {
                     <IconEdit size={16} />
                   </ActionIcon>
                 </Tooltip>
-                <Tooltip label="Eliminar">
+                {/* <Tooltip label="Eliminar">
                   <ActionIcon variant="subtle" color="red" onClick={() => handleOpenDelete(site.id)}>
                     <IconTrash size={16} />
                   </ActionIcon>
-                </Tooltip>
+                </Tooltip> */}
               </Group>
             </Table.Td>
           </Table.Tr>
