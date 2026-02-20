@@ -34,7 +34,7 @@ import { PdfPreviewPanel } from './PdfPreviewPanel';
 import './ReportEdit.css';
 
 const STEP_LABELS = [
-  'Datos generales y ubicación',
+  'Información Geográfica Nodo',
   'Seguridad, contrato y observaciones',
   'Datos técnicos e infraestructura',
   'Diagrama y mapa',
