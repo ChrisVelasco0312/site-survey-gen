@@ -1,7 +1,36 @@
 import { generate } from '@pdfme/generator';
 import { text, image, line, table } from '@pdfme/schemas';
-import type { Template } from '@pdfme/common';
+import type { Template, Font } from '@pdfme/common';
 import type { Report } from '../types/Report';
+
+let cachedFont: Font | null = null;
+
+async function loadFont(): Promise<Font> {
+  if (cachedFont) return cachedFont;
+  
+  const [regularRes, boldRes] = await Promise.all([
+    fetch('/roboto-regular.ttf'),
+    fetch('/roboto-bold.ttf'),
+  ]);
+  
+  const [regularData, boldData] = await Promise.all([
+    regularRes.arrayBuffer(),
+    boldRes.arrayBuffer(),
+  ]);
+  
+  cachedFont = {
+    Roboto: {
+      data: regularData,
+      fallback: true,
+      subset: false,
+    },
+    'Roboto-Bold': {
+      data: boldData,
+      subset: false,
+    },
+  };
+  return cachedFont;
+}
 
 let cachedTemplate: Template | null = null;
 
@@ -167,6 +196,7 @@ function extractDefaults(template: Template): Record<string, string> {
  */
 export async function generateReportPdf(report: Report): Promise<Uint8Array> {
   const template = await loadTemplate();
+  const font = await loadFont();
   const reportInputs = buildPdfInputs(report);
 
   // Merge: template defaults first, then our explicit overrides on top
@@ -177,5 +207,6 @@ export async function generateReportPdf(report: Report): Promise<Uint8Array> {
     template,
     inputs: [inputs],
     plugins: { text, image, line, table },
+    options: { font },
   });
 }
