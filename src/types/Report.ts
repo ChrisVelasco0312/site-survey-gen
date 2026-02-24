@@ -41,6 +41,15 @@ export interface AddressData {
   municipio?: string;
 }
 
+export interface MapPinData {
+  id: string;
+  lat: number;
+  lon: number;
+  color: string;
+  label: string;
+  showLabel?: boolean;
+}
+
 export interface ConnectivityData {
   has_line_of_sight: boolean;
   transmission_medium: TransmissionMedium;
@@ -113,6 +122,8 @@ export interface Report {
   // HU-16: Diagrama del Sitio
   map_image_url?: string;        // Original satellite image
   edited_map_image_url?: string; // Diagrammed image
+  map_pins?: MapPinData[];       // Additional map pins
+  main_map_pin?: Partial<MapPinData>; // Customization for the main pin
 
   // HU-17: Evidencia Fotográfica
   camera_view_photo_url?: string;
