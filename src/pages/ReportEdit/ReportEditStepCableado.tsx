@@ -2,8 +2,6 @@ import {
   Stack,
   Text,
   NumberInput,
-  TextInput,
-  Textarea,
   Divider,
   Box,
   Table,
@@ -11,7 +9,7 @@ import {
   Radio,
   Group,
 } from '@mantine/core';
-import type { Report, PoleInfrastructure, InfrastructureDetails, FacadeInfrastructure } from '../../types/Report';
+import type { Report, PoleInfrastructure, InfrastructureDetails } from '../../types/Report';
 
 interface ReportEditStepCableadoProps {
   report: Report;
@@ -35,14 +33,6 @@ function setInfrastructureDetails(report: Report, patch: Partial<InfrastructureD
   };
 }
 
-function setFacadeInfra(report: Report, patch: Partial<FacadeInfrastructure>): Report {
-  return {
-    ...report,
-    facade_infrastructure: { ...report.facade_infrastructure, ...patch },
-    updated_at: Date.now(),
-  };
-}
-
 const parseNum = (n: string | number): number =>
   typeof n === 'string' ? parseFloat(n) || 0 : n ?? 0;
 
@@ -50,7 +40,6 @@ export function ReportEditStepCableado({ report, setReport, readOnly }: ReportEd
   const pole = report.pole_infrastructure;
   const se = report.infrastructure_details.service_entrance;
   const cp = report.infrastructure_details.camera_point;
-  const facade = report.facade_infrastructure;
 
   const rows = [
     { label: 'Aérea', value: pole.aerial_meters, key: 'aerial_meters' as keyof PoleInfrastructure },
@@ -94,7 +83,7 @@ export function ReportEditStepCableado({ report, setReport, readOnly }: ReportEd
         </Box>
 
         <Box mt="md">
-          <Text size="sm" fw={600}>Requiere instalación de punto de apoyo:</Text>
+          <Text size="sm" fw={600}>Requiere instalación de poste de apoyo:</Text>
           <Text size="sm">
             {report.infrastructure_details.needs_support_point === true ? 'SI' : 
              report.infrastructure_details.needs_support_point === false ? 'NO' : '—'}
@@ -116,20 +105,13 @@ export function ReportEditStepCableado({ report, setReport, readOnly }: ReportEd
         <Text size="md" fw={700}>5. Cableado y Adecuaciones Físicas en Fachada</Text>
         
         <Box>
-          <Text size="sm" fw={600}>Breve Descripción:</Text>
-          <Text size="sm">{facade.description || '—'}</Text>
-        </Box>
-
-        <Box>
           <Text size="sm" fw={600} td="underline">POSTE ACOMETIDA:</Text>
-          <Text size="sm">Tubería: {se.pipe_type || '—'}</Text>
           <Text size="sm">Altura: {se.height || '—'}</Text>
           <Text size="sm">Material: {se.material || '—'}</Text>
         </Box>
 
         <Box>
           <Text size="sm" fw={600} td="underline">POSTE PUNTO DE CÁMARA:</Text>
-          <Text size="sm">Tubería: {cp.pipe_type || '—'}</Text>
           <Text size="sm">Altura: {cp.height || '—'}</Text>
           <Text size="sm">Material: {cp.material || '—'}</Text>
         </Box>
@@ -187,7 +169,7 @@ export function ReportEditStepCableado({ report, setReport, readOnly }: ReportEd
         </Box>
 
         <Box mb="md">
-          <Text size="sm" fw={700} mb="xs">Requiere instalación de punto de apoyo:</Text>
+          <Text size="sm" fw={700} mb="xs">Requiere instalación de poste de apoyo:</Text>
           <Radio.Group
             value={report.infrastructure_details.needs_support_point === undefined ? '' : String(report.infrastructure_details.needs_support_point)}
             onChange={(val) => setReport(setInfrastructureDetails(report, { needs_support_point: val === 'true' }))}
@@ -228,30 +210,11 @@ export function ReportEditStepCableado({ report, setReport, readOnly }: ReportEd
           5. Cableado y Adecuaciones Físicas en Fachada
         </Text>
         
-        <Textarea
-          label="Breve Descripción:"
-          autosize
-          minRows={2}
-          mb="md"
-          value={facade.description}
-          onInput={(e) =>
-            setReport(setFacadeInfra(report, { description: (e.target as HTMLTextAreaElement).value }))
-          }
-        />
-
         <Stack gap="md" mb="md">
           {/* POSTE ACOMETIDA */}
           <Box>
             <Text size="sm" fw={700} mb="xs" td="underline">POSTE ACOMETIDA:</Text>
             <Stack gap="xs">
-              <TextInput
-                label="Tubería:"
-                placeholder="Ej. PVC"
-                value={se.pipe_type}
-                onInput={(e) => setReport(setInfrastructureDetails(report, {
-                  service_entrance: { ...se, pipe_type: (e.target as HTMLInputElement).value },
-                }))}
-              />
               <NumberInput
                 label="Altura (mts):"
                 placeholder="Ej. 3"
@@ -277,14 +240,6 @@ export function ReportEditStepCableado({ report, setReport, readOnly }: ReportEd
           <Box>
             <Text size="sm" fw={700} mb="xs" td="underline">POSTE PUNTO DE CÁMARA:</Text>
             <Stack gap="xs">
-              <TextInput
-                label="Tubería:"
-                placeholder="Ej. PVC"
-                value={cp.pipe_type}
-                onInput={(e) => setReport(setInfrastructureDetails(report, {
-                  camera_point: { ...cp, pipe_type: (e.target as HTMLInputElement).value },
-                }))}
-              />
               <NumberInput
                 label="Altura (mts):"
                 placeholder="Ej. 3"
