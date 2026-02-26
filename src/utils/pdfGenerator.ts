@@ -1,31 +1,31 @@
-import { generate } from '@pdfme/generator';
-import { text, image, line, table, rectangle } from '@pdfme/schemas';
-import type { Template, Font } from '@pdfme/common';
-import type { Report } from '../types/Report';
-import pdfLogoBase64 from '../../public/pdf_logo_base64.txt?raw';
+import { generate } from "@pdfme/generator";
+import { text, image, line, table, rectangle } from "@pdfme/schemas";
+import type { Template, Font } from "@pdfme/common";
+import type { Report } from "../types/Report";
+import pdfLogoBase64 from "../../public/pdf_logo_base64.txt?raw";
 
 let cachedFont: Font | null = null;
 
 async function loadFont(): Promise<Font> {
   if (cachedFont) return cachedFont;
-  
+
   const [regularRes, boldRes] = await Promise.all([
-    fetch('/roboto-regular.ttf'),
-    fetch('/roboto-bold.ttf'),
+    fetch("/roboto-regular.ttf"),
+    fetch("/roboto-bold.ttf"),
   ]);
-  
+
   const [regularData, boldData] = await Promise.all([
     regularRes.arrayBuffer(),
     boldRes.arrayBuffer(),
   ]);
-  
+
   cachedFont = {
     Roboto: {
       data: regularData,
       fallback: true,
       subset: false,
     },
-    'Roboto-Bold': {
+    "Roboto-Bold": {
       data: boldData,
       subset: false,
     },
@@ -37,33 +37,37 @@ let cachedTemplate: Template | null = null;
 
 async function loadTemplate(): Promise<Template> {
   if (cachedTemplate) return cachedTemplate;
-  const res = await fetch('/template_v2.json');
-  if (!res.ok) throw new Error('No se pudo cargar la plantilla PDF');
+  const res = await fetch("/template_v2.json");
+  if (!res.ok) throw new Error("No se pudo cargar la plantilla PDF");
   cachedTemplate = await res.json();
   return cachedTemplate!;
 }
 
 /** Parse date string (DD/MM/YYYY or YYYY-MM-DD) into parts. */
-function parseDate(dateStr: string): { dia: string; mes: string; anio: string } {
-  if (!dateStr) return { dia: '', mes: '', anio: '' };
-  if (dateStr.includes('/')) {
-    const [d, m, y] = dateStr.split('/');
-    return { dia: d ?? '', mes: m ?? '', anio: y ?? '' };
+function parseDate(dateStr: string): {
+  dia: string;
+  mes: string;
+  anio: string;
+} {
+  if (!dateStr) return { dia: "", mes: "", anio: "" };
+  if (dateStr.includes("/")) {
+    const [d, m, y] = dateStr.split("/");
+    return { dia: d ?? "", mes: m ?? "", anio: y ?? "" };
   }
-  if (dateStr.includes('-')) {
-    const [y, m, d] = dateStr.split('-');
-    return { dia: d ?? '', mes: m ?? '', anio: y ?? '' };
+  if (dateStr.includes("-")) {
+    const [y, m, d] = dateStr.split("-");
+    return { dia: d ?? "", mes: m ?? "", anio: y ?? "" };
   }
-  return { dia: dateStr, mes: '', anio: '' };
+  return { dia: dateStr, mes: "", anio: "" };
 }
 
 /** Checkbox mark: returns 'X' when checked, two spaces when unchecked. */
-const chk = (v: boolean) => (v ? 'X' : '  ');
+const chk = (v: boolean) => (v ? "X" : "  ");
 
 /** Convert decimal degrees to DMS (Degrees Minutes Seconds) string. */
 function toDMS(decimal: number, isLat: boolean): string {
-  if (decimal == null || isNaN(decimal)) return '';
-  const dir = isLat ? (decimal >= 0 ? 'N' : 'S') : (decimal >= 0 ? 'E' : 'W');
+  if (decimal == null || isNaN(decimal)) return "";
+  const dir = isLat ? (decimal >= 0 ? "N" : "S") : decimal >= 0 ? "E" : "W";
   const abs = Math.abs(decimal);
   const deg = Math.floor(abs);
   const minFloat = (abs - deg) * 60;
@@ -85,68 +89,73 @@ export function buildPdfInputs(report: Report): Record<string, string> {
     input_day: dia,
     input_month: mes,
     input_year: anio,
-    input_site_name: report.address?.site_name.replace(/\D/g, "") ?? '',
+    input_site_name: report.address?.site_name.replace(/\D/g, "") ?? "",
 
     chk_install_type:
-      `TIPO INSTALACIÓN:   Fachada/mástil [${chk(inst.includes('fachada_mastil'))}]` +
-      `    Poste [${chk(inst.includes('poste'))}]` +
-      `    Torre [${chk(inst.includes('torre'))}]` +
-      `    Terraza [${chk(inst.includes('terraza'))}]`,
+      `TIPO INSTALACIÓN:   Fachada/mástil [${chk(inst.includes("fachada_mastil"))}]` +
+      `    Poste [${chk(inst.includes("poste"))}]` +
+      `    Torre [${chk(inst.includes("torre"))}]` +
+      `    Terraza [${chk(inst.includes("terraza"))}]`,
 
     // ─── Section 1: Geographic Info ──────────────────────────
-    input_address: report.address?.full_address ?? '',
-    input_lat: report.address?.latitude ? String(report.address.latitude) : '',
-    input_long: report.address?.longitude ? String(report.address.longitude) : '',
+    input_address: report.address?.full_address ?? "",
+    input_lat: report.address?.latitude ? String(report.address.latitude) : "",
+    input_long: report.address?.longitude
+      ? String(report.address.longitude)
+      : "",
     input_gms: [
-      report.address?.latitude ? toDMS(report.address.latitude, true) : '',
-      report.address?.longitude ? toDMS(report.address.longitude, false) : '',
-    ].filter(Boolean).join(' / '),
+      report.address?.latitude ? toDMS(report.address.latitude, true) : "",
+      report.address?.longitude ? toDMS(report.address.longitude, false) : "",
+    ]
+      .filter(Boolean)
+      .join(" / "),
 
-    input_description:
-      `Descripción (Distancia energía, ruta acometida, infraestructura): ${(report.observations ?? []).join(', ')}`,
+    input_description: `Descripción (Distancia energía, ruta acometida, infraestructura): ${(report.observations ?? []).join(", ")}`,
 
     // ─── Security & Components ───────────────────────────────
     chk_security:
-      `NIVEL DE SEGURIDAD:   ALTO [${chk(report.security_level === 'alto')}]` +
-      `    MEDIO [${chk(report.security_level === 'medio')}]` +
-      `    BAJO [${chk(report.security_level === 'bajo')}]`,
+      `NIVEL DE SEGURIDAD:   ALTO [${chk(report.security_level === "alto")}]` +
+      `    MEDIO [${chk(report.security_level === "medio")}]` +
+      `    BAJO [${chk(report.security_level === "bajo")}]`,
 
     chk_components:
-      `COMPONENTES:   VALLE SEGURO [${chk(report.contract_component === 'valle_seguro')}]` +
-      `    LPR [${chk(report.contract_component === 'lpr')}]` +
-      `    COTEJO FACIAL [${chk(report.contract_component === 'cotejo_facial')}]`,
+      `COMPONENTES:   VALLE SEGURO [${chk(report.contract_component === "valle_seguro")}]` +
+      `    LPR [${chk(report.contract_component === "lpr")}]` +
+      `    COTEJO FACIAL [${chk(report.contract_component === "cotejo_facial")}]`,
 
     // ─── Section 2: Site Survey ──────────────────────────────
     chk_los: `N/A [${chk(!report.connectivity?.has_line_of_sight)}]`,
 
     chk_trans:
-      `Fibra Óptica [${chk(report.connectivity?.transmission_medium === 'fibra_optica')}]` +
-      `    Radioenlace [${chk(report.connectivity?.transmission_medium === 'radio_enlace')}]`,
+      `Fibra Óptica [${chk(report.connectivity?.transmission_medium === "fibra_optica")}]` +
+      `    Radioenlace [${chk(report.connectivity?.transmission_medium === "radio_enlace")}]`,
 
     chk_cabling:
-      `Aéreo [${chk(report.connectivity?.cabling_type === 'aereo')}]` +
-      `    Subterráneo [${chk(report.connectivity?.cabling_type === 'subterraneo')}]` +
-      `    Mixto [${chk(report.connectivity?.cabling_type === 'mixto')}]`,
+      `Aéreo [${chk(report.connectivity?.cabling_type === "aereo")}]` +
+      `    Subterráneo [${chk(report.connectivity?.cabling_type === "subterraneo")}]` +
+      `    Mixto [${chk(report.connectivity?.cabling_type === "mixto")}]`,
 
     // ─── Hardware Inventory ──────────────────────────────────
     input_inv_facial: String(report.hardware?.cameras_facial ?? 0),
     input_inv_multi: String(report.hardware?.cameras_multisensor ?? 0),
     input_inv_ptz: String(report.hardware?.cameras_ptz ?? 0),
     input_inv_fixed: String(report.hardware?.cameras_fixed ?? 0),
-    
+
     // Boxes
     input_inv_box_40: String(report.hardware?.boxes_40 ?? 0),
     input_inv_box_60: String(report.hardware?.boxes_60 ?? 0),
-    input_inv_box: String((report.hardware?.boxes_40 ?? 0) + (report.hardware?.boxes_60 ?? 0)),
+    input_inv_box: String(
+      (report.hardware?.boxes_40 ?? 0) + (report.hardware?.boxes_60 ?? 0),
+    ),
 
     // ─── Page 3: Civil works table ───────────────────────────
     table_civil_works: JSON.stringify([
-      ['Aérea', String(report.pole_infrastructure?.aerial_meters ?? 0)],
-      ['Prado', String(report.pole_infrastructure?.grass_meters ?? 0)],
-      ['Asfalto', String(report.pole_infrastructure?.asphalt_meters ?? 0)],
-      ['Adoquín', String(report.pole_infrastructure?.adoquin_meters ?? 0)],
-      ['Concreto', String(report.pole_infrastructure?.concrete_meters ?? 0)],
-      ['Relleno', String(report.pole_infrastructure?.fill_meters ?? 0)],
+      ["Aérea", String(report.pole_infrastructure?.aerial_meters ?? 0)],
+      ["Prado", String(report.pole_infrastructure?.grass_meters ?? 0)],
+      ["Asfalto", String(report.pole_infrastructure?.asphalt_meters ?? 0)],
+      ["Adoquín", String(report.pole_infrastructure?.adoquin_meters ?? 0)],
+      ["Concreto", String(report.pole_infrastructure?.concrete_meters ?? 0)],
+      ["Relleno", String(report.pole_infrastructure?.fill_meters ?? 0)],
     ]),
 
     input_total_ruta: String(
@@ -155,35 +164,48 @@ export function buildPdfInputs(report: Report): Record<string, string> {
       (report.pole_infrastructure?.asphalt_meters ?? 0) +
       (report.pole_infrastructure?.adoquin_meters ?? 0) +
       (report.pole_infrastructure?.concrete_meters ?? 0) +
-      (report.pole_infrastructure?.fill_meters ?? 0)
-    ),
+      (report.pole_infrastructure?.fill_meters ?? 0),
+    ) + " mts",
 
     // ─── Mounting & Support ──────────────────────────────────
-    input_soporte_T: `Soporte T [${chk(report.infrastructure_details?.camera_mounting === 'soporte_t')}]`,
-    input_support_pole: `Poste [${chk(report.infrastructure_details?.camera_mounting === 'poste')}]`,
-    input_soporte_L: `Soporte L [${chk(report.infrastructure_details?.camera_mounting === 'soporte_l')}]`,
-    
+    input_soporte_T: `Soporte T [${chk(report.infrastructure_details?.camera_mounting === "soporte_t")}]`,
+    input_support_pole: `Poste [${chk(report.infrastructure_details?.camera_mounting === "poste")}]`,
+    input_soporte_L: `Soporte L [${chk(report.infrastructure_details?.camera_mounting === "soporte_l")}]`,
+
     input_apoyo_si: `SI [${chk(report.infrastructure_details?.needs_support_point === true)}]`,
     input_apoyo_no: `NO [${chk(report.infrastructure_details?.needs_support_point === false)}]`,
+    input_apoyo_cant: report.infrastructure_details?.apoyo_cant
+      ? `Cantidad: [ ${String(report.infrastructure_details.apoyo_cant)} ]`
+      : "",
 
-    input_distancia_electrica: String(report.infrastructure_details?.electrical_distance ?? 0),
-    input_distancia_fibra: String(report.infrastructure_details?.fiber_distance ?? 0),
+    input_distancia_electrica: String(
+      report.infrastructure_details?.electrical_distance ?? 0,
+    ),
+    input_distancia_fibra: String(
+      report.infrastructure_details?.fiber_distance ?? 0,
+    ),
 
     // ─── Facade ──────────────────────────────────────────────
-    input_desc_facade: report.facade_infrastructure?.description ?? '',
+    input_desc_facade: report.facade_infrastructure?.description ?? "",
 
     // ─── Infrastructure: Service Entrance (Acometida) ────────
-    input_pa_tub: report.infrastructure_details?.service_entrance?.pipe_type ?? '',
-    input_pa_alt: report.infrastructure_details?.service_entrance?.height ? `${report.infrastructure_details.service_entrance.height} mts` : '',
-    input_pa_material: report.infrastructure_details?.service_entrance?.material ?? '',
+    input_pa_tub:
+      report.infrastructure_details?.service_entrance?.pipe_type ?? "",
+    input_pa_alt: report.infrastructure_details?.service_entrance?.height
+      ? `${report.infrastructure_details.service_entrance.height} mts`
+      : "",
+    input_pa_material:
+      report.infrastructure_details?.service_entrance?.material ?? "",
 
     // ─── Infrastructure: Camera Point ────────────────────────
-    input_pc_tub: report.infrastructure_details?.camera_point?.pipe_type ?? '',
-    input_pc_alt: report.infrastructure_details?.camera_point?.height ? `${report.infrastructure_details.camera_point.height} mts` : '',
-    input_pc_mat: report.infrastructure_details?.camera_point?.material ?? '',
+    input_pc_tub: report.infrastructure_details?.camera_point?.pipe_type ?? "",
+    input_pc_alt: report.infrastructure_details?.camera_point?.height
+      ? `${report.infrastructure_details.camera_point.height} mts`
+      : "",
+    input_pc_mat: report.infrastructure_details?.camera_point?.material ?? "",
 
     // ─── Observations ────────────────────────────────────────
-    input_observations: `Este punto de cámara pertenece a:  ${report.owner_name || '—'}\n\n\nOBSERVACIONES GENERALES:\n\n${report.final_observations ?? ''}`,
+    input_observations: `Este punto de cámara pertenece a:  ${report.owner_name || "—"}\n\n\nOBSERVACIONES GENERALES:\n\n${report.final_observations ?? ""}`,
   };
 
   // ─── Images: only include when present ─────────────────────

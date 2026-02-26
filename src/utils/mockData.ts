@@ -87,6 +87,7 @@ export const generateMockReports = (userId?: string, count: number = 10): Report
         camera_point: { pipe_type: 'EMT 1"', height: '3.5m', other: '', material: 'Concreto', other_material: '' },
         camera_mounting: 'poste',
         needs_support_point: true,
+        apoyo_cant: 1,
         electrical_distance: 15,
         fiber_distance: 25
       },

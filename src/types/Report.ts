@@ -101,6 +101,7 @@ export interface InfrastructureDetails {
   
   electrical_distance?: number;
   fiber_distance?: number;
+  apoyo_cant?: number;
 }
 
 // Main Report Interface
@@ -209,6 +210,7 @@ export const createInitialReport = (userId: string, group: GroupAssignment): Rep
     camera_point: { pipe_type: '', height: '', other: '', material: '', other_material: '' },
     camera_mounting: undefined,
     needs_support_point: false,
+    apoyo_cant: 0,
     electrical_distance: 0,
     fiber_distance: 0
   },

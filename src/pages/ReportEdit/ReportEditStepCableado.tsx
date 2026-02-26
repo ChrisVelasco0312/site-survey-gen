@@ -53,7 +53,7 @@ export function ReportEditStepCableado({ report, setReport, readOnly }: ReportEd
   if (readOnly) {
     return (
       <Stack gap="md">
-        <Text size="md" fw={700}>4. Cableado y Adecuaciones Físicas en Poste</Text>
+        <Text size="md" fw={700}>4. Cableado y Adecuaciones Físicas</Text>
         <Text size="sm">Ruta Acometida hasta Base de Poste:</Text>
         <Table withTableBorder withColumnBorders>
           <Table.Thead>
@@ -90,6 +90,13 @@ export function ReportEditStepCableado({ report, setReport, readOnly }: ReportEd
           </Text>
         </Box>
 
+        {report.infrastructure_details.needs_support_point === true && (
+          <Box mt="md">
+            <Text size="sm" fw={600}>Cantidad de postes de apoyo:</Text>
+            <Text size="sm">{report.infrastructure_details.apoyo_cant ?? 0}</Text>
+          </Box>
+        )}
+
         <Box mt="md">
           <Text size="sm" fw={600}>DISTANCIA DE ACOMETIDA DE RED ELÉCTRICA A INSTALAR (desde el punto de conexión hasta el gabinete)</Text>
           <Text size="sm">{report.infrastructure_details.electrical_distance ?? 0} mts</Text>
@@ -102,8 +109,6 @@ export function ReportEditStepCableado({ report, setReport, readOnly }: ReportEd
 
         <Divider my="md" />
 
-        <Text size="md" fw={700}>5. Cableado y Adecuaciones Físicas en Fachada</Text>
-        
         <Box>
           <Text size="sm" fw={600} td="underline">POSTE ACOMETIDA:</Text>
           <Text size="sm">Altura: {se.height || '—'}</Text>
@@ -124,7 +129,7 @@ export function ReportEditStepCableado({ report, setReport, readOnly }: ReportEd
       {/* SECTION 1: POSTE */}
       <Box>
         <Text size="lg" fw={800} mb="sm" style={{ textTransform: 'uppercase', background: '#e0e0e0', padding: '8px' }}>
-          4. Cableado y Adecuaciones Físicas en Poste
+          4. Cableado y Adecuaciones Físicas
         </Text>
         <Text size="sm" mb="md">Ruta Acometida hasta Base de Poste:</Text>
         
@@ -183,6 +188,15 @@ export function ReportEditStepCableado({ report, setReport, readOnly }: ReportEd
 
         <Box mb="md">
           <NumberInput
+            label="Cantidad de postes de apoyo:"
+            min={0}
+            value={report.infrastructure_details.apoyo_cant ?? 0}
+            onChange={(n) => setReport(setInfrastructureDetails(report, { apoyo_cant: parseNum(n) }))}
+          />
+        </Box>
+
+        <Box mb="md">
+          <NumberInput
             label="DISTANCIA DE ACOMETIDA DE RED ELÉCTRICA A INSTALAR (desde el punto de conexión hasta el gabinete)"
             min={0}
             decimalScale={2}
@@ -206,10 +220,6 @@ export function ReportEditStepCableado({ report, setReport, readOnly }: ReportEd
 
       {/* SECTION 2: FACHADA */}
       <Box>
-        <Text size="lg" fw={800} mb="sm" style={{ textTransform: 'uppercase', background: '#e0e0e0', padding: '8px' }}>
-          5. Cableado y Adecuaciones Físicas en Fachada
-        </Text>
-        
         <Stack gap="md" mb="md">
           {/* POSTE ACOMETIDA */}
           <Box>
