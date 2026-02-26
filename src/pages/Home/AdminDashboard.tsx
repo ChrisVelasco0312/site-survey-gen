@@ -1,17 +1,30 @@
-import { useEffect, useState } from 'preact/hooks';
-import { Title, Table, Badge, Button, Loader, Text, Group, ActionIcon, Tooltip, Card, Stack, Tabs } from '@mantine/core';
-import { useMediaQuery } from '@mantine/hooks';
-import { Report } from '../../types/Report';
-import { IconEye, IconRefresh } from '@tabler/icons-react';
-import { useLocation } from 'preact-iso';
-import { getAllReports } from '../../services/reportsService';
+import { useEffect, useState } from "preact/hooks";
+import {
+  Title,
+  Table,
+  Badge,
+  Button,
+  Loader,
+  Text,
+  Group,
+  ActionIcon,
+  Tooltip,
+  Card,
+  Stack,
+  Tabs,
+} from "@mantine/core";
+import { useMediaQuery } from "@mantine/hooks";
+import { Report } from "../../types/Report";
+import { IconEye, IconRefresh } from "@tabler/icons-react";
+import { useLocation } from "preact-iso";
+import { getAllReports } from "../../services/reportsService";
 
 export function AdminDashboard() {
   const [reports, setReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<string | null>('en_campo');
+  const [activeTab, setActiveTab] = useState<string | null>("en_campo");
   const location = useLocation();
-  const isMobile = useMediaQuery('(max-width: 768px)');
+  const isMobile = useMediaQuery("(max-width: 768px)");
 
   const fetchReports = async () => {
     setLoading(true);
@@ -30,51 +43,73 @@ export function AdminDashboard() {
   }, []);
 
   const getStatusBadge = (status: string) => (
-    <Badge 
-        color={
-        status === 'generado' ? 'green' : 
-        status === 'listo_para_generar' ? 'blue' : 
-        status === 'en_revision' ? 'orange' : 'gray'
-        }
+    <Badge
+      color={
+        status === "generado"
+          ? "green"
+          : status === "listo_para_generar"
+            ? "blue"
+            : status === "en_revision"
+              ? "orange"
+              : "gray"
+      }
     >
-        {status?.replace(/_/g, ' ')}
+      {status?.replace(/_/g, " ")}
     </Badge>
   );
 
   const renderMobileList = (filtered: Report[]) => (
     <Stack>
-        {filtered.map((report) => (
-            <Card key={report.id} shadow="sm" padding="lg" radius="md" withBorder>
-                <Group justify="space-between" mb="xs">
-                    <Text fw={500}>{report.address?.site_name || report.address?.full_address || 'Sin dirección'}</Text>
-                    {getStatusBadge(report.status)}
-                </Group>
-                
-                <Text size="sm" c="dimmed" mb="xs">
-                    {report.date || new Date(report.created_at).toLocaleDateString()} • {report.group?.replace('_', ' ')}
-                </Text>
+      {filtered.map((report) => (
+        <Card key={report.id} shadow="sm" padding="lg" radius="md" withBorder>
+          <Group justify="space-between" mb="xs" align="flex-start">
+            <div>
+              <Text fw={500}>
+                {[report.address?.distrito, report.address?.municipio]
+                  .filter(Boolean)
+                  .join(" - ")}
+              </Text>
+              <Text size="sm" c="dimmed">
+                  {report.address?.site_name
+                    ? report.address?.site_name +
+                    " - " +
+                    report.address?.full_address
+                    : "Sin dirección"}
+              </Text>
+            </div>
+            {getStatusBadge(report.status)}
+          </Group>
 
-                <Button 
-                    variant="light" 
-                    color="blue" 
-                    fullWidth 
-                    mt="md" 
-                    radius="md" 
-                    onClick={() => location.route(`/reporte/${report.id}`)}
-                    leftSection={<IconEye size={16} />}
-                >
-                    Ver Detalles
-                </Button>
-            </Card>
-        ))}
+          <Text size="sm" c="dimmed" mb="xs">
+            {report.date || new Date(report.created_at).toLocaleDateString()} •{" "}
+            {report.group?.replace("_", " ")}
+          </Text>
+
+          <Button
+            variant="light"
+            color="blue"
+            fullWidth
+            mt="md"
+            radius="md"
+            onClick={() => location.route(`/reporte/${report.id}`)}
+            leftSection={<IconEye size={16} />}
+          >
+            Ver Detalles
+          </Button>
+        </Card>
+      ))}
     </Stack>
   );
 
   const renderContent = (filterStatus: string[]) => {
-    const filtered = reports.filter(r => filterStatus.includes(r.status));
+    const filtered = reports.filter((r) => filterStatus.includes(r.status));
 
     if (filtered.length === 0) {
-      return <Text c="dimmed" ta="center" py="xl">No hay reportes en este estado.</Text>;
+      return (
+        <Text c="dimmed" ta="center" py="xl">
+          No hay reportes en este estado.
+        </Text>
+      );
     }
 
     if (isMobile) {
@@ -82,7 +117,13 @@ export function AdminDashboard() {
     }
 
     return (
-      <Table striped highlightOnHover withTableBorder verticalSpacing="md" horizontalSpacing="md">
+      <Table
+        striped
+        highlightOnHover
+        withTableBorder
+        verticalSpacing="md"
+        horizontalSpacing="md"
+      >
         <Table.Thead>
           <Table.Tr>
             <Table.Th>Fecha</Table.Th>
@@ -95,15 +136,35 @@ export function AdminDashboard() {
         <Table.Tbody>
           {filtered.map((report) => (
             <Table.Tr key={report.id}>
-              <Table.Td>{report.date || new Date(report.created_at).toLocaleDateString()}</Table.Td>
-              <Table.Td>{report.address?.site_name || report.address?.full_address || 'Sin dirección'}</Table.Td>
-              <Table.Td style={{ textTransform: 'capitalize' }}>{report.group?.replace('_', ' ')}</Table.Td>
               <Table.Td>
-                {getStatusBadge(report.status)}
+                {report.date ||
+                  new Date(report.created_at).toLocaleDateString()}
               </Table.Td>
               <Table.Td>
+                <Text size="sm" fw={500}>
+                  {[report.address?.distrito, report.address?.municipio]
+                    .filter(Boolean)
+                    .join(" - ")}
+                </Text>
+                <Text size="xs" c="dimmed">
+                  {report.address?.site_name
+                    ? report.address?.site_name +
+                    " - " +
+                    report.address?.full_address
+                    : "Sin dirección"}
+                </Text>
+              </Table.Td>
+              <Table.Td style={{ textTransform: "capitalize" }}>
+                {report.group?.replace("_", " ")}
+              </Table.Td>
+              <Table.Td>{getStatusBadge(report.status)}</Table.Td>
+              <Table.Td>
                 <Tooltip label="Ver detalles">
-                  <ActionIcon variant="subtle" color="blue" onClick={() => location.route(`/reporte/${report.id}`)}>
+                  <ActionIcon
+                    variant="subtle"
+                    color="blue"
+                    onClick={() => location.route(`/reporte/${report.id}`)}
+                  >
                     <IconEye size={16} />
                   </ActionIcon>
                 </Tooltip>
@@ -116,10 +177,14 @@ export function AdminDashboard() {
   };
 
   return (
-    <div style={{ padding: '20px' }}>
+    <div style={{ padding: "20px" }}>
       <Group justify="space-between" mb="lg">
         <Title order={2}>Dashboard General</Title>
-        <Button onClick={fetchReports} leftSection={<IconRefresh size={16} />} loading={loading}>
+        <Button
+          onClick={fetchReports}
+          leftSection={<IconRefresh size={16} />}
+          loading={loading}
+        >
           Actualizar
         </Button>
       </Group>
@@ -134,11 +199,11 @@ export function AdminDashboard() {
           </Tabs.List>
 
           <Tabs.Panel value="en_campo">
-            {renderContent(['en_campo'])}
+            {renderContent(["en_campo"])}
           </Tabs.Panel>
 
           <Tabs.Panel value="en_revision">
-            {renderContent(['en_revision'])}
+            {renderContent(["en_revision"])}
           </Tabs.Panel>
         </Tabs>
       )}
