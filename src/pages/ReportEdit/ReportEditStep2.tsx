@@ -1,16 +1,11 @@
-import { useState, useEffect } from 'preact/hooks';
+import { useEffect } from 'preact/hooks';
 import "./ReportEdit.css"
 import {
   Select,
   Stack,
   Text,
-  TextInput,
-  Button,
-  Group,
-  ActionIcon,
   Box,
 } from '@mantine/core';
-import { IconPlus, IconTrash } from '@tabler/icons-react';
 import type { Report, SecurityLevel, ContractComponent } from '../../types/Report';
 
 const SECURITY_LEVEL_OPTIONS: { value: SecurityLevel; label: string }[] = [
@@ -32,8 +27,6 @@ interface ReportEditStep2Props {
 }
 
 export function ReportEditStep2({ report, setReport, readOnly }: ReportEditStep2Props) {
-  const [newObservation, setNewObservation] = useState('');
-
   useEffect(() => {
     const siteType = report.address.site_type;
     if (!siteType) return;
@@ -76,37 +69,6 @@ export function ReportEditStep2({ report, setReport, readOnly }: ReportEditStep2
     });
   };
 
-  const addObservation = () => {
-    const trimmed = newObservation.trim();
-    if (!trimmed) return;
-    setReport({
-      ...report,
-      observations: [...(report.observations ?? []), trimmed],
-      updated_at: Date.now(),
-    });
-    setNewObservation('');
-  };
-
-  const removeObservation = (index: number) => {
-    const next = [...(report.observations ?? [])];
-    next.splice(index, 1);
-    setReport({
-      ...report,
-      observations: next,
-      updated_at: Date.now(),
-    });
-  };
-
-  const updateObservation = (index: number, value: string) => {
-    const next = [...(report.observations ?? [])];
-    next[index] = value;
-    setReport({
-      ...report,
-      observations: next,
-      updated_at: Date.now(),
-    });
-  };
-
   if (readOnly) {
     return (
       <Stack gap="md">
@@ -121,18 +83,6 @@ export function ReportEditStep2({ report, setReport, readOnly }: ReportEditStep2
           <Text>
             {CONTRACT_COMPONENT_OPTIONS.find((o) => o.value === report.contract_component)?.label ?? report.contract_component}
           </Text>
-        </Box>
-        <Box>
-          <Text size="sm" fw={500} c="dimmed">Observaciones</Text>
-          {report.observations?.length ? (
-            <Stack gap="xs" mt="xs">
-              {report.observations.map((obs, i) => (
-                <Text key={i} size="sm">{obs}</Text>
-              ))}
-            </Stack>
-          ) : (
-            <Text size="sm" c="dimmed">—</Text>
-          )}
         </Box>
       </Stack>
     );
@@ -154,50 +104,6 @@ export function ReportEditStep2({ report, setReport, readOnly }: ReportEditStep2
         value={report.contract_component}
         onChange={onContractComponentChange}
       />
-      <Box>
-        <Text size="md" fw={800} mb="xs" component="label" display="block">
-          Observaciones
-        </Text>
-        <Text size="xs" c="dimmed" mb="xs">
-          Agregue las observaciones que apliquen al sitio.
-        </Text>
-        <Group gap="xs" mb="sm">
-          <TextInput
-            placeholder="Nueva observación"
-            value={newObservation}
-            onInput={(e) => setNewObservation((e.target as HTMLInputElement).value)}
-            onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addObservation())}
-            style={{ flex: 1 }}
-          />
-          <Button
-            variant="light"
-            leftSection={<IconPlus size={16} />}
-            onClick={addObservation}
-            disabled={!newObservation.trim()}
-          >
-            Agregar
-          </Button>
-        </Group>
-        <Stack gap="xs">
-          {(report.observations ?? []).map((obs, index) => (
-            <Group key={index} gap="xs" wrap="nowrap">
-              <TextInput
-                value={obs}
-                onInput={(e) => updateObservation(index, (e.target as HTMLInputElement).value)}
-                style={{ flex: 1 }}
-              />
-              <ActionIcon
-                variant="subtle"
-                color="red"
-                onClick={() => removeObservation(index)}
-                aria-label="Eliminar observación"
-              >
-                <IconTrash size={16} />
-              </ActionIcon>
-            </Group>
-          ))}
-        </Stack>
-      </Box>
     </Stack>
   );
 }

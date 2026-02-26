@@ -60,16 +60,21 @@ export const generateMockReports = (userId?: string, count: number = 10): Report
       },
 
       hardware: {
-        additional_boxes: 1,
+        cameras_facial: 1,
         cameras_multisensor: 0,
         cameras_ptz: 1,
-        cameras_fixed: 0
+        cameras_fixed: 0,
+        boxes_40: 1,
+        boxes_60: 0
       },
 
       pole_infrastructure: {
         aerial_meters: 50,
         grass_meters: 0,
         asphalt_meters: 10,
+        adoquin_meters: 0,
+        concrete_meters: 0,
+        fill_meters: 0,
         other_surface_meters: 0
       },
 

@@ -17,6 +17,7 @@ const INSTALLATION_TYPE_OPTIONS: { value: InstallationType; label: string }[] = 
   { value: 'fachada_mastil', label: 'Fachada / Mástil' },
   { value: 'poste', label: 'Poste' },
   { value: 'torre', label: 'Torre' },
+  { value: 'terraza', label: 'Terraza' },
 ];
 
 const SITE_TYPE_OPTIONS = [

@@ -19,6 +19,7 @@ import type {
 
 const TRANSMISSION_OPTIONS: { value: TransmissionMedium; label: string }[] = [
   { value: 'fibra_optica', label: 'Fibra óptica' },
+  { value: 'radio_enlace', label: 'Radioenlace' },
   { value: 'na', label: 'N/A' },
 ];
 
@@ -77,9 +78,12 @@ export function ReportEditStep3({ report, setReport, readOnly }: ReportEditStep3
           <Text size="sm" fw={500} c="dimmed">Tipo de cableado</Text>
           <Text>{CABLING_OPTIONS.find((o) => o.value === c.cabling_type)?.label ?? c.cabling_type}</Text>
         </Box>
-        <Divider label="Inventario de hardware" />
-        <Text size="sm" fw={500} c="dimmed">Cajas adicionales / Multisensor / PTZ / Fijas</Text>
-        <Text size="sm">{h.additional_boxes} / {h.cameras_multisensor} / {h.cameras_ptz} / {h.cameras_fixed}</Text>
+        <Divider label="Cámaras" />
+        <Text size="sm" fw={500} c="dimmed">Multisensor / Facial / PTZ / Fijas</Text>
+        <Text size="sm">{h.cameras_multisensor} / {h.cameras_facial} / {h.cameras_ptz} / {h.cameras_fixed}</Text>
+        <Divider label="Cajas" />
+        <Text size="sm" fw={500} c="dimmed">40x40 / 60x60 / Total</Text>
+        <Text size="sm">{h.boxes_40 ?? 0} / {h.boxes_60 ?? 0} / {(h.boxes_40 ?? 0) + (h.boxes_60 ?? 0)}</Text>
       </Stack>
     );
   }
@@ -110,19 +114,19 @@ export function ReportEditStep3({ report, setReport, readOnly }: ReportEditStep3
       <Divider />
 
       <Text size="md" fw={800}>
-        Inventario de hardware
+        Cámaras
       </Text>
-      <NumberInput
-        label="Cajas adicionales"
-        min={0}
-        value={h.additional_boxes}
-        onChange={(n) => setReport(setHardware(report, { additional_boxes: typeof n === 'string' ? parseInt(n, 10) || 0 : n ?? 0 }))}
-      />
       <NumberInput
         label="Cámaras multisensor"
         min={0}
         value={h.cameras_multisensor}
         onChange={(n) => setReport(setHardware(report, { cameras_multisensor: typeof n === 'string' ? parseInt(n, 10) || 0 : n ?? 0 }))}
+      />
+      <NumberInput
+        label="Facial"
+        min={0}
+        value={h.cameras_facial}
+        onChange={(n) => setReport(setHardware(report, { cameras_facial: typeof n === 'string' ? parseInt(n, 10) || 0 : n ?? 0 }))}
       />
       <NumberInput
         label="Cámaras PTZ"
@@ -135,6 +139,24 @@ export function ReportEditStep3({ report, setReport, readOnly }: ReportEditStep3
         min={0}
         value={h.cameras_fixed}
         onChange={(n) => setReport(setHardware(report, { cameras_fixed: typeof n === 'string' ? parseInt(n, 10) || 0 : n ?? 0 }))}
+      />
+
+      <Divider />
+
+      <Text size="md" fw={800}>
+        Cajas
+      </Text>
+      <NumberInput
+        label="Cajas 40x40"
+        min={0}
+        value={h.boxes_40 ?? 0}
+        onChange={(n) => setReport(setHardware(report, { boxes_40: typeof n === 'string' ? parseInt(n, 10) || 0 : n ?? 0 }))}
+      />
+      <NumberInput
+        label="Cajas 60x60"
+        min={0}
+        value={h.boxes_60 ?? 0}
+        onChange={(n) => setReport(setHardware(report, { boxes_60: typeof n === 'string' ? parseInt(n, 10) || 0 : n ?? 0 }))}
       />
     </Stack>
   );

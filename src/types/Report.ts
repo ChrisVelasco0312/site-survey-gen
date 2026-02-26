@@ -4,14 +4,14 @@ import { GroupAssignment } from './User';
 export type ReportStatus = 'en_campo' | 'en_revision' | 'listo_para_generar' | 'generado';
 
 // HU-12
-export type InstallationType = 'fachada_mastil' | 'poste' | 'torre';
+export type InstallationType = 'fachada_mastil' | 'poste' | 'torre' | 'terraza';
 
 // HU-14
 export type SecurityLevel = 'alto' | 'medio' | 'bajo';
 export type ContractComponent = 'valle_seguro' | 'lpr' | 'cotejo_facial';
 
 // HU-15
-export type TransmissionMedium = 'fibra_optica' | 'na';
+export type TransmissionMedium = 'fibra_optica' | 'radio_enlace' | 'na';
 export type CablingType = 'aereo' | 'subterraneo' | 'mixto';
 
 /** Site record as stored in Firestore and IndexedDB (sites collection). */
@@ -57,10 +57,12 @@ export interface ConnectivityData {
 }
 
 export interface HardwareInventory {
-  additional_boxes: number;
+  cameras_facial: number;
   cameras_multisensor: number;
   cameras_ptz: number;
   cameras_fixed: number;
+  boxes_40: number;
+  boxes_60: number;
 }
 
 // HU-18
@@ -173,10 +175,12 @@ export const createInitialReport = (userId: string, group: GroupAssignment): Rep
   },
   
   hardware: {
-    additional_boxes: 0,
+    cameras_facial: 0,
     cameras_multisensor: 0,
     cameras_ptz: 0,
-    cameras_fixed: 0
+    cameras_fixed: 0,
+    boxes_40: 0,
+    boxes_60: 0
   },
   
   pole_infrastructure: {
