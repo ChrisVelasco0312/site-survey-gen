@@ -83,17 +83,24 @@ export interface FacadeInfrastructure {
 export interface InfrastructureDetailItem {
   pipe_type: string;
   height: string; // string to allow "3m" or descriptions if needed, or number if strict
+  material: string; // Added material here for service_entrance (Acometida) too
   other: string;
 }
 
 export interface CameraPointDetail extends InfrastructureDetailItem {
-  material: string; // 'Concreto', etc.
   other_material: string;
 }
 
 export interface InfrastructureDetails {
   service_entrance: InfrastructureDetailItem; // Acometida
   camera_point: CameraPointDetail;            // Punto de Cámara
+  
+  // New fields
+  camera_mounting?: 'soporte_t' | 'poste' | 'soporte_l';
+  needs_support_point?: boolean;
+  
+  electrical_distance?: number;
+  fiber_distance?: number;
 }
 
 // Main Report Interface
@@ -198,8 +205,12 @@ export const createInitialReport = (userId: string, group: GroupAssignment): Rep
   },
   
   infrastructure_details: {
-    service_entrance: { pipe_type: '', height: '', other: '' },
-    camera_point: { pipe_type: '', height: '', other: '', material: '', other_material: '' }
+    service_entrance: { pipe_type: '', height: '', other: '', material: '' },
+    camera_point: { pipe_type: '', height: '', other: '', material: '', other_material: '' },
+    camera_mounting: undefined,
+    needs_support_point: false,
+    electrical_distance: 0,
+    fiber_distance: 0
   },
   
   owner_name: '',

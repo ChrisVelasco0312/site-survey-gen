@@ -7,6 +7,9 @@ import {
   Divider,
   Box,
   Table,
+  Select,
+  Radio,
+  Group,
 } from '@mantine/core';
 import type { Report, PoleInfrastructure, InfrastructureDetails, FacadeInfrastructure } from '../../types/Report';
 
@@ -80,6 +83,34 @@ export function ReportEditStepCableado({ report, setReport, readOnly }: ReportEd
           </Table.Tbody>
         </Table>
 
+        <Box mt="md">
+          <Text size="sm" fw={600}>El punto de cámara se instalará con:</Text>
+          <Text size="sm">
+            {report.infrastructure_details.camera_mounting === 'soporte_t' && 'Soporte T'}
+            {report.infrastructure_details.camera_mounting === 'poste' && 'Poste'}
+            {report.infrastructure_details.camera_mounting === 'soporte_l' && 'Soporte L'}
+            {!report.infrastructure_details.camera_mounting && '—'}
+          </Text>
+        </Box>
+
+        <Box mt="md">
+          <Text size="sm" fw={600}>Requiere instalación de punto de apoyo:</Text>
+          <Text size="sm">
+            {report.infrastructure_details.needs_support_point === true ? 'SI' : 
+             report.infrastructure_details.needs_support_point === false ? 'NO' : '—'}
+          </Text>
+        </Box>
+
+        <Box mt="md">
+          <Text size="sm" fw={600}>DISTANCIA DE ACOMETIDA DE RED ELÉCTRICA A INSTALAR (desde el punto de conexión hasta el gabinete)</Text>
+          <Text size="sm">{report.infrastructure_details.electrical_distance ?? 0} mts</Text>
+        </Box>
+
+        <Box mt="md">
+          <Text size="sm" fw={600}>DISTANCIA DE ACOMETIDA FIBRA ÓPTICA A INSTALAR (desde la mufla de Cámara hasta el gabinete)</Text>
+          <Text size="sm">{report.infrastructure_details.fiber_distance ?? 0} mts</Text>
+        </Box>
+
         <Divider my="md" />
 
         <Text size="md" fw={700}>5. Cableado y Adecuaciones Físicas en Fachada</Text>
@@ -93,7 +124,7 @@ export function ReportEditStepCableado({ report, setReport, readOnly }: ReportEd
           <Text size="sm" fw={600} td="underline">POSTE ACOMETIDA:</Text>
           <Text size="sm">Tubería: {se.pipe_type || '—'}</Text>
           <Text size="sm">Altura: {se.height || '—'}</Text>
-          <Text size="sm">Otro: {se.other || '—'}</Text>
+          <Text size="sm">Material: {se.material || '—'}</Text>
         </Box>
 
         <Box>
@@ -115,7 +146,7 @@ export function ReportEditStepCableado({ report, setReport, readOnly }: ReportEd
         </Text>
         <Text size="sm" mb="md">Ruta Acometida hasta Base de Poste:</Text>
         
-        <Table withTableBorder withColumnBorders>
+        <Table withTableBorder withColumnBorders mb="md">
           <Table.Thead>
             <Table.Tr>
               <Table.Th>Tipo de Superficie</Table.Th>
@@ -140,6 +171,55 @@ export function ReportEditStepCableado({ report, setReport, readOnly }: ReportEd
             ))}
           </Table.Tbody>
         </Table>
+
+        <Box mb="md">
+          <Text size="sm" fw={700} mb="xs">El punto de cámara se instalará con:</Text>
+          <Radio.Group
+            value={report.infrastructure_details.camera_mounting || ''}
+            onChange={(val) => setReport(setInfrastructureDetails(report, { camera_mounting: val as any }))}
+          >
+            <Group>
+              <Radio value="soporte_t" label="Soporte T" />
+              <Radio value="poste" label="Poste" />
+              <Radio value="soporte_l" label="Soporte L" />
+            </Group>
+          </Radio.Group>
+        </Box>
+
+        <Box mb="md">
+          <Text size="sm" fw={700} mb="xs">Requiere instalación de punto de apoyo:</Text>
+          <Radio.Group
+            value={report.infrastructure_details.needs_support_point === undefined ? '' : String(report.infrastructure_details.needs_support_point)}
+            onChange={(val) => setReport(setInfrastructureDetails(report, { needs_support_point: val === 'true' }))}
+          >
+            <Group>
+              <Radio value="true" label="SI" />
+              <Radio value="false" label="NO" />
+            </Group>
+          </Radio.Group>
+        </Box>
+
+        <Box mb="md">
+          <NumberInput
+            label="DISTANCIA DE ACOMETIDA DE RED ELÉCTRICA A INSTALAR (desde el punto de conexión hasta el gabinete)"
+            min={0}
+            decimalScale={2}
+            value={report.infrastructure_details.electrical_distance ?? 0}
+            onChange={(n) => setReport(setInfrastructureDetails(report, { electrical_distance: parseNum(n) }))}
+            suffix=" mts"
+          />
+        </Box>
+
+        <Box mb="md">
+          <NumberInput
+            label="DISTANCIA DE ACOMETIDA FIBRA ÓPTICA A INSTALAR (desde la mufla de Cámara hasta el gabinete)"
+            min={0}
+            decimalScale={2}
+            value={report.infrastructure_details.fiber_distance ?? 0}
+            onChange={(n) => setReport(setInfrastructureDetails(report, { fiber_distance: parseNum(n) }))}
+            suffix=" mts"
+          />
+        </Box>
       </Box>
 
       {/* SECTION 2: FACHADA */}
@@ -172,20 +252,22 @@ export function ReportEditStepCableado({ report, setReport, readOnly }: ReportEd
                   service_entrance: { ...se, pipe_type: (e.target as HTMLInputElement).value },
                 }))}
               />
-              <TextInput
-                label="Altura:"
-                placeholder="Ej. 3m"
-                value={se.height}
-                onInput={(e) => setReport(setInfrastructureDetails(report, {
-                  service_entrance: { ...se, height: (e.target as HTMLInputElement).value },
+              <NumberInput
+                label="Altura (mts):"
+                placeholder="Ej. 3"
+                value={parseFloat(se.height) || ''}
+                onChange={(v) => setReport(setInfrastructureDetails(report, {
+                  service_entrance: { ...se, height: String(v) },
                 }))}
+                suffix=" mts"
               />
-              <TextInput
-                label="Otro:"
-                placeholder=""
-                value={se.other}
-                onInput={(e) => setReport(setInfrastructureDetails(report, {
-                  service_entrance: { ...se, other: (e.target as HTMLInputElement).value },
+              <Select
+                label="Material:"
+                placeholder="Seleccione"
+                data={['Concreto', 'Fibra']}
+                value={se.material}
+                onChange={(v) => setReport(setInfrastructureDetails(report, {
+                  service_entrance: { ...se, material: v || '' },
                 }))}
               />
             </Stack>
@@ -203,20 +285,22 @@ export function ReportEditStepCableado({ report, setReport, readOnly }: ReportEd
                   camera_point: { ...cp, pipe_type: (e.target as HTMLInputElement).value },
                 }))}
               />
-              <TextInput
-                label="Altura:"
-                placeholder="Ej. 3m"
-                value={cp.height}
-                onInput={(e) => setReport(setInfrastructureDetails(report, {
-                  camera_point: { ...cp, height: (e.target as HTMLInputElement).value },
+              <NumberInput
+                label="Altura (mts):"
+                placeholder="Ej. 3"
+                value={parseFloat(cp.height) || ''}
+                onChange={(v) => setReport(setInfrastructureDetails(report, {
+                  camera_point: { ...cp, height: String(v) },
                 }))}
+                suffix=" mts"
               />
-              <TextInput
+              <Select
                 label="Material:"
-                placeholder="Ej. Concreto"
+                placeholder="Seleccione"
+                data={['Concreto', 'Fibra', 'Metal']}
                 value={cp.material}
-                onInput={(e) => setReport(setInfrastructureDetails(report, {
-                  camera_point: { ...cp, material: (e.target as HTMLInputElement).value },
+                onChange={(v) => setReport(setInfrastructureDetails(report, {
+                  camera_point: { ...cp, material: v || '' },
                 }))}
               />
             </Stack>

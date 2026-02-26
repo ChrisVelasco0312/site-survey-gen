@@ -148,17 +148,37 @@ export function buildPdfInputs(report: Report): Record<string, string> {
       ['Relleno', String(report.pole_infrastructure?.fill_meters ?? 0)],
     ]),
 
+    input_total_ruta: String(
+      (report.pole_infrastructure?.aerial_meters ?? 0) +
+      (report.pole_infrastructure?.grass_meters ?? 0) +
+      (report.pole_infrastructure?.asphalt_meters ?? 0) +
+      (report.pole_infrastructure?.adoquin_meters ?? 0) +
+      (report.pole_infrastructure?.concrete_meters ?? 0) +
+      (report.pole_infrastructure?.fill_meters ?? 0)
+    ),
+
+    // ─── Mounting & Support ──────────────────────────────────
+    input_soporte_T: `Soporte T [${chk(report.infrastructure_details?.camera_mounting === 'soporte_t')}]`,
+    input_support_pole: `Poste [${chk(report.infrastructure_details?.camera_mounting === 'poste')}]`,
+    input_soporte_L: `Soporte L [${chk(report.infrastructure_details?.camera_mounting === 'soporte_l')}]`,
+    
+    input_apoyo_si: `SI [${chk(report.infrastructure_details?.needs_support_point === true)}]`,
+    input_apoyo_no: `NO [${chk(report.infrastructure_details?.needs_support_point === false)}]`,
+
+    input_distancia_electrica: String(report.infrastructure_details?.electrical_distance ?? 0),
+    input_distancia_fibra: String(report.infrastructure_details?.fiber_distance ?? 0),
+
     // ─── Facade ──────────────────────────────────────────────
     input_desc_facade: report.facade_infrastructure?.description ?? '',
 
     // ─── Infrastructure: Service Entrance (Acometida) ────────
     input_pa_tub: report.infrastructure_details?.service_entrance?.pipe_type ?? '',
-    input_pa_alt: report.infrastructure_details?.service_entrance?.height ?? '',
-    input_pa_other: report.infrastructure_details?.service_entrance?.other ?? '',
+    input_pa_alt: report.infrastructure_details?.service_entrance?.height ? `${report.infrastructure_details.service_entrance.height} mts` : '',
+    input_pa_material: report.infrastructure_details?.service_entrance?.material ?? '',
 
     // ─── Infrastructure: Camera Point ────────────────────────
     input_pc_tub: report.infrastructure_details?.camera_point?.pipe_type ?? '',
-    input_pc_alt: report.infrastructure_details?.camera_point?.height ?? '',
+    input_pc_alt: report.infrastructure_details?.camera_point?.height ? `${report.infrastructure_details.camera_point.height} mts` : '',
     input_pc_mat: report.infrastructure_details?.camera_point?.material ?? '',
 
     // ─── Observations ────────────────────────────────────────

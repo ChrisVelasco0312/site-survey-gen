@@ -83,8 +83,12 @@ export const generateMockReports = (userId?: string, count: number = 10): Report
       },
 
       infrastructure_details: {
-        service_entrance: { pipe_type: 'IMC 3/4"', height: '4m', other: '' },
-        camera_point: { pipe_type: 'EMT 1"', height: '3.5m', other: '', material: 'Concreto', other_material: '' }
+        service_entrance: { pipe_type: 'IMC 3/4"', height: '4m', other: '', material: 'Concreto' },
+        camera_point: { pipe_type: 'EMT 1"', height: '3.5m', other: '', material: 'Concreto', other_material: '' },
+        camera_mounting: 'poste',
+        needs_support_point: true,
+        electrical_distance: 15,
+        fiber_distance: 25
       },
 
       owner_name: 'Propietario Demo',
