@@ -2,6 +2,7 @@ import { generate } from '@pdfme/generator';
 import { text, image, line, table, rectangle } from '@pdfme/schemas';
 import type { Template, Font } from '@pdfme/common';
 import type { Report } from '../types/Report';
+import pdfLogoBase64 from '../../public/pdf_logo_base64.txt?raw';
 
 let cachedFont: Font | null = null;
 
@@ -195,6 +196,9 @@ export function buildPdfInputs(report: Report): Record<string, string> {
   if (report.service_entrance_photo_url) {
     inputs.photo_detail = report.service_entrance_photo_url;
   }
+
+  // Static logo
+  inputs.pdf_logo = pdfLogoBase64;
 
   return inputs;
 }
