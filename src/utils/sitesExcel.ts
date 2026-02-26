@@ -19,14 +19,14 @@ const VALID_SITE_TYPES = ['lpr', 'cotejo_facial', 'ptz'] as const;
 
 type SiteType = (typeof VALID_SITE_TYPES)[number];
 
-const GMS_REGEX = /^(\d+)°(\d+)'(\d+)"([NSns])\s+(\d+)°(\d+)'(\d+)"([EWew])$/;
+const GMS_REGEX = /^(\d+)°(\d+)'(\d+(?:\.\d+)?)"([NSns])\s+(\d+)°(\d+)'(\d+(?:\.\d+)?)"([EWew])$/;
 
 function parseGMS(gms: string): { latitude: number; longitude: number } | null {
   const match = gms.trim().match(GMS_REGEX);
   if (!match) return null;
   const [, latDeg, latMin, latSec, latDir, lonDeg, lonMin, lonSec, lonDir] = match;
-  let latitude = parseInt(latDeg) + parseInt(latMin) / 60 + parseInt(latSec) / 3600;
-  let longitude = parseInt(lonDeg) + parseInt(lonMin) / 60 + parseInt(lonSec) / 3600;
+  let latitude = parseInt(latDeg) + parseInt(latMin) / 60 + parseFloat(latSec) / 3600;
+  let longitude = parseInt(lonDeg) + parseInt(lonMin) / 60 + parseFloat(lonSec) / 3600;
   if (latDir.toUpperCase() === 'S') latitude = -latitude;
   if (lonDir.toUpperCase() === 'W') longitude = -longitude;
   return { latitude, longitude };
@@ -39,10 +39,10 @@ function formatToGMS(latitude: number, longitude: number): string {
   const absLon = Math.abs(longitude);
   const latDeg = Math.floor(absLat);
   const latMin = Math.floor((absLat - latDeg) * 60);
-  const latSec = Math.round((absLat - latDeg - latMin / 60) * 3600);
+  const latSec = ((absLat - latDeg - latMin / 60) * 3600).toFixed(2);
   const lonDeg = Math.floor(absLon);
   const lonMin = Math.floor((absLon - lonDeg) * 60);
-  const lonSec = Math.round((absLon - lonDeg - lonMin / 60) * 3600);
+  const lonSec = ((absLon - lonDeg - lonMin / 60) * 3600).toFixed(2);
   return `${latDeg}°${latMin}'${latSec}"${latDir} ${lonDeg}°${lonMin}'${lonSec}"${lonDir}`;
 }
 

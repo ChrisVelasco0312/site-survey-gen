@@ -33,7 +33,7 @@ const EMPTY_FORM: Omit<SiteRecord, 'id'> = {
   description: '',
 };
 
-const GMS_REGEX = /^(\d+)°(\d+)'(\d+)"([NSns])\s+(\d+)°(\d+)'(\d+)"([EWew])$/;
+const GMS_REGEX = /^(\d+)°(\d+)'(\d+(?:\.\d+)?)"([NSns])\s+(\d+)°(\d+)'(\d+(?:\.\d+)?)"([EWew])$/;
 
 function parseGMS(gms: string): { latitude: number; longitude: number } | null {
   const match = gms.trim().match(GMS_REGEX);
@@ -41,8 +41,8 @@ function parseGMS(gms: string): { latitude: number; longitude: number } | null {
 
   const [, latDeg, latMin, latSec, latDir, lonDeg, lonMin, lonSec, lonDir] = match;
 
-  let latitude = parseInt(latDeg) + parseInt(latMin) / 60 + parseInt(latSec) / 3600;
-  let longitude = parseInt(lonDeg) + parseInt(lonMin) / 60 + parseInt(lonSec) / 3600;
+  let latitude = parseInt(latDeg) + parseInt(latMin) / 60 + parseFloat(latSec) / 3600;
+  let longitude = parseInt(lonDeg) + parseInt(lonMin) / 60 + parseFloat(lonSec) / 3600;
 
   if (latDir.toUpperCase() === 'S') latitude = -latitude;
   if (lonDir.toUpperCase() === 'W') longitude = -longitude;
@@ -59,11 +59,11 @@ function formatToGMS(latitude: number, longitude: number): string {
 
   const latDeg = Math.floor(absLat);
   const latMin = Math.floor((absLat - latDeg) * 60);
-  const latSec = Math.round((absLat - latDeg - latMin / 60) * 3600);
+  const latSec = ((absLat - latDeg - latMin / 60) * 3600).toFixed(2);
 
   const lonDeg = Math.floor(absLon);
   const lonMin = Math.floor((absLon - lonDeg) * 60);
-  const lonSec = Math.round((absLon - lonDeg - lonMin / 60) * 3600);
+  const lonSec = ((absLon - lonDeg - lonMin / 60) * 3600).toFixed(2);
 
   return `${latDeg}°${latMin}'${latSec}"${latDir} ${lonDeg}°${lonMin}'${lonSec}"${lonDir}`;
 }
@@ -266,7 +266,7 @@ export function SitesAdmin() {
     }
     const parsed = parseGMS(value);
     if (!parsed) {
-      setGmsError('Formato inválido. Ejemplo: 3°48\'44"N 76°37\'18"W');
+      setGmsError('Formato inválido. Ejemplo: 3°48\'44.5"N 76°37\'18.25"W');
       return;
     }
     setGmsError(null);
@@ -448,7 +448,7 @@ export function SitesAdmin() {
         />
         <TextInput
           label="Coordenadas GMS"
-          placeholder="3°48'44&quot;N 76°37'18&quot;W"
+          placeholder="3°48'44.5&quot;N 76°37'18.25&quot;W"
           value={gmsInput}
           onChange={(e) => handleGmsChange((e.target as HTMLInputElement).value)}
           error={gmsError}
