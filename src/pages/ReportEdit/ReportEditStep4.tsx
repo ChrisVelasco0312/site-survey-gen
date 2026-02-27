@@ -210,8 +210,8 @@ async function renderTilesToCanvas(
     id: 'main',
     lat,
     lon,
-    color: mainPinData?.color || '#E03131',
-    label: mainPinData?.label || 'Centro',
+    color: mainPinData?.color || '#3186e0',
+    label: mainPinData?.label || 'PC',
     showLabel: mainPinData?.showLabel ?? false,
   };
 
@@ -376,7 +376,7 @@ export function ReportEditStep4({ report, setReport, readOnly }: ReportEditStep4
       id: crypto.randomUUID(),
       lat: lat + 0.0001,
       lon: lon + 0.0001,
-      color: '#228be6', // default blue
+      color: '#ff5c59', // default red
       label: `Marcador ${(report.map_pins?.length || 0) + 1}`,
     };
     setReport({
@@ -614,14 +614,14 @@ export function ReportEditStep4({ report, setReport, readOnly }: ReportEditStep4
           <Group justify="space-between" gap="xs">
             <TextInput 
               size="xs" 
-              value={report.main_map_pin?.label ?? 'Centro'} 
+              value={report.main_map_pin?.label ?? 'PC'} 
               onChange={(e) => setReport({ ...report, main_map_pin: { ...report.main_map_pin, label: e.currentTarget.value }, updated_at: Date.now() })}
               placeholder="Nombre del marcador principal"
               style={{ flex: 1 }}
             />
             <ColorInput
               size="xs"
-              value={report.main_map_pin?.color ?? '#E03131'}
+              value={report.main_map_pin?.color ?? '#3186e0'}
               onChange={(c) => setReport({ ...report, main_map_pin: { ...report.main_map_pin, color: c }, updated_at: Date.now() })}
               style={{ width: 120 }}
             />
