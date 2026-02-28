@@ -4,7 +4,6 @@ import {
   Text,
   Box,
   Alert,
-  FileInput,
   Button,
   Slider,
   Group,
@@ -20,9 +19,10 @@ import {
   NumberInput,
   Checkbox,
 } from '@mantine/core';
-import { IconDownload, IconExternalLink, IconWifiOff, IconPlus, IconTrash, IconMapPin } from '@tabler/icons-react';
+import { IconExternalLink, IconWifiOff, IconPlus, IconTrash, IconMapPin, IconDeviceFloppy } from '@tabler/icons-react';
 import type { Report, MapPinData } from '../../types/Report';
 import { useConnectivity } from '../../hooks/useConnectivity';
+import { drawLegend } from '../../utils/mapLegend';
 
 /* ── Constants ─────────────────────────────────────────────── */
 
@@ -253,6 +253,9 @@ async function renderTilesToCanvas(
       ctx.restore();
     }
   }
+
+  // Draw legend
+  drawLegend(ctx, CANVAS_WIDTH, CANVAS_HEIGHT);
 }
 
 /* ── Component ─────────────────────────────────────────────── */
@@ -272,7 +275,6 @@ export function ReportEditStep4({ report, setReport, readOnly }: ReportEditStep4
   const [zoom, setZoom] = useState(ZOOM_DEFAULT);
   const [mapType, setMapType] = useState<'osm' | 'satellite'>('osm');
   const [loading, setLoading] = useState(false);
-  const [imageWarning, setImageWarning] = useState<string | null>(null);
   const [pinSizeMultiplier, setPinSizeMultiplier] = useState(1);
   const [editingPinId, setEditingPinId] = useState<string | null>(null);
   const isOnline = useConnectivity();
@@ -296,52 +298,16 @@ export function ReportEditStep4({ report, setReport, readOnly }: ReportEditStep4
     return () => { cancelled = true; };
   }, [lat, lon, zoom, isOnline, mapType, report.map_pins, pinSizeMultiplier, report.main_map_pin]);
 
-  const handleDownload = useCallback(() => {
+  const handleSaveMap = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const dataUrl = canvas.toDataURL('image/png');
-    const a = document.createElement('a');
-    a.href = dataUrl;
-    a.download = `mapa-sitio-${report.address.pm_number || report.id}.png`;
-    a.click();
-  }, [report.address.pm_number, report.id]);
+    setReport({ ...report, edited_map_image_url: dataUrl, updated_at: Date.now() });
+  }, [report, setReport]);
 
-  const onDiagramFileChange = (file: File | null) => {
-    setImageWarning(null);
-    if (!file) {
-      setReport({ ...report, edited_map_image_url: undefined, updated_at: Date.now() });
-      return;
-    }
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const result = e.target?.result as string;
-      
-      // Validate image dimensions/ratio
-      const img = new Image();
-      img.onload = () => {
-        const { width, height } = img;
-        const ratio = width / height;
-        // Ideal: ~1.77 (16:9). Accept 1.5 to 2.0. Min width 1000px.
-        const isRatioOk = ratio >= 1.5 && ratio <= 2.2;
-        const isResOk = width >= 1000;
-        
-        if (!isRatioOk || !isResOk) {
-          setImageWarning(
-            'Para un ajuste perfecto en el PDF, se recomienda una imagen de 1732x974 píxeles (aprox. 16:9) y alta resolución.'
-          );
-        }
-        setReport({ ...report, edited_map_image_url: result, updated_at: Date.now() });
-      };
-      img.src = result;
-    };
-    reader.readAsDataURL(file);
-  };
-
-  const clearDiagram = () => {
-    setImageWarning(null);
-    setReport({ ...report, edited_map_image_url: undefined, updated_at: Date.now() });
-  };
-
+  /* ── Diagram file handling removed as per request ── */
+  /* The user saves the map directly now. */
+  
   const handleCanvasClick = (e: MouseEvent) => {
     if (!editingPinId) return;
     const canvas = canvasRef.current;
@@ -553,13 +519,13 @@ export function ReportEditStep4({ report, setReport, readOnly }: ReportEditStep4
                   />
                 </Box>
                 <Button
-                  leftSection={<IconDownload size={14} />}
-                  variant="light"
+                  leftSection={<IconDeviceFloppy size={14} />}
+                  variant="filled"
                   size="xs"
-                  onClick={handleDownload}
+                  onClick={handleSaveMap}
                   disabled={loading}
                 >
-                  Descargar imagen
+                  Guardar Mapa
                 </Button>
                 {hasCoords && (
                   <Button
@@ -731,39 +697,20 @@ export function ReportEditStep4({ report, setReport, readOnly }: ReportEditStep4
         Ajuste el zoom, descargue la imagen, edítela externamente con las señales de instalación y súbala abajo.
       </Text>
 
-      {/* ── Diagram upload section ── */}
+      {/* ── Saved Map Preview ── */}
       <Stack gap="sm">
-        <Text size="sm" fw={500}>Imagen del diagrama editado</Text>
-
+        <Text size="sm" fw={500}>Mapa guardado</Text>
+        
         {!hasEditedMap && (
           <Alert color="orange">
-            La imagen del diagrama editado es obligatoria para enviar el reporte a revisión.
+            Debe guardar el mapa para incluirlo en el reporte.
           </Alert>
         )}
 
-        {hasEditedMap ? (
-          <Stack gap="sm">
-            {imageWarning && (
-              <Alert color="yellow" title="Sugerencia de imagen">
-                {imageWarning}
-              </Alert>
-            )}
-            <Box style={{ maxWidth: 500, border: '1px solid var(--mantine-color-default-border)', borderRadius: 'var(--mantine-radius-sm)', overflow: 'hidden' }}>
-              <img src={report.edited_map_image_url} alt="Diagrama del sitio" style={{ width: '100%', height: 'auto', display: 'block' }} />
-            </Box>
-            <Group gap="xs">
-              <FileInput accept="image/*" placeholder="Cambiar imagen" onChange={onDiagramFileChange} style={{ flex: '1', minWidth: 140 }} />
-              <Button variant="light" color="red" size="xs" onClick={clearDiagram}>
-                Quitar imagen
-              </Button>
-            </Group>
-          </Stack>
-        ) : (
-          <FileInput
-            accept="image/*"
-            placeholder="Seleccionar imagen del diagrama"
-            onChange={onDiagramFileChange}
-          />
+        {hasEditedMap && (
+          <Box style={{ maxWidth: 500, border: '1px solid var(--mantine-color-default-border)', borderRadius: 'var(--mantine-radius-sm)', overflow: 'hidden' }}>
+            <img src={report.edited_map_image_url} alt="Mapa guardado" style={{ width: '100%', height: 'auto', display: 'block' }} />
+          </Box>
         )}
       </Stack>
     </Stack>
