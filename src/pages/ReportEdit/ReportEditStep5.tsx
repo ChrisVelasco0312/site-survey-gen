@@ -78,14 +78,15 @@ export function ReportEditStep5({ report, setReport, readOnly }: ReportEditStep5
   const handleFileChange = async (field: PhotoField, file: File | null) => {
     setError(null);
 
+    const originalField = field.replace('_url', '_original_url');
+    const shapesField = field.replace('_url', '_shapes');
+
     if (!file) {
-      setReport({ 
-        ...report, 
-        [field]: undefined, 
-        [`${field}_original_url`]: undefined,
-        [`${field}_shapes`]: undefined,
-        updated_at: Date.now() 
-      } as Report);
+      const newReport = { ...report, updated_at: Date.now() };
+      delete (newReport as any)[field];
+      delete (newReport as any)[originalField];
+      delete (newReport as any)[shapesField];
+      setReport(newReport as Report);
       return;
     }
 
@@ -95,9 +96,9 @@ export function ReportEditStep5({ report, setReport, readOnly }: ReportEditStep5
       setReport({ 
         ...report, 
         [field]: dataUrl, 
-        [`${field}_original_url`]: dataUrl,
+        [originalField]: dataUrl,
         // Keep existing shapes if any, so user can re-apply them to new image
-        // [`${field}_shapes`]: [], 
+        // [shapesField]: [], 
         updated_at: Date.now() 
       } as Report);
     } catch (e) {
@@ -109,18 +110,20 @@ export function ReportEditStep5({ report, setReport, readOnly }: ReportEditStep5
   };
 
   const clearPhoto = (field: PhotoField) => {
-    setReport({ 
-      ...report, 
-      [field]: undefined, 
-      [`${field}_original_url`]: undefined,
-      [`${field}_shapes`]: undefined,
-      updated_at: Date.now() 
-    } as Report);
+    const originalField = field.replace('_url', '_original_url');
+    const shapesField = field.replace('_url', '_shapes');
+
+    const newReport = { ...report, updated_at: Date.now() };
+    delete (newReport as any)[field];
+    delete (newReport as any)[originalField];
+    delete (newReport as any)[shapesField];
+    setReport(newReport as Report);
   };
 
   const openEditor = (field: PhotoField) => {
+    const originalField = field.replace('_url', '_original_url');
     // Prefer original unedited image if available
-    const originalSrc = (report as any)[`${field}_original_url`];
+    const originalSrc = (report as any)[originalField];
     const src = originalSrc || report[field];
     if (!src) return;
 
@@ -135,18 +138,20 @@ export function ReportEditStep5({ report, setReport, readOnly }: ReportEditStep5
 
   const handleEditorSave = (dataUrl: string, shapes: Shape[]) => {
     if (editingField) {
+      const originalField = editingField.replace('_url', '_original_url');
+      const shapesField = editingField.replace('_url', '_shapes');
       const currentReport = { ...report };
       // Ensure we preserve the original clean image if it wasn't tracked yet
       // This handles cases where the image was uploaded before this version update
-      const originalUrl = (currentReport as any)[`${editingField}_original_url`];
+      const originalUrl = (currentReport as any)[originalField];
       if (!originalUrl && currentReport[editingField]) {
-         (currentReport as any)[`${editingField}_original_url`] = currentReport[editingField];
+         (currentReport as any)[originalField] = currentReport[editingField];
       }
 
       setReport({ 
         ...currentReport, 
         [editingField]: dataUrl, 
-        [`${editingField}_shapes`]: shapes,
+        [shapesField]: shapes,
         updated_at: Date.now() 
       } as Report);
     }
@@ -285,8 +290,8 @@ export function ReportEditStep5({ report, setReport, readOnly }: ReportEditStep5
             <ImageEditor
               width={editorImageMeta.width}
               height={editorImageMeta.height}
-              baseImage={(report as any)[`${editingField}_original_url`] || report[editingField]!}
-              initialShapes={(report as any)[`${editingField}_shapes`] || []}
+              baseImage={(report as any)[editingField.replace('_url', '_original_url')] || report[editingField]!}
+              initialShapes={(report as any)[editingField.replace('_url', '_shapes')] || []}
               onSave={handleEditorSave}
               onCancel={() => setEditorOpen(false)}
             />

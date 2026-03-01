@@ -7,7 +7,9 @@ export const REPORT_IMAGE_FIELDS = [
   'map_image_url',
   'edited_map_image_url',
   'camera_view_photo_url',
+  'camera_view_photo_original_url',
   'service_entrance_photo_url',
+  'service_entrance_photo_original_url',
 ] as const;
 
 export type ReportImageField = (typeof REPORT_IMAGE_FIELDS)[number];
@@ -67,6 +69,26 @@ export async function storageUrlToDataUrl(url: string): Promise<string> {
 }
 
 /**
+ * Recursively remove undefined fields from an object
+ * to prevent Firestore "Unsupported field value: undefined" errors.
+ */
+function removeUndefinedFields(obj: any): any {
+  if (Array.isArray(obj)) {
+    return obj.map(removeUndefinedFields);
+  }
+  if (obj !== null && typeof obj === 'object') {
+    const newObj: any = {};
+    for (const key of Object.keys(obj)) {
+      if (obj[key] !== undefined) {
+        newObj[key] = removeUndefinedFields(obj[key]);
+      }
+    }
+    return newObj;
+  }
+  return obj;
+}
+
+/**
  * Returns a copy of the report with all image fields that are currently base64
  * uploaded to Firebase Storage and replaced by their download URLs.
  * Use this before saving the report to Firestore.
@@ -81,7 +103,7 @@ export async function reportWithStorageUrls(report: Report): Promise<Report> {
     }
   }
 
-  return out;
+  return removeUndefinedFields(out) as Report;
 }
 
 /**

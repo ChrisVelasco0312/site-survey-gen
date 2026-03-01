@@ -220,7 +220,6 @@ export const createInitialReport = (userId: string, group: GroupAssignment): Rep
   infrastructure_details: {
     service_entrance: { pipe_type: '', height: '', other: '', material: '' },
     camera_point: { pipe_type: '', height: '', other: '', material: '', other_material: '' },
-    camera_mounting: undefined,
     needs_support_point: false,
     apoyo_cant: 0,
     electrical_distance: 0,
