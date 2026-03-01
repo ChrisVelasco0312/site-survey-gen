@@ -19,10 +19,10 @@ import {
   NumberInput,
   Checkbox,
 } from '@mantine/core';
-import { IconExternalLink, IconWifiOff, IconPlus, IconTrash, IconMapPin, IconDeviceFloppy } from '@tabler/icons-react';
+import { IconExternalLink, IconWifiOff, IconPlus, IconTrash, IconMapPin, IconDeviceFloppy, IconAdjustments } from '@tabler/icons-react';
 import type { Report, MapPinData } from '../../types/Report';
 import { useConnectivity } from '../../hooks/useConnectivity';
-import { drawLegend } from '../../utils/mapLegend';
+import { drawLegend, LEGEND_WIDTH, LEGEND_HEIGHT } from '../../utils/mapLegend';
 
 /* ── Constants ─────────────────────────────────────────────── */
 
@@ -121,34 +121,28 @@ async function loadTile(z: number, x: number, y: number, type: 'osm' | 'satellit
   return canvas;
 }
 
-/** Render a GRID×GRID tile mosaic centered on (lat, lon) onto the given canvas. */
-async function renderTilesToCanvas(
-  canvas: HTMLCanvasElement,
+/** Generate the base map (tiles only) on an offscreen canvas. */
+async function generateBaseMap(
   lat: number,
   lon: number,
   zoom: number,
   type: 'osm' | 'satellite',
-  pins: MapPinData[] = [],
-  pinSizeMultiplier: number = 1,
-  mainPinData?: Partial<MapPinData>,
-  isCancelled: () => boolean = () => false
-) {
-  const ctx = canvas.getContext('2d');
-  if (!ctx) return;
-
+  isCancelled: () => boolean
+): Promise<HTMLCanvasElement | null> {
   // Handle fractional zoom:
-  // We load tiles for the integer zoom level (intZoom)
-  // and scale the canvas context by the fractional difference.
   const intZoom = Math.floor(zoom);
   const scale = 2 ** (zoom - intZoom);
 
+  const canvas = document.createElement('canvas');
   canvas.width = CANVAS_WIDTH;
   canvas.height = CANVAS_HEIGHT;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return null;
 
-  // Reset transform to identity before clearing
+  // Reset transform
   ctx.setTransform(1, 0, 0, 1, 0, 0);
 
-  // Clear with a neutral background while tiles load
+  // Clear background
   ctx.fillStyle = '#e8e8e8';
   ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
@@ -158,13 +152,13 @@ async function renderTilesToCanvas(
   const halfW = Math.floor(GRID_W / 2);
   const halfH = Math.floor(GRID_H / 2);
 
-  // Calculate offsets to center the TILE_SIZE*GRID grid within the custom CANVAS size
+  // Calculate offsets
   const gridPixelWidth = GRID_W * TILE_SIZE;
   const gridPixelHeight = GRID_H * TILE_SIZE;
   const offsetX = (CANVAS_WIDTH - gridPixelWidth) / 2;
   const offsetY = (CANVAS_HEIGHT - gridPixelHeight) / 2;
 
-  // Apply scaling for fractional zoom, centered on the canvas
+  // Apply scaling
   const scaleCx = CANVAS_WIDTH / 2;
   const scaleCy = CANVAS_HEIGHT / 2;
   ctx.translate(scaleCx, scaleCy);
@@ -180,25 +174,42 @@ async function renderTilesToCanvas(
 
       try {
         const img = await loadTile(intZoom, tx, ty, type);
-        if (isCancelled()) return;
+        if (isCancelled()) return null;
         ctx.drawImage(img, drawX, drawY, TILE_SIZE, TILE_SIZE);
       } catch {
-        if (isCancelled()) return;
+        if (isCancelled()) return null;
         ctx.fillStyle = '#ddd';
         ctx.fillRect(drawX, drawY, TILE_SIZE, TILE_SIZE);
       }
     }
   }
 
-  if (isCancelled()) return;
+  return canvas;
+}
 
-  // Reset transform to draw crosshair crisp and centered (ignoring zoom scale? No, crosshair should stay centered)
-  // Actually, usually crosshair is UI overlay, but here it is burnt into canvas.
-  // If we scale the map, we probably want the crosshair to remain constant size or scale?
-  // Constant size is usually better for a "sight".
+/** Render composite: Base Map + Pins + Legend onto target canvas. */
+function renderComposite(
+  targetCanvas: HTMLCanvasElement,
+  baseMap: HTMLCanvasElement,
+  lat: number,
+  lon: number,
+  zoom: number,
+  pins: MapPinData[],
+  mainPinData: Partial<MapPinData> | undefined,
+  pinSizeMultiplier: number,
+  legendConfig: { x?: number, y?: number, scale?: number } | undefined
+) {
+  const ctx = targetCanvas.getContext('2d');
+  if (!ctx) return;
+
+  targetCanvas.width = CANVAS_WIDTH;
+  targetCanvas.height = CANVAS_HEIGHT;
+
+  // 1. Draw Base Map
   ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.drawImage(baseMap, 0, 0);
 
-  // Draw map pins
+  // 2. Draw Pins
   const pinPath = new Path2D(
     'M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z'
   );
@@ -248,14 +259,14 @@ async function renderTilesToCanvas(
       ctx.strokeStyle = 'black';
       ctx.lineWidth = 3;
       ctx.textAlign = 'center';
-      ctx.strokeText(pin.label, cx, cy + 24 * (basePinScale / 3.5)); // Approx placement below
+      ctx.strokeText(pin.label, cx, cy + 24 * (basePinScale / 3.5)); 
       ctx.fillText(pin.label, cx, cy + 24 * (basePinScale / 3.5));
       ctx.restore();
     }
   }
 
-  // Draw legend
-  drawLegend(ctx, CANVAS_WIDTH, CANVAS_HEIGHT);
+  // 3. Draw Legend
+  drawLegend(ctx, CANVAS_WIDTH, CANVAS_HEIGHT, legendConfig);
 }
 
 /* ── Component ─────────────────────────────────────────────── */
@@ -277,26 +288,60 @@ export function ReportEditStep4({ report, setReport, readOnly }: ReportEditStep4
   const [loading, setLoading] = useState(false);
   const [pinSizeMultiplier, setPinSizeMultiplier] = useState(1);
   const [editingPinId, setEditingPinId] = useState<string | null>(null);
+  const [isLegendAdjusting, setIsLegendAdjusting] = useState(false);
+  const [legendDragging, setLegendDragging] = useState<{ startX: number, startY: number, initialX: number, initialY: number } | null>(null);
+  const [baseMap, setBaseMap] = useState<HTMLCanvasElement | null>(null);
   const isOnline = useConnectivity();
+  const reportRef = useRef(report);
+
+  useEffect(() => { reportRef.current = report; }, [report]);
 
   const hasEditedMap = Boolean(report.edited_map_image_url?.trim());
 
-  // Re-render tiles whenever lat, lon or zoom changes
+  // Default legend scale
+  const legendScale = report.legend_config?.scale ?? 1;
+  // Default legend position (calculated if not present)
+  // We need to know where it is to check hit detection.
+  // We'll calculate "current" position inside handlers or render.
+
+  // 1. Re-render BASE MAP whenever lat, lon, zoom or map type changes
   useEffect(() => {
     if (!isOnline) {
       setLoading(false);
       return;
     }
-    const canvas = canvasRef.current;
-    if (!canvas) return;
+    
     let cancelled = false;
     const isCancelled = () => cancelled;
     setLoading(true);
-    renderTilesToCanvas(canvas, lat, lon, zoom, mapType, report.map_pins, pinSizeMultiplier, report.main_map_pin, isCancelled).finally(() => {
+    
+    generateBaseMap(lat, lon, zoom, mapType, isCancelled).then((bm) => {
+      if (!cancelled && bm) {
+        setBaseMap(bm);
+      }
       if (!cancelled) setLoading(false);
     });
+
     return () => { cancelled = true; };
-  }, [lat, lon, zoom, isOnline, mapType, report.map_pins, pinSizeMultiplier, report.main_map_pin]);
+  }, [lat, lon, zoom, isOnline, mapType]);
+
+  // 2. Composite everything whenever baseMap, pins, or legend changes
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas || !baseMap) return;
+
+    renderComposite(
+      canvas,
+      baseMap,
+      lat,
+      lon,
+      zoom,
+      report.map_pins || [],
+      report.main_map_pin,
+      pinSizeMultiplier,
+      report.legend_config
+    );
+  }, [baseMap, lat, lon, zoom, report.map_pins, pinSizeMultiplier, report.main_map_pin, report.legend_config]);
 
   const handleSaveMap = useCallback(() => {
     const canvas = canvasRef.current;
@@ -305,13 +350,94 @@ export function ReportEditStep4({ report, setReport, readOnly }: ReportEditStep4
     setReport({ ...report, edited_map_image_url: dataUrl, updated_at: Date.now() });
   }, [report, setReport]);
 
-  /* ── Diagram file handling removed as per request ── */
-  /* The user saves the map directly now. */
-  
+  const getLegendRect = () => {
+    const scale = report.legend_config?.scale ?? 1;
+    const w = LEGEND_WIDTH * scale;
+    const h = LEGEND_HEIGHT * scale;
+    
+    let x = report.legend_config?.x;
+    let y = report.legend_config?.y;
+
+    if (x === undefined) x = CANVAS_WIDTH - w - 20;
+    if (y === undefined) y = 20;
+    
+    return { x, y, w, h };
+  };
+
+  const handleCanvasMouseDown = (e: MouseEvent) => {
+    if (!isLegendAdjusting) {
+      if (editingPinId) handleCanvasClick(e);
+      return;
+    }
+
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    const px = (e.clientX - rect.left) * scaleX;
+    const py = (e.clientY - rect.top) * scaleY;
+
+    const lRect = getLegendRect();
+    
+    if (px >= lRect.x && px <= lRect.x + lRect.w && py >= lRect.y && py <= lRect.y + lRect.h) {
+      setLegendDragging({
+        startX: px,
+        startY: py,
+        initialX: lRect.x,
+        initialY: lRect.y
+      });
+      e.stopPropagation(); // Prevent other clicks
+    }
+  };
+
+  const handleCanvasMouseMove = (e: MouseEvent) => {
+    if (!legendDragging) return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    const px = (e.clientX - rect.left) * scaleX;
+    const py = (e.clientY - rect.top) * scaleY;
+
+    const dx = px - legendDragging.startX;
+    const dy = py - legendDragging.startY;
+
+    setReport({
+      ...report,
+      legend_config: {
+        ...report.legend_config,
+        x: legendDragging.initialX + dx,
+        y: legendDragging.initialY + dy
+      }
+    });
+    // No timestamp update here to avoid excessive writes, will save on mouseup
+  };
+
+  const handleCanvasMouseUp = () => {
+    if (legendDragging) {
+      setLegendDragging(null);
+      setReport({ ...reportRef.current, updated_at: Date.now() }); // Use ref to get latest state
+    }
+  };
+
+  // Add global mouse up to stop dragging if cursor leaves canvas
+  useEffect(() => {
+    if (legendDragging) {
+      window.addEventListener('mouseup', handleCanvasMouseUp);
+      return () => window.removeEventListener('mouseup', handleCanvasMouseUp);
+    }
+  }, [legendDragging]); // handleCanvasMouseUp is stable, but closure is stale without ref. Ref fixes it.
+
   const handleCanvasClick = (e: MouseEvent) => {
+    // If in legend adjusting mode, clicking does nothing for pins
+    if (isLegendAdjusting) return;
+
     if (!editingPinId) return;
     const canvas = canvasRef.current;
     if (!canvas) return;
+
 
     const rect = canvas.getBoundingClientRect();
     const clickX = e.clientX - rect.left;
@@ -363,6 +489,86 @@ export function ReportEditStep4({ report, setReport, readOnly }: ReportEditStep4
     if (editingPinId === id) setEditingPinId(null);
   };
 
+  const handleMouseDown = (e: MouseEvent) => {
+    if (isLegendAdjusting) {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = canvas.width / rect.width;
+      const scaleY = canvas.height / rect.height;
+      const clickX = (e.clientX - rect.left) * scaleX;
+      const clickY = (e.clientY - rect.top) * scaleY;
+
+      // Check if click is inside legend
+      const legendScale = report.legend_config?.scale ?? 1;
+      const w = LEGEND_WIDTH * legendScale;
+      const h = LEGEND_HEIGHT * legendScale;
+      
+      const defaultX = CANVAS_WIDTH - w - 20;
+      const defaultY = 20;
+      
+      const lx = report.legend_config?.x ?? defaultX;
+      const ly = report.legend_config?.y ?? defaultY;
+
+      if (clickX >= lx && clickX <= lx + w && clickY >= ly && clickY <= ly + h) {
+        setLegendDragging({ startX: clickX, startY: clickY, initialX: lx, initialY: ly });
+      }
+    } else {
+      // Pin click handling is done via onClick, but maybe movement should be mousedown/drag?
+      // Currently it's click-to-move mode.
+    }
+  };
+
+  const handleMouseMove = (e: MouseEvent) => {
+    if (legendDragging) {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = canvas.width / rect.width;
+      const scaleY = canvas.height / rect.height;
+      const currentX = (e.clientX - rect.left) * scaleX;
+      const currentY = (e.clientY - rect.top) * scaleY;
+
+      const dx = currentX - legendDragging.startX;
+      const dy = currentY - legendDragging.startY;
+
+      const newX = legendDragging.initialX + dx;
+      const newY = legendDragging.initialY + dy;
+
+      setReport({
+        ...report,
+        legend_config: {
+          ...report.legend_config,
+          x: newX,
+          y: newY
+        }
+      });
+      // Skip updated_at here for performance
+    }
+  };
+
+  const handleMouseUp = () => {
+    if (legendDragging) {
+      setLegendDragging(null);
+      setReport({ ...reportRef.current, updated_at: Date.now() }); // Use ref to get latest state
+    }
+  };
+
+  const handleLegendScaleChange = (v: number) => {
+    setReport({
+      ...report,
+      legend_config: {
+        ...report.legend_config,
+        scale: v
+      },
+      updated_at: Date.now()
+    });
+  };
+
+  /* ── Read-only view ── */
+
   /* ── Read-only view ── */
   if (readOnly) {
     return (
@@ -409,13 +615,57 @@ export function ReportEditStep4({ report, setReport, readOnly }: ReportEditStep4
               <canvas
                 ref={canvasRef}
                 onClick={handleCanvasClick}
+                onMouseDown={handleMouseDown}
+                onMouseMove={handleMouseMove}
+                onMouseUp={handleMouseUp}
+                onMouseLeave={handleMouseUp}
                 style={{
                   width: '100%',
                   height: 'auto',
                   display: 'block',
-                  cursor: editingPinId ? 'crosshair' : 'default',
+                  cursor: isLegendAdjusting ? (legendDragging ? 'grabbing' : 'grab') : (editingPinId ? 'crosshair' : 'default'),
                 }}
               />
+              {isLegendAdjusting && (
+                <Box
+                  style={{
+                    position: 'absolute',
+                    top: 10,
+                    left: 10,
+                    right: 10,
+                    zIndex: 10,
+                  }}
+                >
+                  <Alert color="grape" title="Modo de ajuste de leyenda">
+                    <Text size="sm" mb="xs">Arrastre la leyenda para moverla. Ajuste el tamaño abajo.</Text>
+                    <Group align="center">
+                      <Text size="xs" fw={500}>Escala Leyenda: x{legendScale.toFixed(1)}</Text>
+                      <Slider
+                        min={0.5}
+                        max={1.5}
+                        step={0.1}
+                        style={{ width: 150 }}
+                        value={legendScale}
+                        onChange={handleLegendScaleChange}
+                        marks={[
+                            { value: 0.5, label: 'x0.5' },
+                            { value: 1, label: 'x1' },
+                            { value: 1.5, label: 'x1.5' },
+                        ]}
+                      />
+                      <Button
+                        variant="light"
+                        size="xs"
+                        ml="md"
+                        color="grape"
+                        onClick={() => setIsLegendAdjusting(false)}
+                      >
+                        Terminar ajuste
+                      </Button>
+                    </Group>
+                  </Alert>
+                </Box>
+              )}
               {editingPinId && (
                 <Box
                   style={{
@@ -518,6 +768,19 @@ export function ReportEditStep4({ report, setReport, readOnly }: ReportEditStep4
                     ]}
                   />
                 </Box>
+                <Button
+                  leftSection={<IconAdjustments size={14} />}
+                  variant={isLegendAdjusting ? "filled" : "light"}
+                  color="grape"
+                  size="xs"
+                  onClick={() => {
+                    setIsLegendAdjusting(!isLegendAdjusting);
+                    if (editingPinId) setEditingPinId(null); // Cancel pin edit if starting legend adjust
+                  }}
+                  disabled={loading}
+                >
+                  {isLegendAdjusting ? 'Cerrar Ajustes' : 'Ajustar Leyenda'}
+                </Button>
                 <Button
                   leftSection={<IconDeviceFloppy size={14} />}
                   variant="filled"
@@ -694,7 +957,7 @@ export function ReportEditStep4({ report, setReport, readOnly }: ReportEditStep4
       </Stack>
 
       <Text size="xs" c="dimmed" mt={-12}>
-        Ajuste el zoom, descargue la imagen, edítela externamente con las señales de instalación y súbala abajo.
+        Ajuste el zoom y la posición de los marcadores. Cuando esté listo, haga clic en "Guardar Mapa".
       </Text>
 
       {/* ── Saved Map Preview ── */}

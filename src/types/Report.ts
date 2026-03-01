@@ -134,6 +134,12 @@ export interface Report {
   edited_map_image_url?: string; // Diagrammed image
   map_pins?: MapPinData[];       // Additional map pins
   main_map_pin?: Partial<MapPinData>; // Customization for the main pin
+  legend_config?: {
+    x?: number; // relative to canvas width (or absolute pixels? let's stick to absolute for now or relative if we want responsivenes, but canvas is fixed size)
+    // Actually canvas size is fixed const CANVAS_WIDTH = 1732;
+    y?: number;
+    scale?: number;
+  };
 
   // HU-17: Evidencia Fotográfica
   camera_view_photo_url?: string;

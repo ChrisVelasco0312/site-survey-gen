@@ -5,15 +5,23 @@ export const LEGEND_HEIGHT = 535; // Exact height: 30 (header) + 505 (rows)
 export function drawLegend(
   ctx: CanvasRenderingContext2D,
   canvasWidth: number,
-  canvasHeight: number
+  canvasHeight: number,
+  config?: { x?: number, y?: number, scale?: number }
 ) {
-  const x = canvasWidth - LEGEND_WIDTH - 20; // 20px padding from right
-  const y = 20; // 20px padding from top
+  const scale = config?.scale || 1;
   const w = LEGEND_WIDTH;
+  
+  // Default position: top-right
+  const defaultX = canvasWidth - (w * scale) - 20;
+  const defaultY = 20;
+
+  const x = config?.x !== undefined ? config.x : defaultX;
+  const y = config?.y !== undefined ? config.y : defaultY;
   
   // Save context
   ctx.save();
   ctx.translate(x, y);
+  ctx.scale(scale, scale);
 
   // Background - fill white first
   ctx.fillStyle = 'white';
