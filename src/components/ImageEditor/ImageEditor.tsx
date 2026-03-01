@@ -163,7 +163,7 @@ export function ImageEditor({
   const [shapes, setShapes] = useState<Shape[]>(initialShapes || []);
   const [history, setHistory] = useState<Shape[][]>([initialShapes || []]);
   const [historyIndex, setHistoryIndex] = useState(0);
-  const [selectedShapeId, setSelectedShapeId] = useState<string | null>(null);
+  const [selectedShapeIds, setSelectedShapeIds] = useState<Set<string>>(new Set());
   const [hoveredShapeId, setHoveredShapeId] = useState<string | null>(null);
   const [transformMode, setTransformMode] = useState<'scale' | 'rotate'>('scale');
 
@@ -175,7 +175,7 @@ export function ImageEditor({
     isDown: boolean;
     startPos: { x: number; y: number };
     currentShape?: Shape;
-    movingShapeStart?: Shape; 
+    movingShapesSnapshot?: Map<string, Shape>; 
     resizeHandle?: string;
     lastMousePos?: { x: number; y: number };
     startRotation?: number; 
@@ -231,14 +231,14 @@ export function ImageEditor({
   useEffect(() => {
     shapesRef.current = shapes;
     renderCanvas();
-  }, [shapes, selectedShapeId, hoveredShapeId, transformMode]);
+  }, [shapes, selectedShapeIds, hoveredShapeId, transformMode]);
 
   const undo = () => {
     if (historyIndex > 0) {
       const newIndex = historyIndex - 1;
       setHistoryIndex(newIndex);
       setShapes(history[newIndex]);
-      setSelectedShapeId(null);
+      setSelectedShapeIds(new Set());
     }
   };
 
@@ -247,7 +247,7 @@ export function ImageEditor({
       const newIndex = historyIndex + 1;
       setHistoryIndex(newIndex);
       setShapes(history[newIndex]);
-      setSelectedShapeId(null);
+      setSelectedShapeIds(new Set());
     }
   };
 
@@ -260,11 +260,32 @@ export function ImageEditor({
   };
 
   const deleteSelected = () => {
-    if (selectedShapeId) {
-      const newShapes = shapes.filter((s) => s.id !== selectedShapeId);
+    if (selectedShapeIds.size > 0) {
+      const newShapes = shapes.filter((s) => !selectedShapeIds.has(s.id));
       pushHistory(newShapes);
-      setSelectedShapeId(null);
+      setSelectedShapeIds(new Set());
     }
+  };
+
+  const updateSelectedProps = (key: keyof Shape, value: any) => {
+    if (selectedShapeIds.size === 0) return;
+    const newShapes = shapes.map(s => {
+        if (selectedShapeIds.has(s.id)) {
+            return { ...s, [key]: value };
+        }
+        return s;
+    });
+    pushHistory(newShapes);
+  };
+
+  const handleColorChange = (color: string) => {
+    setDrawColor(color);
+    updateSelectedProps('color', color);
+  };
+
+  const handleStrokeWidthChange = (width: number) => {
+    setStrokeWidth(width);
+    updateSelectedProps('strokeWidth', width);
   };
 
   const renderCanvas = () => {
@@ -279,8 +300,8 @@ export function ImageEditor({
     });
 
     // Draw selection
-    if (selectedShapeId) {
-      const shape = shapesRef.current.find(s => s.id === selectedShapeId);
+    selectedShapeIds.forEach(id => {
+      const shape = shapesRef.current.find(s => s.id === id);
       if (shape) {
         ctx.save();
         
@@ -333,38 +354,57 @@ export function ImageEditor({
         ctx.strokeRect(-halfW - 5, -halfH - 5, bounds.w + 10, bounds.h + 10);
         
         ctx.setLineDash([]);
-        ctx.fillStyle = '#fff';
-        const handleSize = 8;
-        const half = handleSize / 2;
         
-        const corners = [
-            { x: -halfW - 5, y: -halfH - 5 }, // TL
-            { x: halfW + 5, y: -halfH - 5 }, // TR
-            { x: -halfW - 5, y: halfH + 5 }, // BL
-            { x: halfW + 5, y: halfH + 5 }, // BR
-        ];
+        // Only show resize handles if single selection
+        if (selectedShapeIds.size === 1) {
+            ctx.fillStyle = '#fff';
+            const handleSize = 8;
+            const half = handleSize / 2;
+            
+            const corners = [
+                { x: -halfW - 5, y: -halfH - 5 }, // TL
+                { x: halfW + 5, y: -halfH - 5 }, // TR
+                { x: -halfW - 5, y: halfH + 5 }, // BL
+                { x: halfW + 5, y: halfH + 5 }, // BR
+            ];
 
-        corners.forEach(c => {
-            ctx.beginPath();
             if (transformMode === 'rotate') {
-                ctx.arc(c.x, c.y, handleSize/2, 0, 2 * Math.PI);
+                ctx.beginPath();
+                ctx.arc(0, 0, 3, 0, 2 * Math.PI);
                 ctx.fill();
-                ctx.stroke();
             } else {
-                ctx.fillRect(c.x - half, c.y - half, handleSize, handleSize);
-                ctx.strokeRect(c.x - half, c.y - half, handleSize, handleSize);
+                if (shape.type === 'line') {
+                    // For lines, draw handles at endpoints instead of corners
+                    const s = shape as LineShape;
+                    const handleSize = 8;
+                    const half = handleSize / 2;
+                    // Calculate local coordinates relative to center (cx, cy)
+                    const lx1 = s.x1 - cx;
+                    const ly1 = s.y1 - cy;
+                    const lx2 = s.x2 - cx;
+                    const ly2 = s.y2 - cy;
+                    
+                    [
+                        { x: lx1, y: ly1 },
+                        { x: lx2, y: ly2 }
+                    ].forEach(pt => {
+                        ctx.beginPath();
+                        ctx.fillRect(pt.x - half, pt.y - half, handleSize, handleSize);
+                        ctx.strokeRect(pt.x - half, pt.y - half, handleSize, handleSize);
+                    });
+                } else {
+                    corners.forEach(c => {
+                        ctx.beginPath();
+                        ctx.fillRect(c.x - half, c.y - half, handleSize, handleSize);
+                        ctx.strokeRect(c.x - half, c.y - half, handleSize, handleSize);
+                    });
+                }
             }
-        });
-
-        if (transformMode === 'rotate') {
-            ctx.beginPath();
-            ctx.arc(0, 0, 3, 0, 2 * Math.PI);
-            ctx.fill();
         }
 
         ctx.restore();
       }
-    }
+    });
   };
 
   const getCanvasCoords = (
@@ -431,8 +471,10 @@ export function ImageEditor({
 
 
   const hitTest = (x: number, y: number): { shapeId: string | null, handle: string | null } => {
-     if (selectedShapeId) {
-         const shape = shapesRef.current.find(s => s.id === selectedShapeId);
+     // If we have a single selection, check its handles first
+     if (selectedShapeIds.size === 1) {
+         const id = Array.from(selectedShapeIds)[0];
+         const shape = shapesRef.current.find(s => s.id === id);
          if (shape) {
              let cx = 0, cy = 0;
              let halfW = 0, halfH = 0;
@@ -451,42 +493,52 @@ export function ImageEditor({
                 halfH = (maxY - minY) / 2;
              } else if (shape.type === 'line') {
                 const s = shape as LineShape;
+                const margin = 10;
+                
                 cx = (s.x1 + s.x2) / 2;
                 cy = (s.y1 + s.y2) / 2;
-                halfW = Math.abs(s.x2 - s.x1) / 2;
-                halfH = Math.abs(s.y2 - s.y1) / 2;
+                
+                const angle = -(shape.rotation || 0);
+                const local = rotatePoint(x, y, cx, cy, angle);
+                
+                 if (Math.abs(local.x - s.x1) < margin && Math.abs(local.y - s.y1) < margin) return { shapeId: id, handle: 'start' };
+                 if (Math.abs(local.x - s.x2) < margin && Math.abs(local.y - s.y2) < margin) return { shapeId: id, handle: 'end' };
              } else if (shape.type.includes('square')) {
-                const s = shape as RectShape;
-                cx = s.x + s.width / 2;
-                cy = s.y + s.height / 2;
-                halfW = s.width / 2;
-                halfH = s.height / 2;
+                 const s = shape as RectShape;
+                 cx = s.x + s.width / 2;
+                 cy = s.y + s.height / 2;
+                 halfW = s.width / 2;
+                 halfH = s.height / 2;
              } else if (shape.type.includes('circle')) {
-                const s = shape as CircleShape;
-                cx = s.x;
-                cy = s.y;
-                halfW = s.radius;
-                halfH = s.radius;
+                 const s = shape as CircleShape;
+                 cx = s.x;
+                 cy = s.y;
+                 halfW = s.radius;
+                  halfH = s.radius;
              }
              
-             const angle = -(shape.rotation || 0);
-             const local = rotatePoint(x, y, cx, cy, angle);
-             
-             const margin = 10;
-             const corners = {
-                 tl: { x: cx - halfW - 5, y: cy - halfH - 5 },
-                 tr: { x: cx + halfW + 5, y: cy - halfH - 5 },
-                 bl: { x: cx - halfW - 5, y: cy + halfH + 5 },
-                 br: { x: cx + halfW + 5, y: cy + halfH + 5 },
-             };
-             
-             for (const [key, pos] of Object.entries(corners)) {
-                 if (Math.abs(local.x - pos.x) < margin && Math.abs(local.y - pos.y) < margin) {
-                     return { shapeId: selectedShapeId, handle: key };
+             if (shape.type !== 'line') {
+                 const angle = -(shape.rotation || 0);
+                 const local = rotatePoint(x, y, cx, cy, angle);
+                 
+                 const margin = 10;
+                 const corners = {
+                     tl: { x: cx - halfW - 5, y: cy - halfH - 5 },
+                     tr: { x: cx + halfW + 5, y: cy - halfH - 5 },
+                     bl: { x: cx - halfW - 5, y: cy + halfH + 5 },
+                     br: { x: cx + halfW + 5, y: cy + halfH + 5 },
+                 };
+                 
+                 for (const [key, pos] of Object.entries(corners)) {
+                     if (Math.abs(local.x - pos.x) < margin && Math.abs(local.y - pos.y) < margin) {
+                         return { shapeId: id, handle: key };
+                     }
                  }
              }
          }
      }
+
+
 
      for (let i = shapesRef.current.length - 1; i >= 0; i--) {
          const s = shapesRef.current[i];
@@ -573,8 +625,11 @@ export function ImageEditor({
   const handleDoubleClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const { x, y } = getCanvasCoords(e);
     const hit = hitTest(x, y);
-    if (hit.shapeId === selectedShapeId && selectedShapeId) {
-        setTransformMode(prev => prev === 'scale' ? 'rotate' : 'scale');
+    if (hit.shapeId && selectedShapeIds.has(hit.shapeId) && selectedShapeIds.size === 1) {
+        const shape = shapesRef.current.find(s => s.id === hit.shapeId);
+        if (shape && shape.type !== 'line') {
+            setTransformMode(prev => prev === 'scale' ? 'rotate' : 'scale');
+        }
     }
   };
 
@@ -591,22 +646,49 @@ export function ImageEditor({
             return;
         }
 
+        let newSelection = new Set(selectedShapeIds);
+        const previouslySelected = selectedShapeIds.has(hit.shapeId as string);
+
         if (hit.shapeId) {
-            if (hit.shapeId !== selectedShapeId) {
-                setSelectedShapeId(hit.shapeId);
-                setTransformMode('scale');
+            if (e.shiftKey) {
+                // Toggle selection
+                if (newSelection.has(hit.shapeId)) {
+                    newSelection.delete(hit.shapeId);
+                } else {
+                    newSelection.add(hit.shapeId);
+                }
+            } else {
+                // Single select unless clicking on an already selected item (allows dragging group)
+                if (!newSelection.has(hit.shapeId)) {
+                    newSelection = new Set([hit.shapeId]);
+                }
             }
             
+            setSelectedShapeIds(newSelection);
+            if (newSelection.size === 1 && !previouslySelected) {
+                // Edge case: deselected current, reset mode
+                 setTransformMode('scale');
+            }
+
+            // Prepare for move
+            const snapshot = new Map<string, Shape>();
+            shapesRef.current.forEach(s => {
+                if (newSelection.has(s.id)) {
+                    snapshot.set(s.id, JSON.parse(JSON.stringify(s)));
+                }
+            });
+
             interactionRef.current = {
                 isDown: true,
                 startPos: { x, y },
                 resizeHandle: hit.handle || undefined,
                 lastMousePos: { x, y },
-                movingShapeStart: JSON.parse(JSON.stringify(shapesRef.current.find(s => s.id === hit.shapeId))),
-                startRotation: shapesRef.current.find(s => s.id === hit.shapeId)?.rotation || 0,
+                movingShapesSnapshot: snapshot,
+                startRotation: newSelection.size === 1 ? shapesRef.current.find(s => s.id === hit.shapeId)?.rotation || 0 : 0,
             };
         } else {
-            setSelectedShapeId(null);
+            // Clicked empty space
+            setSelectedShapeIds(new Set());
             interactionRef.current = { isDown: false, startPos: { x: 0, y: 0 } };
         }
         return;
@@ -643,7 +725,7 @@ export function ImageEditor({
        let cursor = 'default';
        if (hit.shapeId) {
            if (activeTool === 'eraser') cursor = 'crosshair';
-           else if (hit.handle) {
+           else if (hit.handle && selectedShapeIds.size === 1) {
                if (transformMode === 'rotate') {
                    cursor = 'alias'; 
                } else {
@@ -659,20 +741,28 @@ export function ImageEditor({
 
     if (!interactionRef.current.isDown) return;
 
-    if (activeTool === 'select' && selectedShapeId) {
-        const dx = x - interactionRef.current.lastMousePos!.x;
-        const dy = y - interactionRef.current.lastMousePos!.y;
+    if (activeTool === 'select' && selectedShapeIds.size > 0) {
+        const dx = x - interactionRef.current.startPos.x;
+        const dy = y - interactionRef.current.startPos.y;
+        
+        // Use relative movement from LAST frame for resize (optional), but here we use absolute from start
+        // Better: Use delta from last mouse pos for simple move
+        const deltaX = x - interactionRef.current.lastMousePos!.x;
+        const deltaY = y - interactionRef.current.lastMousePos!.y;
         interactionRef.current.lastMousePos = { x, y };
 
-        const shapeIndex = shapes.findIndex(s => s.id === selectedShapeId);
-        if (shapeIndex === -1) return;
-        
         const newShapes = [...shapes];
-        const shape = { ...newShapes[shapeIndex] };
-
-        if (interactionRef.current.resizeHandle) {
+        
+        // Single selection resize/rotate logic
+        if (selectedShapeIds.size === 1 && interactionRef.current.resizeHandle) {
+             const id = Array.from(selectedShapeIds)[0];
+             const shapeIndex = newShapes.findIndex(s => s.id === id);
+             if (shapeIndex === -1) return;
+             const shape = { ...newShapes[shapeIndex] };
              const handle = interactionRef.current.resizeHandle;
+
              if (transformMode === 'rotate') {
+                  // ... Rotation Logic (unchanged for single) ...
                  let cx = 0, cy = 0;
                  if (shape.type === 'pencil') {
                      const s = shape as PencilShape;
@@ -707,36 +797,77 @@ export function ImageEditor({
                  return;
              }
 
-             if (shape.type.includes('square')) {
+             if (shape.type === 'line') {
+                 const l = shape as LineShape;
+                 if (l.rotation) {
+                     const cx = (l.x1 + l.x2) / 2;
+                     const cy = (l.y1 + l.y2) / 2;
+                     const p1 = rotatePoint(l.x1, l.y1, cx, cy, l.rotation);
+                     const p2 = rotatePoint(l.x2, l.y2, cx, cy, l.rotation);
+                     l.x1 = p1.x;
+                     l.y1 = p1.y;
+                     l.x2 = p2.x;
+                     l.y2 = p2.y;
+                     l.rotation = 0;
+                 }
+                 if (handle === 'start') {
+                     l.x1 = x;
+                     l.y1 = y;
+                 } else if (handle === 'end') {
+                     l.x2 = x;
+                     l.y2 = y;
+                 }
+             } else if (shape.type.includes('square')) {
                 if (Math.abs(shape.rotation || 0) < 0.1) {
                     const r = shape as RectShape;
-                    if (handle.includes('l')) { r.x += dx; r.width -= dx; }
-                    if (handle.includes('r')) { r.width += dx; }
-                    if (handle.includes('t')) { r.y += dy; r.height -= dy; }
-                    if (handle.includes('b')) { r.height += dy; }
+                    if (handle.includes('l')) { r.x += deltaX; r.width -= deltaX; }
+                    if (handle.includes('r')) { r.width += deltaX; }
+                    if (handle.includes('t')) { r.y += deltaY; r.height -= deltaY; }
+                    if (handle.includes('b')) { r.height += deltaY; }
                 }
              } else if (shape.type.includes('circle')) {
                 const c = shape as CircleShape;
+                // Simple radius resize
                 const dist = Math.hypot(x - c.x, y - c.y);
                 c.radius = dist;
              }
-        } else {
-             if (shape.type === 'pencil') {
-                 const p = shape as PencilShape;
-                 p.points = p.points.map(pt => ({ x: pt.x + dx, y: pt.y + dy }));
-             } else if (shape.type === 'line') {
-                 const l = shape as LineShape;
-                 l.x1 += dx;
-                 l.y1 += dy;
-                 l.x2 += dx;
-                 l.y2 += dy;
-             } else {
-                 (shape as any).x += dx;
-                 (shape as any).y += dy;
-             }
+             newShapes[shapeIndex] = shape;
+             setShapes(newShapes);
+             return;
+        } 
+        
+        // Multi-Move logic (also handles single move without handle)
+        if (interactionRef.current.movingShapesSnapshot) {
+             const snapshot = interactionRef.current.movingShapesSnapshot;
+             
+             snapshot.forEach((startShape, id) => {
+                 const index = newShapes.findIndex(s => s.id === id);
+                 if (index !== -1) {
+                     const shape = { ...newShapes[index] };
+                     // Calculate total delta from start
+                     const totalDx = x - interactionRef.current.startPos.x;
+                     const totalDy = y - interactionRef.current.startPos.y;
+
+                     if (shape.type === 'pencil') {
+                         const p = shape as PencilShape;
+                         const startP = startShape as PencilShape;
+                         p.points = startP.points.map(pt => ({ x: pt.x + totalDx, y: pt.y + totalDy }));
+                     } else if (shape.type === 'line') {
+                         const l = shape as LineShape;
+                         const startL = startShape as LineShape;
+                         l.x1 = startL.x1 + totalDx;
+                         l.y1 = startL.y1 + totalDy;
+                         l.x2 = startL.x2 + totalDx;
+                         l.y2 = startL.y2 + totalDy;
+                     } else {
+                         (shape as any).x = (startShape as any).x + totalDx;
+                         (shape as any).y = (startShape as any).y + totalDy;
+                     }
+                     newShapes[index] = shape;
+                 }
+             });
+             setShapes(newShapes);
         }
-        newShapes[shapeIndex] = shape;
-        setShapes(newShapes);
         return;
     }
 
@@ -795,7 +926,7 @@ export function ImageEditor({
     }
   };
 
-  const handleMouseUp = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    const handleMouseUp = (e: React.MouseEvent<HTMLCanvasElement>) => {
     if (!interactionRef.current.isDown) return;
     interactionRef.current.isDown = false;
     
@@ -803,7 +934,7 @@ export function ImageEditor({
     tempCtx?.clearRect(0, 0, width, height);
 
     if (activeTool === 'select') {
-        if (selectedShapeId && interactionRef.current.movingShapeStart) {
+        if (selectedShapeIds.size > 0 && interactionRef.current.movingShapesSnapshot) {
              pushHistory([...shapes]);
         }
         return;
@@ -864,7 +995,7 @@ export function ImageEditor({
     };
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
-  }, [historyIndex, history, selectedShapeId]);
+  }, [historyIndex, history, selectedShapeIds]);
 
   return (
     <Stack gap="sm">
@@ -888,7 +1019,7 @@ export function ImageEditor({
                   </ActionIcon>
                </Tooltip>
                <Tooltip label="Eliminar seleccionado (Supr)" withArrow>
-                  <ActionIcon variant="subtle" color="red" onClick={deleteSelected} disabled={!selectedShapeId}>
+                  <ActionIcon variant="subtle" color="red" onClick={deleteSelected} disabled={selectedShapeIds.size === 0}>
                      <IconTrash size={18} />
                   </ActionIcon>
                </Tooltip>
@@ -915,7 +1046,12 @@ export function ImageEditor({
             <SegmentedControl
               size="xs"
               value={activeTool}
-              onChange={(v) => setActiveTool(v as any)}
+              onChange={(v) => {
+                  setActiveTool(v as any);
+                  if (v !== 'select') {
+                      setSelectedShapeIds(new Set());
+                  }
+              }}
               data={[
                 { value: 'select', label: <Tooltip label="Seleccionar / Mover / Redimensionar" withArrow><Center><IconPointer size={16} /></Center></Tooltip> },
                 { value: 'pencil', label: <Tooltip label="Lápiz" withArrow><Center><IconPencil size={16} /></Center></Tooltip> },
@@ -939,7 +1075,7 @@ export function ImageEditor({
                        key={c}
                        component="button"
                        color={c}
-                       onClick={() => setDrawColor(c)}
+                       onClick={() => handleColorChange(c)}
                        style={{ color: '#fff', cursor: 'pointer' }}
                        size={22}
                      >
@@ -958,7 +1094,7 @@ export function ImageEditor({
                   min={1}
                   max={10}
                   value={strokeWidth}
-                  onChange={setStrokeWidth}
+                  onChange={handleStrokeWidthChange}
                   size="sm"
                   w={100}
                 />
