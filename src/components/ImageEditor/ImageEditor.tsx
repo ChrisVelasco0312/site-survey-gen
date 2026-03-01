@@ -26,8 +26,9 @@ import {
   IconArrowBackUp,
   IconArrowForwardUp,
   IconEdit,
+  IconMinus,
 } from '@tabler/icons-react';
-import { Tool, Shape, RectShape, CircleShape, PencilShape } from '../../types/Shape';
+import { Tool, Shape, RectShape, CircleShape, PencilShape, LineShape } from '../../types/Shape';
 
 /* ── Helpers ── */
 
@@ -40,6 +41,81 @@ const rotatePoint = (x: number, y: number, cx: number, cy: number, angle: number
     x: cx + dx * cos - dy * sin,
     y: cy + dx * sin + dy * cos,
   };
+};
+
+const drawShape = (ctx: CanvasRenderingContext2D, shape: Shape) => {
+  ctx.save();
+  ctx.lineWidth = shape.strokeWidth;
+  ctx.strokeStyle = shape.color;
+  ctx.fillStyle = shape.color;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  
+  const rotation = shape.rotation || 0;
+  let cx = 0, cy = 0;
+
+  if (shape.type === 'pencil') {
+    const s = shape as PencilShape;
+    if (s.points.length > 0) {
+        const xs = s.points.map(p => p.x);
+        const ys = s.points.map(p => p.y);
+        const minX = Math.min(...xs);
+        const maxX = Math.max(...xs);
+        const minY = Math.min(...ys);
+        const maxY = Math.max(...ys);
+        cx = (minX + maxX) / 2;
+        cy = (minY + maxY) / 2;
+        
+        ctx.translate(cx, cy);
+        ctx.rotate(rotation);
+        ctx.translate(-cx, -cy);
+        
+        ctx.beginPath();
+        ctx.moveTo(s.points[0].x, s.points[0].y);
+        s.points.forEach(p => ctx.lineTo(p.x, p.y));
+        ctx.stroke();
+    }
+  } else if (shape.type === 'line') {
+    const s = shape as LineShape;
+    cx = (s.x1 + s.x2) / 2;
+    cy = (s.y1 + s.y2) / 2;
+    
+    ctx.translate(cx, cy);
+    ctx.rotate(rotation);
+    ctx.translate(-cx, -cy);
+
+    ctx.beginPath();
+    ctx.moveTo(s.x1, s.y1);
+    ctx.lineTo(s.x2, s.y2);
+    ctx.stroke();
+  } else if (shape.type === 'square' || shape.type === 'square-fill') {
+    const s = shape as RectShape;
+    cx = s.x + s.width / 2;
+    cy = s.y + s.height / 2;
+
+    ctx.translate(cx, cy);
+    ctx.rotate(rotation);
+    
+    ctx.beginPath();
+    if (s.type === 'square-fill') {
+        ctx.fillRect(-s.width / 2, -s.height / 2, s.width, s.height);
+    } else {
+        ctx.strokeRect(-s.width / 2, -s.height / 2, s.width, s.height);
+    }
+  } else if (shape.type === 'circle' || shape.type === 'circle-fill') {
+    const s = shape as CircleShape;
+    cx = s.x;
+    cy = s.y;
+    
+    ctx.translate(cx, cy);
+    ctx.rotate(rotation);
+
+    ctx.beginPath();
+    ctx.arc(0, 0, s.radius, 0, 2 * Math.PI);
+    if (s.type === 'circle-fill') ctx.fill();
+    else ctx.stroke();
+  }
+  ctx.restore();
 };
 
 /* ── Component ─────────────────────────────────────────────── */
@@ -82,7 +158,7 @@ export function ImageEditor({
   /* ── State ── */
   const [activeTool, setActiveTool] = useState<Tool>('select');
   const [strokeWidth, setStrokeWidth] = useState(3);
-  const [drawColor, setDrawColor] = useState('#fa5252'); // Red
+  const [drawColor, setDrawColor] = useState('#000000'); // Default Black
   
   const [shapes, setShapes] = useState<Shape[]>(initialShapes || []);
   const [history, setHistory] = useState<Shape[][]>([initialShapes || []]);
@@ -199,65 +275,7 @@ export function ImageEditor({
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     
     shapesRef.current.forEach(shape => {
-      ctx.save();
-      ctx.lineWidth = shape.strokeWidth;
-      ctx.strokeStyle = shape.color;
-      ctx.fillStyle = shape.color;
-      ctx.lineCap = 'round';
-      ctx.lineJoin = 'round';
-      
-      const rotation = shape.rotation || 0;
-      let cx = 0, cy = 0;
-
-      if (shape.type === 'pencil') {
-        const s = shape as PencilShape;
-        if (s.points.length > 0) {
-            const xs = s.points.map(p => p.x);
-            const ys = s.points.map(p => p.y);
-            const minX = Math.min(...xs);
-            const maxX = Math.max(...xs);
-            const minY = Math.min(...ys);
-            const maxY = Math.max(...ys);
-            cx = (minX + maxX) / 2;
-            cy = (minY + maxY) / 2;
-            
-            ctx.translate(cx, cy);
-            ctx.rotate(rotation);
-            ctx.translate(-cx, -cy);
-            
-            ctx.beginPath();
-            ctx.moveTo(s.points[0].x, s.points[0].y);
-            s.points.forEach(p => ctx.lineTo(p.x, p.y));
-            ctx.stroke();
-        }
-      } else if (shape.type === 'square' || shape.type === 'square-fill') {
-        const s = shape as RectShape;
-        cx = s.x + s.width / 2;
-        cy = s.y + s.height / 2;
-
-        ctx.translate(cx, cy);
-        ctx.rotate(rotation);
-        
-        ctx.beginPath();
-        if (s.type === 'square-fill') {
-            ctx.fillRect(-s.width / 2, -s.height / 2, s.width, s.height);
-        } else {
-            ctx.strokeRect(-s.width / 2, -s.height / 2, s.width, s.height);
-        }
-      } else if (shape.type === 'circle' || shape.type === 'circle-fill') {
-        const s = shape as CircleShape;
-        cx = s.x;
-        cy = s.y;
-        
-        ctx.translate(cx, cy);
-        ctx.rotate(rotation);
-
-        ctx.beginPath();
-        ctx.arc(0, 0, s.radius, 0, 2 * Math.PI);
-        if (s.type === 'circle-fill') ctx.fill();
-        else ctx.stroke();
-      }
-      ctx.restore();
+      drawShape(ctx, shape);
     });
 
     // Draw selection
@@ -281,6 +299,15 @@ export function ImageEditor({
            bounds = { w: maxX - minX, h: maxY - minY };
            cx = minX + bounds.w / 2;
            cy = minY + bounds.h / 2;
+        } else if (shape.type === 'line') {
+           const s = shape as LineShape;
+           const minX = Math.min(s.x1, s.x2);
+           const maxX = Math.max(s.x1, s.x2);
+           const minY = Math.min(s.y1, s.y2);
+           const maxY = Math.max(s.y1, s.y2);
+           bounds = { w: maxX - minX, h: maxY - minY };
+           cx = (s.x1 + s.x2) / 2;
+           cy = (s.y1 + s.y2) / 2;
         } else if (shape.type.includes('square')) {
            const s = shape as RectShape;
            bounds = { w: s.width, h: s.height };
@@ -422,6 +449,12 @@ export function ImageEditor({
                 cy = (minY + maxY) / 2;
                 halfW = (maxX - minX) / 2;
                 halfH = (maxY - minY) / 2;
+             } else if (shape.type === 'line') {
+                const s = shape as LineShape;
+                cx = (s.x1 + s.x2) / 2;
+                cy = (s.y1 + s.y2) / 2;
+                halfW = Math.abs(s.x2 - s.x1) / 2;
+                halfH = Math.abs(s.y2 - s.y1) / 2;
              } else if (shape.type.includes('square')) {
                 const s = shape as RectShape;
                 cx = s.x + s.width / 2;
@@ -466,6 +499,10 @@ export function ImageEditor({
             const ys = p.points.map(pt => pt.y);
             cx = (Math.min(...xs) + Math.max(...xs)) / 2;
             cy = (Math.min(...ys) + Math.max(...ys)) / 2;
+         } else if (s.type === 'line') {
+            const l = s as LineShape;
+            cx = (l.x1 + l.x2) / 2;
+            cy = (l.y1 + l.y2) / 2;
          } else if (s.type.includes('square')) {
             const r = s as RectShape;
             cx = r.x + r.width / 2;
@@ -487,6 +524,28 @@ export function ImageEditor({
                      return { shapeId: s.id, handle: null };
                  }
              }
+         } else if (s.type === 'line') {
+             const l = s as LineShape;
+             // Distance from point to line segment
+             const A = lx - l.x1;
+             const B = ly - l.y1;
+             const C = l.x2 - l.x1;
+             const D = l.y2 - l.y1;
+             const dot = A * C + B * D;
+             const lenSq = C * C + D * D;
+             let param = -1;
+             if (lenSq !== 0) param = dot / lenSq;
+
+             let xx, yy;
+             if (param < 0) { xx = l.x1; yy = l.y1; }
+             else if (param > 1) { xx = l.x2; yy = l.y2; }
+             else { xx = l.x1 + param * C; yy = l.y1 + param * D; }
+
+             const dx = lx - xx;
+             const dy = ly - yy;
+             const dist = Math.sqrt(dx * dx + dy * dy);
+
+             if (dist < s.strokeWidth + 5) return { shapeId: s.id, handle: null };
          } else if (s.type.includes('square')) {
              const r = s as RectShape;
              if (lx >= r.x && lx <= r.x + r.width && ly >= r.y && ly <= r.y + r.height) {
@@ -561,6 +620,8 @@ export function ImageEditor({
 
     if (activeTool === 'pencil') {
         newShape = { id: newId, type: 'pencil', color: drawColor, strokeWidth, points: [{ x, y }] };
+    } else if (activeTool === 'line') {
+        newShape = { id: newId, type: 'line', color: drawColor, strokeWidth, x1: x, y1: y, x2: x, y2: y };
     } else if (activeTool.includes('square')) {
         newShape = { id: newId, type: activeTool as any, color: drawColor, strokeWidth, x, y, width: 0, height: 0 };
     } else if (activeTool.includes('circle')) {
@@ -619,6 +680,10 @@ export function ImageEditor({
                      const ys = s.points.map(p => p.y);
                      cx = (Math.min(...xs) + Math.max(...xs)) / 2;
                      cy = (Math.min(...ys) + Math.max(...ys)) / 2;
+                 } else if (shape.type === 'line') {
+                     const s = shape as LineShape;
+                     cx = (s.x1 + s.x2) / 2;
+                     cy = (s.y1 + s.y2) / 2;
                  } else if (shape.type.includes('square')) {
                      const s = shape as RectShape;
                      cx = s.x + s.width / 2;
@@ -656,13 +721,19 @@ export function ImageEditor({
                 c.radius = dist;
              }
         } else {
-            if (shape.type === 'pencil') {
-                const p = shape as PencilShape;
-                p.points = p.points.map(pt => ({ x: pt.x + dx, y: pt.y + dy }));
-            } else {
-                (shape as any).x += dx;
-                (shape as any).y += dy;
-            }
+             if (shape.type === 'pencil') {
+                 const p = shape as PencilShape;
+                 p.points = p.points.map(pt => ({ x: pt.x + dx, y: pt.y + dy }));
+             } else if (shape.type === 'line') {
+                 const l = shape as LineShape;
+                 l.x1 += dx;
+                 l.y1 += dy;
+                 l.x2 += dx;
+                 l.y2 += dy;
+             } else {
+                 (shape as any).x += dx;
+                 (shape as any).y += dy;
+             }
         }
         newShapes[shapeIndex] = shape;
         setShapes(newShapes);
@@ -694,6 +765,15 @@ export function ImageEditor({
             tempCtx.moveTo(p.points[0].x, p.points[0].y);
             for (let i = 1; i < p.points.length; i++) tempCtx.lineTo(p.points[i].x, p.points[i].y);
         }
+        tempCtx.stroke();
+    } else if (current.type === 'line') {
+        const l = current as LineShape;
+        l.x2 = x;
+        l.y2 = y;
+        
+        tempCtx.beginPath();
+        tempCtx.moveTo(l.x1, l.y1);
+        tempCtx.lineTo(l.x2, l.y2);
         tempCtx.stroke();
     } else {
         const w = x - startX;
@@ -762,9 +842,9 @@ export function ImageEditor({
     }
 
     // 2. Draw Shapes
-    if (drawingCanvasRef.current) {
-        ctx.drawImage(drawingCanvasRef.current, 0, 0);
-    }
+    shapes.forEach(shape => {
+      drawShape(ctx, shape);
+    });
 
     const dataUrl = finalCanvas.toDataURL('image/png');
     onSave(dataUrl, shapes);
@@ -839,6 +919,7 @@ export function ImageEditor({
               data={[
                 { value: 'select', label: <Tooltip label="Seleccionar / Mover / Redimensionar" withArrow><Center><IconPointer size={16} /></Center></Tooltip> },
                 { value: 'pencil', label: <Tooltip label="Lápiz" withArrow><Center><IconPencil size={16} /></Center></Tooltip> },
+                { value: 'line', label: <Tooltip label="Línea" withArrow><Center><IconMinus size={16} /></Center></Tooltip> },
                 { value: 'square', label: <Tooltip label="Cuadrado (Borde)" withArrow><Center><IconSquare size={16} /></Center></Tooltip> },
                 { value: 'square-fill', label: <Tooltip label="Cuadrado (Relleno)" withArrow><Center><IconSquareFilled size={16} /></Center></Tooltip> },
                 { value: 'circle', label: <Tooltip label="Círculo (Borde)" withArrow><Center><IconCircle size={16} /></Center></Tooltip> },
@@ -853,7 +934,7 @@ export function ImageEditor({
             <Group gap="xs">
                 <Text size="xs" fw={500} c="dimmed">Color:</Text>
                 <Group gap={4}>
-                   {['#fa5252', '#228be6', '#40c057', '#fcc419', '#000000', '#ffffff'].map((c) => (
+                   {['#000000', '#228be6', '#fa5252', '#40c057', '#fcc419', '#ffffff'].map((c) => (
                      <ColorSwatch
                        key={c}
                        component="button"

@@ -1,4 +1,4 @@
-export type Tool = 'select' | 'eraser' | 'pencil' | 'square' | 'square-fill' | 'circle' | 'circle-fill';
+export type Tool = 'select' | 'eraser' | 'pencil' | 'line' | 'square' | 'square-fill' | 'circle' | 'circle-fill';
 
 export interface BaseShape {
   id: string;
@@ -6,6 +6,14 @@ export interface BaseShape {
   color: string;
   strokeWidth: number;
   rotation?: number; // radians
+}
+
+export interface LineShape extends BaseShape {
+  type: 'line';
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
 }
 
 export interface RectShape extends BaseShape {
@@ -28,4 +36,4 @@ export interface PencilShape extends BaseShape {
   points: { x: number; y: number }[];
 }
 
-export type Shape = RectShape | CircleShape | PencilShape;
+export type Shape = RectShape | CircleShape | PencilShape | LineShape;
