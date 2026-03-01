@@ -665,6 +665,15 @@ export function ImageEditor({
             }
             
             setSelectedShapeIds(newSelection);
+
+            if (newSelection.size === 1) {
+                const selectedShape = shapesRef.current.find(s => s.id === Array.from(newSelection)[0]);
+                if (selectedShape) {
+                    setDrawColor(selectedShape.color);
+                    setStrokeWidth(selectedShape.strokeWidth);
+                }
+            }
+
             if (newSelection.size === 1 && !previouslySelected) {
                 // Edge case: deselected current, reset mode
                  setTransformMode('scale');
