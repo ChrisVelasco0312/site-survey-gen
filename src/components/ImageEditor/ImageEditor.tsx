@@ -27,39 +27,7 @@ import {
   IconArrowForwardUp,
   IconEdit,
 } from '@tabler/icons-react';
-
-/* ── Types ── */
-export type Tool = 'select' | 'eraser' | 'pencil' | 'square' | 'square-fill' | 'circle' | 'circle-fill';
-
-export interface BaseShape {
-  id: string;
-  type: string;
-  color: string;
-  strokeWidth: number;
-  rotation?: number; // radians
-}
-
-export interface RectShape extends BaseShape {
-  type: 'square' | 'square-fill';
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-}
-
-export interface CircleShape extends BaseShape {
-  type: 'circle' | 'circle-fill';
-  x: number;
-  y: number;
-  radius: number;
-}
-
-export interface PencilShape extends BaseShape {
-  type: 'pencil';
-  points: { x: number; y: number }[];
-}
-
-export type Shape = RectShape | CircleShape | PencilShape;
+import { Tool, Shape, RectShape, CircleShape, PencilShape } from '../../types/Shape';
 
 /* ── Helpers ── */
 
@@ -95,7 +63,9 @@ interface ImageEditorProps {
    */
   children?: React.ReactNode;
   
-  onSave: (dataUrl: string) => void;
+  initialShapes?: Shape[];
+
+  onSave: (dataUrl: string, shapes: Shape[]) => void;
   onCancel: () => void;
 }
 
@@ -105,6 +75,7 @@ export function ImageEditor({
   baseImage,
   baseCanvasRef,
   children,
+  initialShapes,
   onSave,
   onCancel,
 }: ImageEditorProps) {
@@ -113,9 +84,9 @@ export function ImageEditor({
   const [strokeWidth, setStrokeWidth] = useState(3);
   const [drawColor, setDrawColor] = useState('#fa5252'); // Red
   
-  const [shapes, setShapes] = useState<Shape[]>([]);
-  const [history, setHistory] = useState<Shape[][]>([]);
-  const [historyIndex, setHistoryIndex] = useState(-1);
+  const [shapes, setShapes] = useState<Shape[]>(initialShapes || []);
+  const [history, setHistory] = useState<Shape[][]>([initialShapes || []]);
+  const [historyIndex, setHistoryIndex] = useState(0);
   const [selectedShapeId, setSelectedShapeId] = useState<string | null>(null);
   const [hoveredShapeId, setHoveredShapeId] = useState<string | null>(null);
   const [transformMode, setTransformMode] = useState<'scale' | 'rotate'>('scale');
@@ -139,12 +110,15 @@ export function ImageEditor({
 
   /* ── Init ── */
   useEffect(() => {
-    // Init history
-    if (history.length === 0) {
-      setHistory([[]]);
-      setHistoryIndex(0);
+    // If initialShapes changes externally (e.g. re-opening editor), reset.
+    // However, usually editor is mounted/unmounted.
+    // If we want to support prop updates:
+    if (initialShapes && shapes.length === 0 && history.length <= 1) {
+       setShapes(initialShapes);
+       setHistory([initialShapes]);
+       setHistoryIndex(0);
     }
-  }, []);
+  }, [initialShapes]);
 
   // Update canvas size
   useEffect(() => {
@@ -793,7 +767,7 @@ export function ImageEditor({
     }
 
     const dataUrl = finalCanvas.toDataURL('image/png');
-    onSave(dataUrl);
+    onSave(dataUrl, shapes);
   };
 
   /* ── Shortcuts ── */

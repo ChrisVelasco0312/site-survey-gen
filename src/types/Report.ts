@@ -1,4 +1,5 @@
 import { GroupAssignment } from './User';
+import { Shape } from './Shape';
 
 // HU-04, HU-07, HU-08, HU-09
 export type ReportStatus = 'en_campo' | 'en_revision' | 'listo_para_generar' | 'generado';
@@ -143,7 +144,12 @@ export interface Report {
 
   // HU-17: Evidencia Fotográfica
   camera_view_photo_url?: string;
+  camera_view_photo_original_url?: string;
+  camera_view_photo_shapes?: Shape[];
+
   service_entrance_photo_url?: string;
+  service_entrance_photo_original_url?: string;
+  service_entrance_photo_shapes?: Shape[];
 
   // HU-18: Metrajes y Adecuaciones
   pole_infrastructure: PoleInfrastructure;

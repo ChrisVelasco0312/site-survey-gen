@@ -13,6 +13,7 @@ import {
 import { IconPhoto, IconTrash, IconEdit } from '@tabler/icons-react';
 import imageCompression from 'browser-image-compression';
 import type { Report } from '../../types/Report';
+import { Shape } from '../../types/Shape';
 import { ImageEditor } from '../../components/ImageEditor/ImageEditor';
 
 /* ── Compression options ──────────────────────────────────── */
@@ -78,14 +79,27 @@ export function ReportEditStep5({ report, setReport, readOnly }: ReportEditStep5
     setError(null);
 
     if (!file) {
-      setReport({ ...report, [field]: undefined, updated_at: Date.now() });
+      setReport({ 
+        ...report, 
+        [field]: undefined, 
+        [`${field}_original_url`]: undefined,
+        [`${field}_shapes`]: undefined,
+        updated_at: Date.now() 
+      } as Report);
       return;
     }
 
     try {
       setCompressing(field);
       const dataUrl = await compressAndEncode(file);
-      setReport({ ...report, [field]: dataUrl, updated_at: Date.now() });
+      setReport({ 
+        ...report, 
+        [field]: dataUrl, 
+        [`${field}_original_url`]: dataUrl,
+        // Keep existing shapes if any, so user can re-apply them to new image
+        // [`${field}_shapes`]: [], 
+        updated_at: Date.now() 
+      } as Report);
     } catch (e) {
       console.error('Error compressing image:', e);
       setError(`Error al comprimir la imagen: ${(e as Error).message}`);
@@ -95,11 +109,19 @@ export function ReportEditStep5({ report, setReport, readOnly }: ReportEditStep5
   };
 
   const clearPhoto = (field: PhotoField) => {
-    setReport({ ...report, [field]: undefined, updated_at: Date.now() });
+    setReport({ 
+      ...report, 
+      [field]: undefined, 
+      [`${field}_original_url`]: undefined,
+      [`${field}_shapes`]: undefined,
+      updated_at: Date.now() 
+    } as Report);
   };
 
   const openEditor = (field: PhotoField) => {
-    const src = report[field];
+    // Prefer original unedited image if available
+    const originalSrc = (report as any)[`${field}_original_url`];
+    const src = originalSrc || report[field];
     if (!src) return;
 
     const img = new Image();
@@ -111,9 +133,22 @@ export function ReportEditStep5({ report, setReport, readOnly }: ReportEditStep5
     img.src = src;
   };
 
-  const handleEditorSave = (dataUrl: string) => {
+  const handleEditorSave = (dataUrl: string, shapes: Shape[]) => {
     if (editingField) {
-      setReport({ ...report, [editingField]: dataUrl, updated_at: Date.now() });
+      const currentReport = { ...report };
+      // Ensure we preserve the original clean image if it wasn't tracked yet
+      // This handles cases where the image was uploaded before this version update
+      const originalUrl = (currentReport as any)[`${editingField}_original_url`];
+      if (!originalUrl && currentReport[editingField]) {
+         (currentReport as any)[`${editingField}_original_url`] = currentReport[editingField];
+      }
+
+      setReport({ 
+        ...currentReport, 
+        [editingField]: dataUrl, 
+        [`${editingField}_shapes`]: shapes,
+        updated_at: Date.now() 
+      } as Report);
     }
     setEditorOpen(false);
     setEditingField(null);
@@ -250,7 +285,8 @@ export function ReportEditStep5({ report, setReport, readOnly }: ReportEditStep5
             <ImageEditor
               width={editorImageMeta.width}
               height={editorImageMeta.height}
-              baseImage={report[editingField]!}
+              baseImage={(report as any)[`${editingField}_original_url`] || report[editingField]!}
+              initialShapes={(report as any)[`${editingField}_shapes`] || []}
               onSave={handleEditorSave}
               onCancel={() => setEditorOpen(false)}
             />
