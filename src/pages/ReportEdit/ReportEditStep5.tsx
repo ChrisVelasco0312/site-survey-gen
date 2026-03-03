@@ -162,8 +162,8 @@ export function ReportEditStep5({ report, setReport, readOnly }: ReportEditStep5
         </Box>
 
         <Box mb="md">
+          <Text size="sm" fw={700} mb="xs">Cantidad de postes de apoyo:</Text>
           <NumberInput
-            label="Cantidad de postes de apoyo:"
             min={0}
             value={report.infrastructure_details.apoyo_cant ?? 0}
             onChange={(n) => setReport(setInfrastructureDetails(report, { apoyo_cant: parseNum(n) }))}
@@ -171,8 +171,8 @@ export function ReportEditStep5({ report, setReport, readOnly }: ReportEditStep5
         </Box>
 
         <Box mb="md">
+          <Text size="sm" fw={700} mb="xs">DISTANCIA DE ACOMETIDA DE RED ELÉCTRICA A INSTALAR (desde el punto de conexión hasta el gabinete)</Text>
           <NumberInput
-            label="DISTANCIA DE ACOMETIDA DE RED ELÉCTRICA A INSTALAR (desde el punto de conexión hasta el gabinete)"
             min={0}
             decimalScale={2}
             value={report.infrastructure_details.electrical_distance ?? 0}
@@ -182,8 +182,8 @@ export function ReportEditStep5({ report, setReport, readOnly }: ReportEditStep5
         </Box>
 
         <Box mb="md">
+          <Text size="sm" fw={700} mb="xs">DISTANCIA DE ACOMETIDA FIBRA ÓPTICA A INSTALAR (desde la mufla de Cámara hasta el gabinete)</Text>
           <NumberInput
-            label="DISTANCIA DE ACOMETIDA FIBRA ÓPTICA A INSTALAR (desde la mufla de Cámara hasta el gabinete)"
             min={0}
             decimalScale={2}
             value={report.infrastructure_details.fiber_distance ?? 0}

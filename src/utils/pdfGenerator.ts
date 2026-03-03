@@ -81,6 +81,7 @@ function toDMS(decimal: number, isLat: boolean): string {
  * to the corresponding template schema name.
  */
 export function buildPdfInputs(report: Report): Record<string, string> {
+  console.log("Report", report);
   const { dia, mes, anio } = parseDate(report.date);
   const inst = report.installation_type ?? [];
 
@@ -99,7 +100,9 @@ export function buildPdfInputs(report: Report): Record<string, string> {
       `    Estructura [${chk(inst.includes("estructura"))}]`,
 
     // ─── Section 1: Geographic Info ──────────────────────────
-    input_address: report.address?.full_address ?? "",
+    input_address: report.address?.full_address
+      ? `${report.address?.full_address} - ${report.address?.distrito} -  ${report.address?.municipio}`
+      : "",
     input_lat: report.address?.latitude ? String(report.address.latitude) : "",
     input_long: report.address?.longitude
       ? String(report.address.longitude)
@@ -160,14 +163,15 @@ export function buildPdfInputs(report: Report): Record<string, string> {
       ["Relleno", String(report.pole_infrastructure?.fill_meters ?? 0)],
     ]),
 
-    input_total_ruta: String(
-      (report.pole_infrastructure?.aerial_meters ?? 0) +
-      (report.pole_infrastructure?.grass_meters ?? 0) +
-      (report.pole_infrastructure?.asphalt_meters ?? 0) +
-      (report.pole_infrastructure?.adoquin_meters ?? 0) +
-      (report.pole_infrastructure?.concrete_meters ?? 0) +
-      (report.pole_infrastructure?.fill_meters ?? 0),
-    ) + " mts",
+    input_total_ruta:
+      String(
+        (report.pole_infrastructure?.aerial_meters ?? 0) +
+        (report.pole_infrastructure?.grass_meters ?? 0) +
+        (report.pole_infrastructure?.asphalt_meters ?? 0) +
+        (report.pole_infrastructure?.adoquin_meters ?? 0) +
+        (report.pole_infrastructure?.concrete_meters ?? 0) +
+        (report.pole_infrastructure?.fill_meters ?? 0),
+      ) + " mts",
 
     // ─── Mounting & Support ──────────────────────────────────
     input_soporte_T: `Soporte T [${chk(report.infrastructure_details?.camera_mounting === "soporte_t")}]`,
