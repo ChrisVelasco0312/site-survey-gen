@@ -5,7 +5,7 @@ import { Shape } from './Shape';
 export type ReportStatus = 'en_campo' | 'en_revision' | 'listo_para_generar' | 'generado';
 
 // HU-12
-export type InstallationType = 'fachada_mastil' | 'poste' | 'torre' | 'terraza';
+export type InstallationType = 'fachada_mastil' | 'poste' | 'torre' | 'terraza' | 'estructura';
 
 // HU-14
 export type SecurityLevel = 'alto' | 'medio' | 'bajo';

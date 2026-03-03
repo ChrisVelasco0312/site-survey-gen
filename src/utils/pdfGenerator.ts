@@ -95,7 +95,8 @@ export function buildPdfInputs(report: Report): Record<string, string> {
       `TIPO INSTALACIÓN:   Fachada/mástil [${chk(inst.includes("fachada_mastil"))}]` +
       `    Poste [${chk(inst.includes("poste"))}]` +
       `    Torre [${chk(inst.includes("torre"))}]` +
-      `    Terraza [${chk(inst.includes("terraza"))}]`,
+      `    Terraza [${chk(inst.includes("terraza"))}]` +
+      `    Estructura [${chk(inst.includes("estructura"))}]`,
 
     // ─── Section 1: Geographic Info ──────────────────────────
     input_address: report.address?.full_address ?? "",

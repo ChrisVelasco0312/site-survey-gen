@@ -18,6 +18,7 @@ const INSTALLATION_TYPE_OPTIONS: { value: InstallationType; label: string }[] = 
   { value: 'poste', label: 'Poste' },
   { value: 'torre', label: 'Torre' },
   { value: 'terraza', label: 'Terraza' },
+  { value: 'estructura', label: 'Estructura' },
 ];
 
 const SITE_TYPE_OPTIONS = [

@@ -121,7 +121,7 @@
         "position": { "x": 10, "y": 57 },
         "width": 190,
         "height": 8,
-        "content": "TIPO INSTALACIÓN:   Fachada/mástil [{chk_fachada}]    Poste [{chk_poste}]    Torre [{chk_torre}]    Terraza: [{chk_terraza}]",
+        "content": "TIPO INSTALACIÓN:   Fachada/mástil [{chk_fachada}]    Poste [{chk_poste}]    Torre [{chk_torre}]    Terraza [{chk_terraza}]    Estructura [{chk_estructura}]",
         "fontSize": 9,
         "fontName": "Roboto",
         "verticalAlignment": "middle",
@@ -448,17 +448,6 @@
         "fontName": "Roboto"
       },
       {
-        "type": "text",
-        "position": { "x": 10, "y": 186.99 },
-        "width": 190,
-        "height": 7,
-        "content": "DIAGRAMA DEL SITIO (Detalle, distancias, cajas, acometidas):",
-        "fontSize": 9,
-        "fontName": "Roboto-Bold",
-        "name": "lbl_diagram",
-        "fontColor": "#000000"
-      },
-      {
         "name": "pdf_logo",
         "type": "image",
         "content": "",
@@ -620,24 +609,13 @@
         "position": { "x": 10, "y": 10 },
         "width": 190,
         "height": 7,
-        "content": "2. DIAGRAMA DEL SITIO Y FOTOGRAFÍAS",
+        "content": "2. DIAGRAMA DEL SITIO",
         "fontSize": 10,
         "fontName": "Roboto-Bold",
         "backgroundColor": "#d9d9d9",
         "verticalAlignment": "middle",
         "padding": { "left": 2 },
         "name": "sec_2_title",
-        "fontColor": "#000000"
-      },
-      {
-        "type": "text",
-        "position": { "x": 10, "y": 19 },
-        "width": 190,
-        "height": 7,
-        "content": "DIAGRAMA DEL SITIO (Detalle, distancias, cajas, acometidas):",
-        "fontSize": 9,
-        "fontName": "Roboto-Bold",
-        "name": "lbl_diagram",
         "fontColor": "#000000"
       },
       {
