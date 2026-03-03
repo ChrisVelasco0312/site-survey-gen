@@ -9,7 +9,7 @@ import {
   Box,
 } from '@mantine/core';
 import { DateInput } from '@mantine/dates';
-import type { Report, AddressData, InstallationType, SiteRecord } from '../../types/Report';
+import type { Report, AddressData, InstallationType, SecurityLevel, ContractComponent, SiteRecord } from '../../types/Report';
 import { getAllSitesFromDB, getDistritoMunicipioFromDB, type DistritoMunicipioEntry } from '../../utils/indexedDB';
 import { fetchSitesAndPersist, fetchDistritoMunicipioAndPersist } from '../../services/sitesService';
 
@@ -21,12 +21,26 @@ const INSTALLATION_TYPE_OPTIONS: { value: InstallationType; label: string }[] = 
   { value: 'estructura', label: 'Estructura' },
 ];
 
+const SECURITY_LEVEL_OPTIONS: { value: SecurityLevel; label: string }[] = [
+  { value: 'alto', label: 'Alto' },
+  { value: 'medio', label: 'Medio' },
+  { value: 'bajo', label: 'Bajo' },
+];
+
 const SITE_TYPE_OPTIONS = [
   { value: '', label: 'Todos' },
   { value: 'lpr', label: 'LPR' },
   { value: 'cotejo_facial', label: 'Cotejo Facial' },
   { value: 'ptz', label: 'PTZ' },
 ];
+
+function getContractComponentFromSiteType(siteType: string | undefined): ContractComponent | null {
+  if (!siteType) return null;
+  if (siteType === 'ptz') return 'valle_seguro';
+  if (siteType === 'lpr') return 'lpr';
+  if (siteType === 'cotejo_facial') return 'cotejo_facial';
+  return null;
+}
 
 interface ReportEditStep1Props {
   report: Report;
@@ -194,6 +208,27 @@ export function ReportEditStep1({ report, setReport, readOnly }: ReportEditStep1
     return () => { cancelled = true; };
   }, []);
 
+  useEffect(() => {
+    const siteType = report.address.site_type;
+    const forcedComponent = getContractComponentFromSiteType(siteType);
+    if (forcedComponent && report.contract_component !== forcedComponent) {
+      setReport({
+        ...report,
+        contract_component: forcedComponent,
+        updated_at: Date.now(),
+      });
+    }
+  }, [report.address.site_type]);
+
+  const onSecurityLevelChange = (value: string | null) => {
+    if (value == null) return;
+    setReport({
+      ...report,
+      security_level: value as SecurityLevel,
+      updated_at: Date.now(),
+    });
+  };
+
   const dateDisplayText = useMemo(() => {
     if (!report.date) return '—';
     const d = parseStoredDate(report.date);
@@ -299,6 +334,8 @@ export function ReportEditStep1({ report, setReport, readOnly }: ReportEditStep1
                 .join(', ')
             : '—'}
         </Text>
+        <Text size="sm" fw={500} c="dimmed">Nivel de seguridad</Text>
+        <Text>{SECURITY_LEVEL_OPTIONS.find((o) => o.value === report.security_level)?.label ?? '—'}</Text>
         <Text size="sm" fw={500} c="dimmed">Dirección / Sitio</Text>
         <Text>{addressDisplayValue || '—'}</Text>
         {report.address.latitude !== 0 && report.address.longitude !== 0 && (
@@ -334,6 +371,13 @@ export function ReportEditStep1({ report, setReport, readOnly }: ReportEditStep1
         data={INSTALLATION_TYPE_OPTIONS}
         value={report.installation_type[0] || null}
         onChange={onInstallationTypeChange}
+      />
+      <Select
+        label="Nivel de seguridad"
+        placeholder="Seleccione el nivel"
+        data={SECURITY_LEVEL_OPTIONS}
+        value={report.security_level}
+        onChange={onSecurityLevelChange}
       />
       <Box>
         <Text size="sm" fw={500} mb="xs" component="label" display="block">

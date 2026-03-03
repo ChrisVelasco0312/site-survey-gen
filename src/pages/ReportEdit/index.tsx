@@ -28,14 +28,12 @@ import { ReportEditStep2 } from './ReportEditStep2';
 import { ReportEditStep3 } from './ReportEditStep3';
 import { ReportEditStep4 } from './ReportEditStep4';
 import { ReportEditStep5 } from './ReportEditStep5';
-import { ReportEditStepCableado } from './ReportEditStepCableado';
-import { ReportEditStep7 } from './ReportEditStep7';
+import { ReportEditStep6 } from './ReportEditStep6';
 import { PdfPreviewPanel } from './PdfPreviewPanel';
 import './ReportEdit.css';
 
 const STEP_LABELS = [
   'Información Geográfica Nodo',
-  'Seguridad, contrato y observaciones',
   'Site Survey (datos)',
   'Site Survey (Diagrama del Sitio)',
   'Evidencia fotográfica',
@@ -338,8 +336,7 @@ export function ReportEdit() {
       case 2: return <ReportEditStep3 {...props} />;
       case 3: return <ReportEditStep4 {...props} />;
       case 4: return <ReportEditStep5 {...props} />;
-      case 5: return <ReportEditStepCableado {...props} />;
-      case 6: return <ReportEditStep7 {...props} />;
+      case 5: return <ReportEditStep6 {...props} />;
       default: return null;
     }
   };
@@ -550,10 +547,9 @@ export function ReportEdit() {
                       ← Anterior
                     </Button>
                     <Button
-                      onClick={nextStep}
-                      disabled={activeStep === STEP_LABELS.length - 1}
+                      onClick={activeStep === STEP_LABELS.length - 1 ? () => setShowPreview(true) : nextStep}
                     >
-                      Siguiente →
+                      {activeStep === STEP_LABELS.length - 1 ? 'Ver PDF →' : 'Siguiente →'}
                     </Button>
                   </Group>
 
