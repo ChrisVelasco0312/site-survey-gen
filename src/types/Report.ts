@@ -62,6 +62,7 @@ export interface HardwareInventory {
   cameras_multisensor: number;
   cameras_ptz: number;
   cameras_fixed: number;
+  cameras_lpr: number;
   boxes_40: number;
   boxes_60: number;
 }
@@ -199,6 +200,7 @@ export const createInitialReport = (userId: string, group: GroupAssignment): Rep
     cameras_multisensor: 0,
     cameras_ptz: 0,
     cameras_fixed: 0,
+    cameras_lpr: 0,
     boxes_40: 0,
     boxes_60: 0
   },

@@ -141,6 +141,7 @@ export function buildPdfInputs(report: Report): Record<string, string> {
     input_inv_multi: String(report.hardware?.cameras_multisensor ?? 0),
     input_inv_ptz: String(report.hardware?.cameras_ptz ?? 0),
     input_inv_fixed: String(report.hardware?.cameras_fixed ?? 0),
+    input_inv_lpr: String(report.hardware?.cameras_lpr ?? 0),
 
     // Boxes
     input_inv_box_40: String(report.hardware?.boxes_40 ?? 0),

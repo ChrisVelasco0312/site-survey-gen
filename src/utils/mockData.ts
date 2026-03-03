@@ -64,6 +64,7 @@ export const generateMockReports = (userId?: string, count: number = 10): Report
         cameras_multisensor: 0,
         cameras_ptz: 1,
         cameras_fixed: 0,
+        cameras_lpr: 0,
         boxes_40: 1,
         boxes_60: 0
       },

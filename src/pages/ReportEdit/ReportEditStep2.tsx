@@ -62,6 +62,60 @@ function setInfrastructureDetails(report: Report, patch: Partial<InfrastructureD
 export function ReportEditStep2({ report, setReport, readOnly }: ReportEditStep2Props) {
   const c = report.connectivity;
   const h = report.hardware;
+  const siteType = report.address.site_type;
+
+  const isFacial = siteType === 'cotejo_facial';
+  const isLPR = siteType === 'lpr';
+  const isPTZ = siteType === 'ptz' || !siteType;
+
+  const cameraFields = [
+    ...(isPTZ ? [{
+      key: 'multisensor',
+      label: 'Multisensor',
+      value: h.cameras_multisensor,
+      onChange: (n: number) => setReport(setHardware(report, { cameras_multisensor: n }))
+    }] : []),
+    ...(isFacial ? [{
+      key: 'facial',
+      label: 'Facial',
+      value: h.cameras_facial,
+      onChange: (n: number) => setReport(setHardware(report, { cameras_facial: n }))
+    }] : []),
+    ...(isPTZ ? [{
+      key: 'ptz',
+      label: 'PTZ',
+      value: h.cameras_ptz,
+      onChange: (n: number) => setReport(setHardware(report, { cameras_ptz: n }))
+    }] : []),
+    ...(isPTZ ? [{
+      key: 'fixed',
+      label: 'Fijas',
+      value: h.cameras_fixed,
+      onChange: (n: number) => setReport(setHardware(report, { cameras_fixed: n }))
+    }] : []),
+    ...(isLPR ? [{
+      key: 'lpr',
+      label: 'LPR',
+      value: h.cameras_lpr,
+      onChange: (n: number) => setReport(setHardware(report, { cameras_lpr: n }))
+    }] : []),
+  ];
+
+  const cameraDisplay = [
+    isPTZ ? h.cameras_multisensor : 0,
+    isFacial ? h.cameras_facial : 0,
+    isPTZ ? h.cameras_ptz : 0,
+    isPTZ ? h.cameras_fixed : 0,
+    isLPR ? h.cameras_lpr : 0,
+  ].filter(Boolean).join(' / ');
+
+  const cameraLabels = [
+    isPTZ ? 'Multisensor' : '',
+    isFacial ? 'Facial' : '',
+    isPTZ ? 'PTZ' : '',
+    isPTZ ? 'Fijas' : '',
+    isLPR ? 'LPR' : '',
+  ].filter(Boolean).join(' / ');
 
   if (readOnly) {
     return (
@@ -79,8 +133,8 @@ export function ReportEditStep2({ report, setReport, readOnly }: ReportEditStep2
           <Text>{CABLING_OPTIONS.find((o) => o.value === c.cabling_type)?.label ?? c.cabling_type}</Text>
         </Box>
         <Divider label="Cámaras" />
-        <Text size="sm" fw={500} c="dimmed">Multisensor / Facial / PTZ / Fijas</Text>
-        <Text size="sm">{h.cameras_multisensor} / {h.cameras_facial} / {h.cameras_ptz} / {h.cameras_fixed}</Text>
+        <Text size="sm" fw={500} c="dimmed">{cameraLabels}</Text>
+        <Text size="sm">{cameraDisplay}</Text>
         <Divider label="Cajas" />
         <Text size="sm" fw={500} c="dimmed">40x40 / 60x60 / Total</Text>
         <Text size="sm">{h.boxes_40 ?? 0} / {h.boxes_60 ?? 0} / {(h.boxes_40 ?? 0) + (h.boxes_60 ?? 0)}</Text>
@@ -116,30 +170,15 @@ export function ReportEditStep2({ report, setReport, readOnly }: ReportEditStep2
       <Text size="md" fw={800}>
         Cámaras
       </Text>
-      <NumberInput
-        label="Cámaras multisensor"
-        min={0}
-        value={h.cameras_multisensor}
-        onChange={(n) => setReport(setHardware(report, { cameras_multisensor: typeof n === 'string' ? parseInt(n, 10) || 0 : n ?? 0 }))}
-      />
-      <NumberInput
-        label="Facial"
-        min={0}
-        value={h.cameras_facial}
-        onChange={(n) => setReport(setHardware(report, { cameras_facial: typeof n === 'string' ? parseInt(n, 10) || 0 : n ?? 0 }))}
-      />
-      <NumberInput
-        label="Cámaras PTZ"
-        min={0}
-        value={h.cameras_ptz}
-        onChange={(n) => setReport(setHardware(report, { cameras_ptz: typeof n === 'string' ? parseInt(n, 10) || 0 : n ?? 0 }))}
-      />
-      <NumberInput
-        label="Cámaras fijas"
-        min={0}
-        value={h.cameras_fixed}
-        onChange={(n) => setReport(setHardware(report, { cameras_fixed: typeof n === 'string' ? parseInt(n, 10) || 0 : n ?? 0 }))}
-      />
+      {cameraFields.map((field) => (
+        <NumberInput
+          key={field.key}
+          label={field.label}
+          min={0}
+          value={field.value}
+          onChange={(n) => field.onChange(typeof n === 'string' ? parseInt(n, 10) || 0 : n ?? 0)}
+        />
+      ))}
 
       <Divider />
 
