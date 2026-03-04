@@ -106,6 +106,24 @@ export interface InfrastructureDetails {
   apoyo_cant?: number;
 }
 
+export interface CotejoFacialSurvey {
+  zona_tipo?: 'peatonal' | 'mixta';
+  estructura_tipo?: 'poste' | 'muro' | 'techo' | 'portico' | 'otro';
+  estructura_otro?: string;
+  altura_proyectada?: number;
+  distancia_rostro_camara?: number;
+  area_cobertura?: string;
+  angulo_horizontal?: number;
+  angulo_vertical?: number;
+  iluminacion_estado?: 'con_iluminacion' | 'sin_iluminacion';
+  punto_electrico_cercano?: boolean;
+  distancia_punto_electrico?: number;
+  tipo_enlace?: 'fibra_optica' | 'inalambrico';
+  distancia_canalizacion?: number;
+  riesgos_identificados?: ('vandalismo' | 'contraluz' | 'sombras' | 'obstaculos' | 'alto_trafico')[];
+  detalle_riesgos?: string;
+}
+
 // Main Report Interface
 export interface Report {
   id: string;
@@ -163,6 +181,9 @@ export interface Report {
   
   // PDF Generation metadata (HU-09)
   pdf_url?: string;
+
+  // HU-20: Cotejo Facial
+  cotejo_facial_survey?: CotejoFacialSurvey;
 }
 
 // Helper to create an empty/initial report
@@ -229,5 +250,6 @@ export const createInitialReport = (userId: string, group: GroupAssignment): Rep
   },
   
   owner_name: '',
-  final_observations: ''
+  final_observations: '',
+  cotejo_facial_survey: {}
 });

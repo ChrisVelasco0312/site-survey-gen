@@ -214,6 +214,44 @@ export function buildPdfInputs(report: Report): Record<string, string> {
     input_observations: `Este punto de cámara pertenece a:  ${report.owner_name || "—"}\n\n\nOBSERVACIONES GENERALES:\n\n${report.final_observations ?? ""}`,
   };
 
+  const cfKeys = [
+    'sec_cf_title', 'lbl_cf_zona', 'lbl_cf_iluminacion', 'chk_cf_zona_tipo', 'chk_cf_ilum_estado',
+    'lbl_cf_conect', 'lbl_cf_riesgos',
+    'chk_cf_pto_elec', 'lbl_cf_dist_elec', 'chk_cf_riesgos1', 'chk_cf_enlace', 'lbl_cf_dist_can', 'chk_cf_riesgos2', 'chk_cf_riesgos3', 'lbl_cf_riesgos_det',
+    'lbl_cf_inst', 'chk_cf_estruc1', 'chk_cf_estruc2', 'lbl_cf_alt', 'lbl_cf_dist', 'lbl_cf_area', 'lbl_cf_ang'
+  ];
+
+  if (report.address?.site_type === 'cotejo_facial') {
+    const cf = report.cotejo_facial_survey || {};
+    inputs.chk_cf_zona_tipo = `Tipo: Peatonal [${chk(cf.zona_tipo === 'peatonal')}]   Mixta [${chk(cf.zona_tipo === 'mixta')}]`;
+    inputs.chk_cf_ilum_estado = `Estado: Con ilum. [${chk(cf.iluminacion_estado === 'con_iluminacion')}]   Sin ilum. [${chk(cf.iluminacion_estado === 'sin_iluminacion')}]`;
+    
+    inputs.chk_cf_pto_elec = `Punto eléctrico: Sí [${chk(cf.punto_electrico_cercano === true)}]  No [${chk(cf.punto_electrico_cercano === false)}]`;
+    inputs.lbl_cf_dist_elec = `Distancia al punto eléctrico: ${cf.distancia_punto_electrico ?? ''} m`;
+    
+    const r = cf.riesgos_identificados || [];
+    inputs.chk_cf_riesgos1 = `Vandalismo [${chk(r.includes('vandalismo'))}]  Contraluz [${chk(r.includes('contraluz'))}]`;
+    inputs.chk_cf_riesgos2 = `Sombras [${chk(r.includes('sombras'))}]  Obstáculos [${chk(r.includes('obstaculos'))}]`;
+    inputs.chk_cf_riesgos3 = `Alto tráfico peatonal [${chk(r.includes('alto_trafico'))}]`;
+    
+    inputs.chk_cf_enlace = `Enlace: Fibra [${chk(cf.tipo_enlace === 'fibra_optica')}]  Inalámb. [${chk(cf.tipo_enlace === 'inalambrico')}]`;
+    inputs.lbl_cf_dist_can = `Distancia canalización: ${cf.distancia_canalizacion ?? ''} m`;
+    inputs.lbl_cf_riesgos_det = `Detalle:\n${cf.detalle_riesgos ?? ''}`;
+
+    inputs.chk_cf_estruc1 = `Estructura: Poste [${chk(cf.estructura_tipo === 'poste')}] Muro [${chk(cf.estructura_tipo === 'muro')}] Techo [${chk(cf.estructura_tipo === 'techo')}]`;
+    inputs.chk_cf_estruc2 = `Pórtico [${chk(cf.estructura_tipo === 'portico')}] Otro: ${cf.estructura_tipo === 'otro' ? (cf.estructura_otro ?? '') : ''}`;
+    
+    inputs.lbl_cf_alt = `Altura proyectada: ${cf.altura_proyectada ?? ''} m`;
+    inputs.lbl_cf_dist = `Distancia rostro-cámara: ${cf.distancia_rostro_camara ?? ''} m`;
+    inputs.lbl_cf_area = `Área cobertura: ${cf.area_cobertura ?? ''}`;
+    inputs.lbl_cf_ang = `Ángulo H: ${cf.angulo_horizontal ?? ''}°   Ángulo V: ${cf.angulo_vertical ?? ''}°`;
+  } else {
+    // Hide all CF fields if it's not a Cotejo Facial site
+    for (const key of cfKeys) {
+      inputs[key] = '';
+    }
+  }
+
   // ─── Images: only include when present ─────────────────────
   if (report.edited_map_image_url) {
     inputs.diagram_image = report.edited_map_image_url;

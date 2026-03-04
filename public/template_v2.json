@@ -811,6 +811,384 @@
         "alignment": "left",
         "name": "input_inv_box_60",
         "fontName": "Roboto"
+      },
+      {
+        "type": "text",
+        "position": {
+          "x": 10,
+          "y": 190
+        },
+        "width": 190,
+        "height": 7,
+        "content": "3. SURVEY RECONOCIMIENTO FACIAL",
+        "fontSize": 10,
+        "fontName": "Roboto-Bold",
+        "fontColor": "#000000",
+        "backgroundColor": "#d9d9d9",
+        "alignment": "left",
+        "verticalAlignment": "middle",
+        "name": "sec_cf_title",
+        "readOnly": false,
+        "padding": {
+          "left": 2
+        }
+      },
+      {
+        "type": "text",
+        "position": {
+          "x": 10,
+          "y": 199
+        },
+        "width": 90,
+        "height": 5,
+        "content": "1. Clasificación de la Zona",
+        "fontSize": 9,
+        "fontName": "Roboto-Bold",
+        "fontColor": "#000000",
+        "alignment": "left",
+        "verticalAlignment": "middle",
+        "name": "lbl_cf_zona",
+        "readOnly": false
+      },
+      {
+        "type": "text",
+        "position": {
+          "x": 10,
+          "y": 204
+        },
+        "width": 90,
+        "height": 5,
+        "content": "Tipo: Peatonal [{cf_z_p}]   Mixta [{cf_z_m}]",
+        "fontSize": 9,
+        "fontName": "Roboto",
+        "fontColor": "#000000",
+        "alignment": "left",
+        "verticalAlignment": "middle",
+        "name": "chk_cf_zona_tipo",
+        "readOnly": false
+      },
+      {
+        "type": "text",
+        "position": {
+          "x": 10,
+          "y": 211
+        },
+        "width": 90,
+        "height": 5,
+        "content": "2. Especificaciones de Instalación Física",
+        "fontSize": 9,
+        "fontName": "Roboto-Bold",
+        "fontColor": "#000000",
+        "alignment": "left",
+        "verticalAlignment": "middle",
+        "name": "lbl_cf_inst",
+        "readOnly": false
+      },
+      {
+        "type": "text",
+        "position": {
+          "x": 10,
+          "y": 216
+        },
+        "width": 90,
+        "height": 5,
+        "content": "Estructura: Poste [{cf_e_p}] Muro [{cf_e_m}] Techo [{cf_e_t}]",
+        "fontSize": 9,
+        "fontName": "Roboto",
+        "fontColor": "#000000",
+        "alignment": "left",
+        "verticalAlignment": "middle",
+        "name": "chk_cf_estruc1",
+        "readOnly": false
+      },
+      {
+        "type": "text",
+        "position": {
+          "x": 10,
+          "y": 221
+        },
+        "width": 90,
+        "height": 5,
+        "content": "Pórtico [{cf_e_po}] Otro: {cf_e_o}",
+        "fontSize": 9,
+        "fontName": "Roboto",
+        "fontColor": "#000000",
+        "alignment": "left",
+        "verticalAlignment": "middle",
+        "name": "chk_cf_estruc2",
+        "readOnly": false
+      },
+      {
+        "type": "text",
+        "position": {
+          "x": 10,
+          "y": 226
+        },
+        "width": 90,
+        "height": 5,
+        "content": "Altura proyectada: {cf_i_ap} m",
+        "fontSize": 9,
+        "fontName": "Roboto",
+        "fontColor": "#000000",
+        "alignment": "left",
+        "verticalAlignment": "middle",
+        "name": "lbl_cf_alt",
+        "readOnly": false
+      },
+      {
+        "type": "text",
+        "position": {
+          "x": 10,
+          "y": 231
+        },
+        "width": 90,
+        "height": 5,
+        "content": "Distancia rostro-cámara: {cf_i_drc} m",
+        "fontSize": 9,
+        "fontName": "Roboto",
+        "fontColor": "#000000",
+        "alignment": "left",
+        "verticalAlignment": "middle",
+        "name": "lbl_cf_dist",
+        "readOnly": false
+      },
+      {
+        "type": "text",
+        "position": {
+          "x": 10,
+          "y": 236
+        },
+        "width": 90,
+        "height": 5,
+        "content": "Área cobertura: {cf_i_ac}",
+        "fontSize": 9,
+        "fontName": "Roboto",
+        "fontColor": "#000000",
+        "alignment": "left",
+        "verticalAlignment": "middle",
+        "name": "lbl_cf_area",
+        "readOnly": false
+      },
+      {
+        "type": "text",
+        "position": {
+          "x": 10,
+          "y": 241
+        },
+        "width": 90,
+        "height": 5,
+        "content": "Ángulo H: {cf_i_ah}°   Ángulo V: {cf_i_av}°",
+        "fontSize": 9,
+        "fontName": "Roboto",
+        "fontColor": "#000000",
+        "alignment": "left",
+        "verticalAlignment": "middle",
+        "name": "lbl_cf_ang",
+        "readOnly": false
+      },
+      {
+        "type": "text",
+        "position": {
+          "x": 10,
+          "y": 248
+        },
+        "width": 90,
+        "height": 5,
+        "content": "3. Condiciones de Iluminación",
+        "fontSize": 9,
+        "fontName": "Roboto-Bold",
+        "fontColor": "#000000",
+        "alignment": "left",
+        "verticalAlignment": "middle",
+        "name": "lbl_cf_iluminacion",
+        "readOnly": false
+      },
+      {
+        "type": "text",
+        "position": {
+          "x": 10,
+          "y": 253
+        },
+        "width": 90,
+        "height": 5,
+        "content": "Estado: Con ilum. [{cf_i_c}]   Sin ilum. [{cf_i_s}]",
+        "fontSize": 9,
+        "fontName": "Roboto",
+        "fontColor": "#000000",
+        "alignment": "left",
+        "verticalAlignment": "middle",
+        "name": "chk_cf_ilum_estado",
+        "readOnly": false
+      },
+      {
+        "type": "text",
+        "position": {
+          "x": 110,
+          "y": 199
+        },
+        "width": 90,
+        "height": 5,
+        "content": "4. Conectividad y Energía",
+        "fontSize": 9,
+        "fontName": "Roboto-Bold",
+        "fontColor": "#000000",
+        "alignment": "left",
+        "verticalAlignment": "middle",
+        "name": "lbl_cf_conect",
+        "readOnly": false
+      },
+      {
+        "type": "text",
+        "position": {
+          "x": 110,
+          "y": 204
+        },
+        "width": 90,
+        "height": 5,
+        "content": "Punto eléctrico: Sí [{cf_c_es}]  No [{cf_c_en}]",
+        "fontSize": 9,
+        "fontName": "Roboto",
+        "fontColor": "#000000",
+        "alignment": "left",
+        "verticalAlignment": "middle",
+        "name": "chk_cf_pto_elec",
+        "readOnly": false
+      },
+      {
+        "type": "text",
+        "position": {
+          "x": 110,
+          "y": 209
+        },
+        "width": 90,
+        "height": 5,
+        "content": "Distancia al punto eléctrico: {cf_c_ed} m",
+        "fontSize": 9,
+        "fontName": "Roboto",
+        "fontColor": "#000000",
+        "alignment": "left",
+        "verticalAlignment": "middle",
+        "name": "lbl_cf_dist_elec",
+        "readOnly": false
+      },
+      {
+        "type": "text",
+        "position": {
+          "x": 110,
+          "y": 214
+        },
+        "width": 90,
+        "height": 5,
+        "content": "Enlace: Fibra [{cf_c_ef}]  Inalámb. [{cf_c_ei}]",
+        "fontSize": 9,
+        "fontName": "Roboto",
+        "fontColor": "#000000",
+        "alignment": "left",
+        "verticalAlignment": "middle",
+        "name": "chk_cf_enlace",
+        "readOnly": false
+      },
+      {
+        "type": "text",
+        "position": {
+          "x": 110,
+          "y": 219
+        },
+        "width": 90,
+        "height": 5,
+        "content": "Distancia canalización: {cf_c_cd} m",
+        "fontSize": 9,
+        "fontName": "Roboto",
+        "fontColor": "#000000",
+        "alignment": "left",
+        "verticalAlignment": "middle",
+        "name": "lbl_cf_dist_can",
+        "readOnly": false
+      },
+      {
+        "type": "text",
+        "position": {
+          "x": 110,
+          "y": 226
+        },
+        "width": 90,
+        "height": 5,
+        "content": "5. Evaluación de Riesgos y Entorno",
+        "fontSize": 9,
+        "fontName": "Roboto-Bold",
+        "fontColor": "#000000",
+        "alignment": "left",
+        "verticalAlignment": "middle",
+        "name": "lbl_cf_riesgos",
+        "readOnly": false
+      },
+      {
+        "type": "text",
+        "position": {
+          "x": 110,
+          "y": 231
+        },
+        "width": 90,
+        "height": 5,
+        "content": "Vandalismo [{cf_r_v}]  Contraluz [{cf_r_c}]",
+        "fontSize": 9,
+        "fontName": "Roboto",
+        "fontColor": "#000000",
+        "alignment": "left",
+        "verticalAlignment": "middle",
+        "name": "chk_cf_riesgos1",
+        "readOnly": false
+      },
+      {
+        "type": "text",
+        "position": {
+          "x": 110,
+          "y": 236
+        },
+        "width": 90,
+        "height": 5,
+        "content": "Sombras [{cf_r_s}]  Obstáculos [{cf_r_o}]",
+        "fontSize": 9,
+        "fontName": "Roboto",
+        "fontColor": "#000000",
+        "alignment": "left",
+        "verticalAlignment": "middle",
+        "name": "chk_cf_riesgos2",
+        "readOnly": false
+      },
+      {
+        "type": "text",
+        "position": {
+          "x": 110,
+          "y": 241
+        },
+        "width": 90,
+        "height": 5,
+        "content": "Alto tráfico peatonal [{cf_r_a}]",
+        "fontSize": 9,
+        "fontName": "Roboto",
+        "fontColor": "#000000",
+        "alignment": "left",
+        "verticalAlignment": "middle",
+        "name": "chk_cf_riesgos3",
+        "readOnly": false
+      },
+      {
+        "type": "text",
+        "position": {
+          "x": 110,
+          "y": 246
+        },
+        "width": 90,
+        "height": 20,
+        "content": "Detalle:\n{cf_r_det}",
+        "fontSize": 9,
+        "fontName": "Roboto",
+        "fontColor": "#000000",
+        "alignment": "left",
+        "verticalAlignment": "top",
+        "name": "lbl_cf_riesgos_det",
+        "readOnly": false
       }
     ],
     [

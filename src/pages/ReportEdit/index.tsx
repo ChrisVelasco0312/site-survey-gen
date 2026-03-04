@@ -29,10 +29,11 @@ import { ReportEditStep3 } from './ReportEditStep3';
 import { ReportEditStep4 } from './ReportEditStep4';
 import { ReportEditStep5 } from './ReportEditStep5';
 import { ReportEditStep6 } from './ReportEditStep6';
+import { ReportEditCotejoFacial } from './ReportEditCotejoFacial';
 import { PdfPreviewPanel } from './PdfPreviewPanel';
 import './ReportEdit.css';
 
-const STEP_LABELS = [
+const BASE_STEP_LABELS = [
   'Información Geográfica Nodo',
   'Site Survey (datos)',
   'Site Survey (Diagrama del Sitio)',
@@ -60,6 +61,12 @@ export function ReportEdit() {
   const [adminEditOverride, setAdminEditOverride] = useState(false);
   const [generatedPdfUrl, setGeneratedPdfUrl] = useState<string | null>(null);
   const isOnline = useConnectivity();
+
+  const isCotejoFacial = report?.address?.site_type === 'cotejo_facial';
+  const stepLabels = [...BASE_STEP_LABELS];
+  if (isCotejoFacial) {
+    stepLabels.splice(2, 0, 'Site Survey (Cotejo Facial)');
+  }
 
   useEffect(() => {
     if (!id) {
@@ -192,7 +199,7 @@ export function ReportEdit() {
 
   const nextStep = () => {
     if (report) flushSave(report);
-    setActiveStep((c) => (c < STEP_LABELS.length - 1 ? c + 1 : c));
+    setActiveStep((c) => (c < stepLabels.length - 1 ? c + 1 : c));
   };
   const prevStep = () => {
     if (report) flushSave(report);
@@ -283,7 +290,7 @@ export function ReportEdit() {
 
   const renderStepper = (onStepClick: (step: number) => void) => (
     <div className="vertical-stepper">
-      {STEP_LABELS.map((label, i) => {
+      {stepLabels.map((label, i) => {
         const isCompleted = i < activeStep;
         const isActive = i === activeStep && !showPreview;
         return (
@@ -307,7 +314,7 @@ export function ReportEdit() {
                   </Text>
                 )}
               </ThemeIcon>
-              {i < STEP_LABELS.length - 1 && (
+              {i < stepLabels.length - 1 && (
                 <div
                   className="stepper-connector"
                   data-completed={isCompleted || undefined}
@@ -330,14 +337,27 @@ export function ReportEdit() {
 
   const renderStepContent = () => {
     const props = { report, setReport: updateReport, readOnly };
-    switch (activeStep) {
-      case 0: return <ReportEditStep1 {...props} />;
-      case 1: return <ReportEditStep2 {...props} />;
-      case 2: return <ReportEditStep3 {...props} />;
-      case 3: return <ReportEditStep4 {...props} />;
-      case 4: return <ReportEditStep5 {...props} />;
-      case 5: return <ReportEditStep6 {...props} />;
-      default: return null;
+    if (isCotejoFacial) {
+      switch (activeStep) {
+        case 0: return <ReportEditStep1 {...props} />;
+        case 1: return <ReportEditStep2 {...props} />;
+        case 2: return <ReportEditCotejoFacial {...props} />;
+        case 3: return <ReportEditStep3 {...props} />;
+        case 4: return <ReportEditStep4 {...props} />;
+        case 5: return <ReportEditStep5 {...props} />;
+        case 6: return <ReportEditStep6 {...props} />;
+        default: return null;
+      }
+    } else {
+      switch (activeStep) {
+        case 0: return <ReportEditStep1 {...props} />;
+        case 1: return <ReportEditStep2 {...props} />;
+        case 2: return <ReportEditStep3 {...props} />;
+        case 3: return <ReportEditStep4 {...props} />;
+        case 4: return <ReportEditStep5 {...props} />;
+        case 5: return <ReportEditStep6 {...props} />;
+        default: return null;
+      }
     }
   };
 
@@ -477,9 +497,9 @@ export function ReportEdit() {
                       </ThemeIcon>
                       <Box style={{ flex: 1 }}>
                         <Text size="xs" c="dimmed" tt="uppercase" fw={600}>
-                          Paso {activeStep + 1} de {STEP_LABELS.length}
+                          Paso {activeStep + 1} de {stepLabels.length}
                         </Text>
-                        <Title order={3}>{STEP_LABELS[activeStep]}</Title>
+                        <Title order={3}>{stepLabels[activeStep]}</Title>
                       </Box>
                       <IconChevronDown size={20} style={{ color: 'var(--mantine-color-dimmed)' }} />
                     </Group>
@@ -489,9 +509,9 @@ export function ReportEdit() {
                 <Group justify="space-between" align="flex-start">
                   <Box>
                     <Text size="xs" c="dimmed" tt="uppercase" fw={600} mb={4}>
-                      {showPreview ? 'Documento' : `Paso ${activeStep + 1} de ${STEP_LABELS.length}`}
+                      {showPreview ? 'Documento' : `Paso ${activeStep + 1} de ${stepLabels.length}`}
                     </Text>
-                    <Title order={2}>{showPreview ? 'Vista previa PDF' : STEP_LABELS[activeStep]}</Title>
+                    <Title order={2}>{showPreview ? 'Vista previa PDF' : stepLabels[activeStep]}</Title>
                   </Box>
                   <Group gap="sm">
                     {showAdminEditToggle && !showPreview && (
@@ -547,9 +567,9 @@ export function ReportEdit() {
                       ← Anterior
                     </Button>
                     <Button
-                      onClick={activeStep === STEP_LABELS.length - 1 ? () => setShowPreview(true) : nextStep}
+                      onClick={activeStep === stepLabels.length - 1 ? () => setShowPreview(true) : nextStep}
                     >
-                      {activeStep === STEP_LABELS.length - 1 ? 'Ver PDF →' : 'Siguiente →'}
+                      {activeStep === stepLabels.length - 1 ? 'Ver PDF →' : 'Siguiente →'}
                     </Button>
                   </Group>
 
