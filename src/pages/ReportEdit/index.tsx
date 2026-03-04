@@ -30,6 +30,7 @@ import { ReportEditStep4 } from './ReportEditStep4';
 import { ReportEditStep5 } from './ReportEditStep5';
 import { ReportEditStep6 } from './ReportEditStep6';
 import { ReportEditCotejoFacial } from './ReportEditCotejoFacial';
+import { ReportEditLpr } from './ReportEditLpr';
 import { PdfPreviewPanel } from './PdfPreviewPanel';
 import './ReportEdit.css';
 
@@ -63,9 +64,12 @@ export function ReportEdit() {
   const isOnline = useConnectivity();
 
   const isCotejoFacial = report?.address?.site_type === 'cotejo_facial';
+  const isLpr = report?.address?.site_type === 'lpr';
   const stepLabels = [...BASE_STEP_LABELS];
   if (isCotejoFacial) {
     stepLabels.splice(2, 0, 'Site Survey (Cotejo Facial)');
+  } else if (isLpr) {
+    stepLabels.splice(2, 0, 'Site Survey (LPR)');
   }
 
   useEffect(() => {
@@ -342,6 +346,17 @@ export function ReportEdit() {
         case 0: return <ReportEditStep1 {...props} />;
         case 1: return <ReportEditStep2 {...props} />;
         case 2: return <ReportEditCotejoFacial {...props} />;
+        case 3: return <ReportEditStep3 {...props} />;
+        case 4: return <ReportEditStep4 {...props} />;
+        case 5: return <ReportEditStep5 {...props} />;
+        case 6: return <ReportEditStep6 {...props} />;
+        default: return null;
+      }
+    } else if (isLpr) {
+      switch (activeStep) {
+        case 0: return <ReportEditStep1 {...props} />;
+        case 1: return <ReportEditStep2 {...props} />;
+        case 2: return <ReportEditLpr {...props} />;
         case 3: return <ReportEditStep3 {...props} />;
         case 4: return <ReportEditStep4 {...props} />;
         case 5: return <ReportEditStep5 {...props} />;

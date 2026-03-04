@@ -221,6 +221,14 @@ export function buildPdfInputs(report: Report): Record<string, string> {
     'lbl_cf_inst', 'chk_cf_estruc1', 'chk_cf_estruc2', 'lbl_cf_alt', 'lbl_cf_dist', 'lbl_cf_area', 'lbl_cf_ang'
   ];
 
+  const lprKeys = [
+    'sec_lpr_title', 'lbl_lpr_vial', 'chk_lpr_sentido', 'chk_lpr_carriles',
+    'lbl_lpr_ub', 'chk_lpr_dist_alt', 'chk_lpr_ang',
+    'lbl_lpr_fov', 'chk_lpr_fov_car', 'chk_lpr_obs', 'lbl_lpr_obs_det',
+    'lbl_lpr_ilum', 'chk_lpr_ilum',
+    'lbl_lpr_obs_tec', 'chk_lpr_cond', 'lbl_lpr_ot_det'
+  ];
+
   if (report.address?.site_type === 'cotejo_facial') {
     const cf = report.cotejo_facial_survey || {};
     inputs.chk_cf_zona_tipo = `Tipo: Peatonal [${chk(cf.zona_tipo === 'peatonal')}]   Mixta [${chk(cf.zona_tipo === 'mixta')}]`;
@@ -245,9 +253,54 @@ export function buildPdfInputs(report: Report): Record<string, string> {
     inputs.lbl_cf_dist = `Distancia rostro-cámara: ${cf.distancia_rostro_camara ?? ''} m`;
     inputs.lbl_cf_area = `Área cobertura: ${cf.area_cobertura ?? ''}`;
     inputs.lbl_cf_ang = `Ángulo H: ${cf.angulo_horizontal ?? ''}°   Ángulo V: ${cf.angulo_vertical ?? ''}°`;
-  } else {
-    // Hide all CF fields if it's not a Cotejo Facial site
+
+    for (const key of lprKeys) {
+      inputs[key] = '';
+    }
+  } else if (report.address?.site_type === 'lpr') {
+    const lpr = report.lpr_survey || {};
+    
+    const formatSentido = (v?: string) => {
+      if (!v) return '—';
+      const parts = v.split('_');
+      if (parts.length < 3) return v;
+      const type = parts[0] === 'unidireccional' ? 'Uni.' : 'Bi.';
+      const from = parts[1].charAt(0).toUpperCase() + parts[1].slice(1);
+      const to = parts[2].charAt(0).toUpperCase() + parts[2].slice(1);
+      return `${type} ${from} -> ${to}`;
+    };
+
+    inputs.chk_lpr_sentido = `Sentido: ${formatSentido(lpr.sentido_vial)}`;
+    inputs.chk_lpr_carriles = `Carriles: ${lpr.numero_carriles ?? '—'}`;
+    inputs.chk_lpr_dist_alt = `Distancia: ${lpr.distancia_camara_placas ?? '—'} m | Altura: ${lpr.altura_instalacion ?? '—'} m`;
+    
+    const formatAnguloH = (v?: string) => {
+      if (v === 'menor_30') return '<30°';
+      if (v === '30_a_45') return '30°-45°';
+      if (v === 'mayor_45') return '>45°';
+      return '—';
+    };
+    inputs.chk_lpr_ang = `Ángulo H: ${formatAnguloH(lpr.angulo_horizontal)} | V: ${lpr.angulo_vertical ?? '—'}°`;
+    
+    inputs.chk_lpr_fov_car = `FOV Carriles: ${lpr.fov_carriles ?? '—'}`;
+    inputs.chk_lpr_obs = `Obstáculo FOV: Sí [${chk(lpr.obstaculo_fov === true)}] No [${chk(lpr.obstaculo_fov === false)}]`;
+    inputs.lbl_lpr_obs_det = `Detalle Obstáculo: ${lpr.obstaculo_descripcion ?? '—'}`;
+    
+    inputs.chk_lpr_ilum = `Estado: Con pub. [${chk(lpr.iluminacion_estado === 'con_iluminacion_publica')}] Sin pub. [${chk(lpr.iluminacion_estado === 'sin_iluminacion_publica')}]`;
+    
+    const cond = lpr.condiciones_sitio || [];
+    inputs.chk_lpr_cond = `Riesgo eléc. [${chk(cond.includes('riesgo_electrico'))}]  Cables [${chk(cond.includes('cables_aereos'))}]  Obra [${chk(cond.includes('obra_interferencias'))}]  Alto flujo [${chk(cond.includes('alto_flujo'))}]  Otros [${chk(cond.includes('otros'))}]`;
+    inputs.lbl_lpr_ot_det = `Otros detalles: ${lpr.condiciones_sitio_otros ?? '—'}`;
+
     for (const key of cfKeys) {
+      inputs[key] = '';
+    }
+  } else {
+    // Hide all CF fields and LPR fields
+    for (const key of cfKeys) {
+      inputs[key] = '';
+    }
+    for (const key of lprKeys) {
       inputs[key] = '';
     }
   }

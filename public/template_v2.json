@@ -1189,6 +1189,252 @@
         "verticalAlignment": "top",
         "name": "lbl_cf_riesgos_det",
         "readOnly": false
+      },
+      {
+        "type": "text",
+        "position": {
+          "x": 10,
+          "y": 190
+        },
+        "width": 190,
+        "height": 7,
+        "content": "3. SURVEY LPR",
+        "fontSize": 10,
+        "fontName": "Roboto-Bold",
+        "fontColor": "#000000",
+        "backgroundColor": "#d9d9d9",
+        "alignment": "left",
+        "verticalAlignment": "middle",
+        "name": "sec_lpr_title",
+        "readOnly": false,
+        "padding": {
+          "left": 2
+        }
+      },
+      {
+        "type": "text",
+        "position": {
+          "x": 10,
+          "y": 199
+        },
+        "width": 90,
+        "height": 5,
+        "content": "1. Información Vial",
+        "fontSize": 9,
+        "fontName": "Roboto-Bold",
+        "fontColor": "#000000",
+        "name": "lbl_lpr_vial",
+        "readOnly": false
+      },
+      {
+        "type": "text",
+        "position": {
+          "x": 10,
+          "y": 204
+        },
+        "width": 90,
+        "height": 5,
+        "content": "Sentido: {lpr_sentido}",
+        "fontSize": 9,
+        "fontName": "Roboto",
+        "fontColor": "#000000",
+        "name": "chk_lpr_sentido",
+        "readOnly": false
+      },
+      {
+        "type": "text",
+        "position": {
+          "x": 10,
+          "y": 209
+        },
+        "width": 90,
+        "height": 5,
+        "content": "Carriles: {lpr_carriles}",
+        "fontSize": 9,
+        "fontName": "Roboto",
+        "fontColor": "#000000",
+        "name": "chk_lpr_carriles",
+        "readOnly": false
+      },
+      {
+        "type": "text",
+        "position": {
+          "x": 10,
+          "y": 216
+        },
+        "width": 90,
+        "height": 5,
+        "content": "2. Ubicación de la Cámara",
+        "fontSize": 9,
+        "fontName": "Roboto-Bold",
+        "fontColor": "#000000",
+        "name": "lbl_lpr_ub",
+        "readOnly": false
+      },
+      {
+        "type": "text",
+        "position": {
+          "x": 10,
+          "y": 221
+        },
+        "width": 90,
+        "height": 5,
+        "content": "Distancia: {lpr_dist} m | Altura: {lpr_alt} m",
+        "fontSize": 9,
+        "fontName": "Roboto",
+        "fontColor": "#000000",
+        "name": "chk_lpr_dist_alt",
+        "readOnly": false
+      },
+      {
+        "type": "text",
+        "position": {
+          "x": 10,
+          "y": 226
+        },
+        "width": 90,
+        "height": 5,
+        "content": "Ángulo H: {lpr_ang_h} | V: {lpr_ang_v}°",
+        "fontSize": 9,
+        "fontName": "Roboto",
+        "fontColor": "#000000",
+        "name": "chk_lpr_ang",
+        "readOnly": false
+      },
+      {
+        "type": "text",
+        "position": {
+          "x": 110,
+          "y": 199
+        },
+        "width": 90,
+        "height": 5,
+        "content": "3. Campo de Visión (FOV)",
+        "fontSize": 9,
+        "fontName": "Roboto-Bold",
+        "fontColor": "#000000",
+        "name": "lbl_lpr_fov",
+        "readOnly": false
+      },
+      {
+        "type": "text",
+        "position": {
+          "x": 110,
+          "y": 204
+        },
+        "width": 90,
+        "height": 5,
+        "content": "FOV Carriles: {lpr_fov_carriles}",
+        "fontSize": 9,
+        "fontName": "Roboto",
+        "fontColor": "#000000",
+        "name": "chk_lpr_fov_car",
+        "readOnly": false
+      },
+      {
+        "type": "text",
+        "position": {
+          "x": 110,
+          "y": 209
+        },
+        "width": 90,
+        "height": 5,
+        "content": "Obstáculo FOV: Sí [{lpr_obs_s}] No [{lpr_obs_n}]",
+        "fontSize": 9,
+        "fontName": "Roboto",
+        "fontColor": "#000000",
+        "name": "chk_lpr_obs",
+        "readOnly": false
+      },
+      {
+        "type": "text",
+        "position": {
+          "x": 110,
+          "y": 214
+        },
+        "width": 90,
+        "height": 5,
+        "content": "Detalle Obstáculo: {lpr_obs_det}",
+        "fontSize": 9,
+        "fontName": "Roboto",
+        "fontColor": "#000000",
+        "name": "lbl_lpr_obs_det",
+        "readOnly": false
+      },
+      {
+        "type": "text",
+        "position": {
+          "x": 110,
+          "y": 221
+        },
+        "width": 90,
+        "height": 5,
+        "content": "4. Condiciones de Iluminación",
+        "fontSize": 9,
+        "fontName": "Roboto-Bold",
+        "fontColor": "#000000",
+        "name": "lbl_lpr_ilum",
+        "readOnly": false
+      },
+      {
+        "type": "text",
+        "position": {
+          "x": 110,
+          "y": 226
+        },
+        "width": 90,
+        "height": 5,
+        "content": "Estado: Con pub. [{lpr_ilu_c}] Sin pub. [{lpr_ilu_s}]",
+        "fontSize": 9,
+        "fontName": "Roboto",
+        "fontColor": "#000000",
+        "name": "chk_lpr_ilum",
+        "readOnly": false
+      },
+      {
+        "type": "text",
+        "position": {
+          "x": 10,
+          "y": 233
+        },
+        "width": 190,
+        "height": 5,
+        "content": "5. Observaciones Técnicas",
+        "fontSize": 9,
+        "fontName": "Roboto-Bold",
+        "fontColor": "#000000",
+        "name": "lbl_lpr_obs_tec",
+        "readOnly": false
+      },
+      {
+        "type": "text",
+        "position": {
+          "x": 10,
+          "y": 238
+        },
+        "width": 190,
+        "height": 5,
+        "content": "Riesgo eléc. [{lpr_ot_re}]  Cables [{lpr_ot_ca}]  Obra [{lpr_ot_ob}]  Alto flujo [{lpr_ot_af}]  Otros [{lpr_ot_ot}]",
+        "fontSize": 9,
+        "fontName": "Roboto",
+        "fontColor": "#000000",
+        "name": "chk_lpr_cond",
+        "readOnly": false
+      },
+      {
+        "type": "text",
+        "position": {
+          "x": 10,
+          "y": 243
+        },
+        "width": 190,
+        "height": 5,
+        "content": "Otros detalles: {lpr_ot_det}",
+        "fontSize": 9,
+        "fontName": "Roboto",
+        "fontColor": "#000000",
+        "name": "lbl_lpr_ot_det",
+        "readOnly": false
       }
     ],
     [

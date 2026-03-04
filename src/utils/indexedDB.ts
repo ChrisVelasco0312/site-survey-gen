@@ -3,7 +3,7 @@ import { Report } from '../types/Report';
 import type { SiteRecord } from '../types/Report';
 
 const DB_NAME = 'site_survey_db';
-const DB_VERSION = 5;
+const DB_VERSION = 6;
 const USER_STORE_NAME = 'users';
 const REPORT_STORE_NAME = 'reports';
 const SYNC_QUEUE_STORE_NAME = 'sync_queue';

@@ -124,6 +124,21 @@ export interface CotejoFacialSurvey {
   detalle_riesgos?: string;
 }
 
+export interface LprSurvey {
+  sentido_vial?: 'unidireccional_norte_sur' | 'unidireccional_sur_norte' | 'unidireccional_oriente_occidente' | 'unidireccional_occidente_oriente' | 'unidireccional_nororiente_suroccidente' | 'unidireccional_noroeste_sureste' | 'bidireccional_norte_sur' | 'bidireccional_sur_norte' | 'bidireccional_oriente_occidente' | 'bidireccional_occidente_oriente' | 'bidireccional_nororiente_suroccidente' | 'bidireccional_noroeste_sureste';
+  numero_carriles?: 1 | 2 | 3 | 4;
+  distancia_camara_placas?: number;
+  altura_instalacion?: number;
+  angulo_horizontal?: 'menor_30' | '30_a_45' | 'mayor_45';
+  angulo_vertical?: number;
+  fov_carriles?: 1 | 2 | 3 | 4;
+  obstaculo_fov?: boolean;
+  obstaculo_descripcion?: string;
+  iluminacion_estado?: 'sin_iluminacion_publica' | 'con_iluminacion_publica';
+  condiciones_sitio?: ('riesgo_electrico' | 'cables_aereos' | 'obra_interferencias' | 'alto_flujo' | 'otros')[];
+  condiciones_sitio_otros?: string;
+}
+
 // Main Report Interface
 export interface Report {
   id: string;
@@ -184,6 +199,7 @@ export interface Report {
 
   // HU-20: Cotejo Facial
   cotejo_facial_survey?: CotejoFacialSurvey;
+  lpr_survey?: LprSurvey;
 }
 
 // Helper to create an empty/initial report
@@ -251,5 +267,6 @@ export const createInitialReport = (userId: string, group: GroupAssignment): Rep
   
   owner_name: '',
   final_observations: '',
-  cotejo_facial_survey: {}
+  cotejo_facial_survey: {},
+  lpr_survey: {}
 });
