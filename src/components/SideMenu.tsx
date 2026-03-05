@@ -179,7 +179,11 @@ export function SideMenu({ children }: SideMenuProps) {
               </Text>
               {userData.role === 'field_worker' && (
                 <Text size="xs" c="dimmed" truncate tt="capitalize">
-                  {userData.group_assignment.replace('_', ' ')}
+                  {userData.group_assignment === 'all' 
+                    ? 'Administrador' 
+                    : userData.group_assignment === 'grupo_a' 
+                      ? 'Grupo 1' 
+                      : 'Grupo 2'}
                 </Text>
               )}
             </>

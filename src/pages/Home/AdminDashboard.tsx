@@ -83,7 +83,7 @@ export function AdminDashboard() {
 
           <Text size="sm" c="dimmed" mb="xs">
             {report.date || new Date(report.created_at).toLocaleDateString()} •{" "}
-            {report.group?.replace("_", " ")}
+            {report.group === 'all' ? 'Administrador' : report.group === 'grupo_a' ? 'Grupo 1' : 'Grupo 2'}
           </Text>
 
           <Button
@@ -156,7 +156,7 @@ export function AdminDashboard() {
                 </Text>
               </Table.Td>
               <Table.Td style={{ textTransform: "capitalize" }}>
-                {report.group?.replace("_", " ")}
+                {report.group === 'all' ? 'Administrador' : report.group === 'grupo_a' ? 'Grupo 1' : 'Grupo 2'}
               </Table.Td>
               <Table.Td>{getStatusBadge(report.status)}</Table.Td>
               <Table.Td>

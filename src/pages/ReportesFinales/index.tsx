@@ -235,7 +235,7 @@ export function ReportesFinales() {
               </Table.Td>
               {isAdmin && (
                 <Table.Td style={{ textTransform: 'capitalize' }}>
-                  {report.group?.replace('_', ' ')}
+                  {report.group === 'all' ? 'Administrador' : report.group === 'grupo_a' ? 'Grupo 1' : 'Grupo 2'}
                 </Table.Td>
               )}
               <Table.Td>
