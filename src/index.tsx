@@ -12,6 +12,7 @@ import { ReportEdit } from './pages/ReportEdit';
 import { ReportNew } from './pages/ReportNew';
 import { ReportesFinales } from './pages/ReportesFinales';
 import { SitesAdmin } from './pages/SitesAdmin';
+import { UsersAdmin } from './pages/UsersAdmin';
 import { AuthProvider } from './features/auth/AuthContext';
 import { withProtectedLayout } from './components/ProtectedLayout';
 import './style.css';
@@ -30,6 +31,7 @@ export function App() {
             <Route path="/reportes-finales" component={withProtectedLayout(ReportesFinales)} />
             <Route path="/reporte/:id" component={withProtectedLayout(ReportEdit)} />
             <Route path="/admin/sitios" component={withProtectedLayout(SitesAdmin)} />
+            <Route path="/admin/usuarios" component={withProtectedLayout(UsersAdmin)} />
             <Route default component={NotFound} />
           </Router>
         </AuthProvider>

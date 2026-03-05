@@ -125,7 +125,7 @@ export function SitesAdmin() {
   useEffect(() => { setPage(1); }, [debouncedSearch]);
 
   useEffect(() => {
-    if (userData && userData.role !== 'admin') {
+    if (userData && userData.role !== 'admin' && userData.role !== 'superadmin' && userData.role !== 'read_only') {
       location.route('/mis-reportes');
     }
   }, [userData]);
@@ -623,15 +623,17 @@ export function SitesAdmin() {
             >
               Ver
             </Button>
-            <Button
-              variant="light"
-              size="xs"
-              leftSection={<IconEdit size={14} />}
-              onClick={() => handleOpenEdit(site)}
-              style={{ flex: 1 }}
-            >
-              Editar
-            </Button>
+            {!isReadOnly && (
+              <Button
+                variant="light"
+                size="xs"
+                leftSection={<IconEdit size={14} />}
+                onClick={() => handleOpenEdit(site)}
+                style={{ flex: 1 }}
+              >
+                Editar
+              </Button>
+            )}
             {/* <Button
               variant="light"
               color="red"
@@ -696,11 +698,13 @@ export function SitesAdmin() {
                     <IconEye size={16} />
                   </ActionIcon>
                 </Tooltip>
-                <Tooltip label="Editar">
-                  <ActionIcon variant="subtle" color="blue" onClick={() => handleOpenEdit(site)}>
-                    <IconEdit size={16} />
-                  </ActionIcon>
-                </Tooltip>
+                {!isReadOnly && (
+                  <Tooltip label="Editar">
+                    <ActionIcon variant="subtle" color="blue" onClick={() => handleOpenEdit(site)}>
+                      <IconEdit size={16} />
+                    </ActionIcon>
+                  </Tooltip>
+                )}
                 {/* <Tooltip label="Eliminar">
                   <ActionIcon variant="subtle" color="red" onClick={() => handleOpenDelete(site.id)}>
                     <IconTrash size={16} />
@@ -714,46 +718,57 @@ export function SitesAdmin() {
     </Table>
   );
 
-  if (userData?.role !== 'admin') return null;
+  if (userData?.role !== 'admin' && userData?.role !== 'superadmin' && userData?.role !== 'read_only') return null;
+
+  const isReadOnly = userData?.role === 'read_only';
 
   return (
     <div style={{ padding: '20px' }}>
       <Group justify="space-between" mb="lg">
         <Title order={2}>Administrar Sitios</Title>
         <Group>
-          <Menu shadow="md" width={220}>
-            <Menu.Target>
-              <Button variant="default" leftSection={<IconFileSpreadsheet size={16} />}>
-                Excel
-              </Button>
-            </Menu.Target>
-            <Menu.Dropdown>
-              <Menu.Label>Importar</Menu.Label>
-              <FileButton onChange={handleFileSelected} accept=".xlsx,.xls,.csv" resetRef={resetFileRef}>
-                {(props) => (
-                  <Menu.Item leftSection={<IconUpload size={14} />} {...props}>
-                    Cargar archivo Excel
-                  </Menu.Item>
-                )}
-              </FileButton>
-              <Menu.Item leftSection={<IconTemplate size={14} />} onClick={downloadTemplate}>
-                Descargar plantilla vacía
-              </Menu.Item>
-              <Menu.Divider />
-              <Menu.Label>Exportar</Menu.Label>
-              <Menu.Item leftSection={<IconDownload size={14} />} onClick={handleExport}>
-                {selectedIds.size > 0
-                  ? `Exportar selección (${selectedIds.size})`
-                  : 'Exportar todos los sitios'}
-              </Menu.Item>
-            </Menu.Dropdown>
-          </Menu>
+          {!isReadOnly && (
+            <Menu shadow="md" width={220}>
+              <Menu.Target>
+                <Button variant="default" leftSection={<IconFileSpreadsheet size={16} />}>
+                  Excel
+                </Button>
+              </Menu.Target>
+              <Menu.Dropdown>
+                <Menu.Label>Importar</Menu.Label>
+                <FileButton onChange={handleFileSelected} accept=".xlsx,.xls,.csv" resetRef={resetFileRef}>
+                  {(props) => (
+                    <Menu.Item leftSection={<IconUpload size={14} />} {...props}>
+                      Cargar archivo Excel
+                    </Menu.Item>
+                  )}
+                </FileButton>
+                <Menu.Item leftSection={<IconTemplate size={14} />} onClick={downloadTemplate}>
+                  Descargar plantilla vacía
+                </Menu.Item>
+                <Menu.Divider />
+                <Menu.Label>Exportar</Menu.Label>
+                <Menu.Item leftSection={<IconDownload size={14} />} onClick={handleExport}>
+                  {selectedIds.size > 0
+                    ? `Exportar selección (${selectedIds.size})`
+                    : 'Exportar todos los sitios'}
+                </Menu.Item>
+              </Menu.Dropdown>
+            </Menu>
+          )}
+          {isReadOnly && (
+            <Button variant="default" leftSection={<IconDownload size={16} />} onClick={handleExport}>
+              Exportar
+            </Button>
+          )}
           <Button onClick={fetchSites} leftSection={<IconRefresh size={16} />} loading={loading} variant="default">
             Actualizar
           </Button>
-          <Button onClick={handleOpenCreate} leftSection={<IconPlus size={16} />}>
-            Nuevo Sitio
-          </Button>
+          {!isReadOnly && (
+            <Button onClick={handleOpenCreate} leftSection={<IconPlus size={16} />}>
+              Nuevo Sitio
+            </Button>
+          )}
         </Group>
       </Group>
 

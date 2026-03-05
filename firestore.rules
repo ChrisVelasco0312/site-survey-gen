@@ -1,9 +1,15 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    
+    // Check if the user is a superadmin
+    function isSuperAdmin() {
+      return request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'superadmin';
+    }
+
     match /users/{userId} {
-      allow read: if request.auth != null && request.auth.uid == userId;
-      allow write: if false; // Only admin SDK can write for now
+      allow read: if (request.auth != null && request.auth.uid == userId) || isSuperAdmin();
+      allow write: if isSuperAdmin();
     }
     
     match /sites/{siteId} {

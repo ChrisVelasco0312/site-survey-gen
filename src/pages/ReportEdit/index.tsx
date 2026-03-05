@@ -238,12 +238,12 @@ export function ReportEdit() {
   };
 
   // Admin can edit en_campo, en_revision, and listo_para_generar (with explicit toggle); workers can only edit en_campo
-  const readOnly = isAdmin
+  const readOnly = userData?.role === 'read_only' || (isAdmin
     ? report?.status === 'generado' || (report?.status === 'listo_para_generar' && !adminEditOverride)
-    : report?.status !== 'en_campo';
+    : report?.status !== 'en_campo');
 
   // Show admin editing toggle only for admin + listo_para_generar
-  const showAdminEditToggle = isAdmin && report?.status === 'listo_para_generar';
+  const showAdminEditToggle = isAdmin && report?.status === 'listo_para_generar' && userData?.role !== 'read_only';
 
   const isMobile = useMediaQuery('(max-width: 48em)');
 

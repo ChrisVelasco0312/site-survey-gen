@@ -21,6 +21,7 @@ import {
   IconLayoutDashboard,
   IconFileExport,
   IconMapPin,
+  IconUsers,
 } from '@tabler/icons-react';
 import { JSX } from 'preact';
 
@@ -76,16 +77,18 @@ export function SideMenu({ children }: SideMenuProps) {
   const getMenuItems = () => {
     const items = [];
     
-    if (userData?.role === 'admin') {
+    if (userData?.role === 'admin' || userData?.role === 'superadmin' || userData?.role === 'read_only') {
       items.push({ label: 'Dashboard', path: '/', icon: IconLayoutDashboard });
       items.push({ label: 'Sitios', path: '/admin/sitios', icon: IconMapPin });
     }
 
-    // Both roles can see "Mis Reportes"
-    items.push({ label: 'Mis Reportes', path: '/mis-reportes', icon: IconFileCheck });
+    if (userData?.role !== 'read_only') {
+      // Both roles can see "Mis Reportes"
+      items.push({ label: 'Mis Reportes', path: '/mis-reportes', icon: IconFileCheck });
 
-    // Both roles can see "Reportes Finales"
-    items.push({ label: 'Reportes Finales', path: '/reportes-finales', icon: IconFileExport });
+      // Both roles can see "Reportes Finales"
+      items.push({ label: 'Reportes Finales', path: '/reportes-finales', icon: IconFileExport });
+    }
 
     return items;
   };
@@ -121,17 +124,19 @@ export function SideMenu({ children }: SideMenuProps) {
       </Group>
 
       {/* Nuevo reporte button */}
-      <Box px="md">
-        <Button
-          fullWidth
-          leftSection={!collapsed && <IconPlus size={18} />}
-          variant="light"
-          onClick={() => handleNavClick('/mis-reportes')} // Simply go to mis-reportes to handle new there
-          title={collapsed ? "Nuevo Reporte" : undefined}
-        >
-          {collapsed ? <IconPlus size={18} /> : 'Nuevo reporte'}
-        </Button>
-      </Box>
+      {userData?.role !== 'read_only' && (
+        <Box px="md">
+          <Button
+            fullWidth
+            leftSection={!collapsed && <IconPlus size={18} />}
+            variant="light"
+            onClick={() => handleNavClick('/mis-reportes')} // Simply go to mis-reportes to handle new there
+            title={collapsed ? "Nuevo Reporte" : undefined}
+          >
+            {collapsed ? <IconPlus size={18} /> : 'Nuevo reporte'}
+          </Button>
+        </Box>
+      )}
 
       {/* Navigation items */}
       <Stack gap={0} style={{ flex: 1 }}>
@@ -159,6 +164,22 @@ export function SideMenu({ children }: SideMenuProps) {
         })}
       </Stack>
 
+      {/* Admin Usuarios Module for Super Admin */}
+      {userData?.role === 'superadmin' && (
+        <Box px="md" pb="xs">
+          <Button
+            fullWidth
+            leftSection={!collapsed && <IconUsers size={18} />}
+            variant="light"
+            color="orange"
+            onClick={() => handleNavClick('/admin/usuarios')}
+            title={collapsed ? "Admin Usuarios" : undefined}
+          >
+            {collapsed ? <IconUsers size={18} /> : 'Admin Usuarios'}
+          </Button>
+        </Box>
+      )}
+
       {/* User info */}
       {userData && (
         <Box px="md" pb="xs" style={{ textAlign: collapsed ? 'center' : 'left' }}>
@@ -175,7 +196,7 @@ export function SideMenu({ children }: SideMenuProps) {
                 {userData.email}
               </Text>
               <Text size="xs" c="dimmed" truncate>
-                {userData.role === 'admin' ? 'Administrador' : 'Trabajador'}
+                {userData.role === 'superadmin' ? 'Super Admin' : userData.role === 'admin' ? 'Administrador' : userData.role === 'read_only' ? 'Solo Lectura' : 'Trabajador'}
               </Text>
               {userData.role === 'field_worker' && (
                 <Text size="xs" c="dimmed" truncate tt="capitalize">

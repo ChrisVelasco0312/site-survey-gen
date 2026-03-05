@@ -25,3 +25,8 @@ dist-ssr
 
 # Firebase Service Account
 serviceAccountKey.json
+prodServiceAccountKey.json
+
+# Environment variables
+.env*
+!.env.example

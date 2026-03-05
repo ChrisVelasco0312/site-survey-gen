@@ -24,8 +24,8 @@ export function Home() {
     );
   }
 
-  // If role is admin, show dashboard
-  if (userData.role === 'admin') {
+  // If role is admin, superadmin or read_only, show dashboard
+  if (userData.role === 'admin' || userData.role === 'superadmin' || userData.role === 'read_only') {
     return <AdminDashboard />;
   }
 

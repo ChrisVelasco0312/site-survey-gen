@@ -1,4 +1,4 @@
-export type UserRole = 'admin' | 'field_worker';
+export type UserRole = 'superadmin' | 'admin' | 'field_worker' | 'read_only';
 export type GroupAssignment = 'grupo_a' | 'grupo_b' | 'all';
 
 export interface UserProfile {
