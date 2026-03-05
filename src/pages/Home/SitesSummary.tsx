@@ -45,18 +45,36 @@ export function SitesSummary() {
   }, []);
 
   const uniqueDistritos = useMemo(() => {
-    const set = new Set(sites.map(s => s.distrito).filter(Boolean));
+    const set = new Set<string>();
+    for (let i = 0; i < sites.length; i++) {
+      if (sites[i].distrito) set.add(sites[i].distrito);
+    }
     return Array.from(set).sort();
   }, [sites]);
 
   const uniqueMunicipios = useMemo(() => {
-    let filteredSites = sites;
-    if (filterDistrito) {
-      filteredSites = filteredSites.filter(s => s.distrito === filterDistrito);
+    const set = new Set<string>();
+    for (let i = 0; i < sites.length; i++) {
+      if (filterDistrito && sites[i].distrito !== filterDistrito) continue;
+      if (sites[i].municipio) set.add(sites[i].municipio);
     }
-    const set = new Set(filteredSites.map(s => s.municipio).filter(Boolean));
     return Array.from(set).sort();
   }, [sites, filterDistrito]);
+
+  const latestReportBySite = useMemo(() => {
+    const map = new Map<string, Report>();
+    for (let i = 0; i < reports.length; i++) {
+      const r = reports[i];
+      const siteId = r.address?.site_id;
+      if (siteId) {
+        const existing = map.get(siteId);
+        if (!existing || r.updated_at > existing.updated_at) {
+          map.set(siteId, r);
+        }
+      }
+    }
+    return map;
+  }, [reports]);
 
   const clearFilters = () => {
     setFilterDistrito(null);
@@ -67,26 +85,15 @@ export function SitesSummary() {
   const hasActiveFilters = !!(filterDistrito || filterMunicipio || filterSiteType);
 
   const stats = useMemo(() => {
-    // 1. Map site to latest report
-    const latestReportBySite = new Map<string, Report>();
-    for (const r of reports) {
-      const siteId = r.address?.site_id;
-      if (siteId) {
-        const existing = latestReportBySite.get(siteId);
-        if (!existing || r.updated_at > existing.updated_at) {
-          latestReportBySite.set(siteId, r);
-        }
-      }
-    }
-
     // Apply filters
-    const filteredSites = sites.filter(site => {
-      if (filterDistrito && site.distrito !== filterDistrito) return false;
-      if (filterMunicipio && site.municipio !== filterMunicipio) return false;
-      if (filterSiteType && site.site_type !== filterSiteType) return false;
-      
-      return true;
-    });
+    const filteredSites = [];
+    for (let i = 0; i < sites.length; i++) {
+      const site = sites[i];
+      if (filterDistrito && site.distrito !== filterDistrito) continue;
+      if (filterMunicipio && site.municipio !== filterMunicipio) continue;
+      if (filterSiteType && site.site_type !== filterSiteType) continue;
+      filteredSites.push(site);
+    }
 
     // Initialize counts
     type Counts = Record<ExtendedStatus, number> & { total: number };
@@ -105,32 +112,46 @@ export function SitesSummary() {
     const siteTypeStats = new Map<string, Map<string, Map<string, Counts>>>();
 
     // Process each site
-    for (const site of filteredSites) {
+    for (let i = 0; i < filteredSites.length; i++) {
+      const site = filteredSites[i];
       const district = site.distrito || 'Sin Distrito';
       const municipality = site.municipio || 'Sin Municipio';
       const siteType = site.site_type || 'lpr';
 
-      if (!districtStats.has(district)) {
-        districtStats.set(district, createCounts());
+      let dStats = districtStats.get(district);
+      if (!dStats) {
+        dStats = createCounts();
+        districtStats.set(district, dStats);
       }
-      if (!municipalityStats.has(district)) {
-        municipalityStats.set(district, new Map());
-      }
-      const munMap = municipalityStats.get(district)!;
-      if (!munMap.has(municipality)) {
-        munMap.set(municipality, createCounts());
+
+      let munMap = municipalityStats.get(district);
+      if (!munMap) {
+        munMap = new Map();
+        municipalityStats.set(district, munMap);
       }
       
-      if (!siteTypeStats.has(district)) {
-        siteTypeStats.set(district, new Map());
+      let mStats = munMap.get(municipality);
+      if (!mStats) {
+        mStats = createCounts();
+        munMap.set(municipality, mStats);
       }
-      const stDistMap = siteTypeStats.get(district)!;
-      if (!stDistMap.has(municipality)) {
-        stDistMap.set(municipality, new Map());
+      
+      let stDistMap = siteTypeStats.get(district);
+      if (!stDistMap) {
+        stDistMap = new Map();
+        siteTypeStats.set(district, stDistMap);
       }
-      const stMunMap = stDistMap.get(municipality)!;
-      if (!stMunMap.has(siteType)) {
-        stMunMap.set(siteType, createCounts());
+
+      let stMunMap = stDistMap.get(municipality);
+      if (!stMunMap) {
+        stMunMap = new Map();
+        stDistMap.set(municipality, stMunMap);
+      }
+
+      let stStats = stMunMap.get(siteType);
+      if (!stStats) {
+        stStats = createCounts();
+        stMunMap.set(siteType, stStats);
       }
 
       const report = latestReportBySite.get(site.id);
@@ -139,24 +160,43 @@ export function SitesSummary() {
       globalStats.total++;
       globalStats[status]++;
 
-      districtStats.get(district)!.total++;
-      districtStats.get(district)![status]++;
+      dStats.total++;
+      dStats[status]++;
 
-      munMap.get(municipality)!.total++;
-      munMap.get(municipality)![status]++;
+      mStats.total++;
+      mStats[status]++;
 
-      stMunMap.get(siteType)!.total++;
-      stMunMap.get(siteType)![status]++;
+      stStats.total++;
+      stStats[status]++;
     }
 
-    return { globalStats, districtStats, municipalityStats, siteTypeStats };
-  }, [sites, reports, filterDistrito, filterMunicipio, filterSiteType]);
+    const sortedDistricts = Array.from(districtStats.entries())
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([district, dStats]) => {
+        const munsMap = municipalityStats.get(district);
+        const sortedMuns = munsMap 
+          ? Array.from(munsMap.entries())
+              .sort((a, b) => a[0].localeCompare(b[0]))
+              .map(([municipality, mStats]) => {
+                const sTypesMap = siteTypeStats.get(district)?.get(municipality);
+                const sortedSTypes = sTypesMap
+                  ? Array.from(sTypesMap.entries())
+                      .sort((a, b) => a[0].localeCompare(b[0]))
+                  : [];
+                return { municipality, mStats, sortedSTypes };
+              })
+          : [];
+        return { district, dStats, sortedMuns };
+      });
+
+    return { globalStats, sortedDistricts };
+  }, [sites, latestReportBySite, filterDistrito, filterMunicipio, filterSiteType]);
 
   if (loading) {
     return <Loader mt="xl" />;
   }
 
-  const { globalStats, districtStats, municipalityStats, siteTypeStats } = stats;
+  const { globalStats, sortedDistricts } = stats;
 
   const renderStatusCount = (count: number, total: number) => {
     if (total === 0) return '-';
@@ -304,7 +344,7 @@ export function SitesSummary() {
               </Table.Tr>
             </Table.Thead>
             <Table.Tbody>
-              {Array.from(districtStats.entries()).sort((a, b) => a[0].localeCompare(b[0])).map(([district, dStats]) => {
+              {sortedDistricts.map(({ district, dStats, sortedMuns }) => {
                 const rows = [];
                 // District row
                 rows.push(
@@ -322,48 +362,40 @@ export function SitesSummary() {
                 );
 
                 // Municipality rows
-                const muns = municipalityStats.get(district);
-                if (muns) {
-                  const sortedMuns = Array.from(muns.entries()).sort((a, b) => a[0].localeCompare(b[0]));
-                  sortedMuns.forEach(([municipality, mStats]) => {
+                sortedMuns.forEach(({ municipality, mStats, sortedSTypes }) => {
+                  rows.push(
+                    <Table.Tr key={`m-${district}-${municipality}`} bg="var(--mantine-color-gray-0)">
+                      <Table.Td style={{ paddingLeft: '2rem' }}>
+                        <Text fw={600} size="sm">{municipality}</Text>
+                      </Table.Td>
+                      <Table.Td fw={600}>{mStats.total}</Table.Td>
+                      <Table.Td>{renderStatusCount(mStats.sin_iniciar, mStats.total)}</Table.Td>
+                      <Table.Td>{renderStatusCount(mStats.en_campo, mStats.total)}</Table.Td>
+                      <Table.Td>{renderStatusCount(mStats.en_revision, mStats.total)}</Table.Td>
+                      <Table.Td>{renderStatusCount(mStats.listo_para_generar, mStats.total)}</Table.Td>
+                      <Table.Td>{renderStatusCount(mStats.generado, mStats.total)}</Table.Td>
+                    </Table.Tr>
+                  );
+
+                  // Site Type rows
+                  sortedSTypes.forEach(([siteType, stStats]) => {
                     rows.push(
-                      <Table.Tr key={`m-${district}-${municipality}`} bg="var(--mantine-color-gray-0)">
-                        <Table.Td style={{ paddingLeft: '2rem' }}>
-                          <Text fw={600} size="sm">{municipality}</Text>
+                      <Table.Tr key={`st-${district}-${municipality}-${siteType}`}>
+                        <Table.Td style={{ paddingLeft: '4rem' }}>
+                          <Text size="sm" c="dimmed">{SITE_TYPE_LABELS[siteType] || siteType}</Text>
                         </Table.Td>
-                        <Table.Td fw={600}>{mStats.total}</Table.Td>
-                        <Table.Td>{renderStatusCount(mStats.sin_iniciar, mStats.total)}</Table.Td>
-                        <Table.Td>{renderStatusCount(mStats.en_campo, mStats.total)}</Table.Td>
-                        <Table.Td>{renderStatusCount(mStats.en_revision, mStats.total)}</Table.Td>
-                        <Table.Td>{renderStatusCount(mStats.listo_para_generar, mStats.total)}</Table.Td>
-                        <Table.Td>{renderStatusCount(mStats.generado, mStats.total)}</Table.Td>
+                        <Table.Td fw={500}>
+                          <Text size="sm" fw={500}>{stStats.total}</Text>
+                        </Table.Td>
+                        <Table.Td>{renderStatusCount(stStats.sin_iniciar, stStats.total)}</Table.Td>
+                        <Table.Td>{renderStatusCount(stStats.en_campo, stStats.total)}</Table.Td>
+                        <Table.Td>{renderStatusCount(stStats.en_revision, stStats.total)}</Table.Td>
+                        <Table.Td>{renderStatusCount(stStats.listo_para_generar, stStats.total)}</Table.Td>
+                        <Table.Td>{renderStatusCount(stStats.generado, stStats.total)}</Table.Td>
                       </Table.Tr>
                     );
-
-                    // Site Type rows
-                    const sTypes = siteTypeStats.get(district)?.get(municipality);
-                    if (sTypes) {
-                      const sortedSTypes = Array.from(sTypes.entries()).sort((a, b) => a[0].localeCompare(b[0]));
-                      sortedSTypes.forEach(([siteType, stStats]) => {
-                        rows.push(
-                          <Table.Tr key={`st-${district}-${municipality}-${siteType}`}>
-                            <Table.Td style={{ paddingLeft: '4rem' }}>
-                              <Text size="sm" c="dimmed">{SITE_TYPE_LABELS[siteType] || siteType}</Text>
-                            </Table.Td>
-                            <Table.Td fw={500}>
-                              <Text size="sm" fw={500}>{stStats.total}</Text>
-                            </Table.Td>
-                            <Table.Td>{renderStatusCount(stStats.sin_iniciar, stStats.total)}</Table.Td>
-                            <Table.Td>{renderStatusCount(stStats.en_campo, stStats.total)}</Table.Td>
-                            <Table.Td>{renderStatusCount(stStats.en_revision, stStats.total)}</Table.Td>
-                            <Table.Td>{renderStatusCount(stStats.listo_para_generar, stStats.total)}</Table.Td>
-                            <Table.Td>{renderStatusCount(stStats.generado, stStats.total)}</Table.Td>
-                          </Table.Tr>
-                        );
-                      });
-                    }
                   });
-                }
+                });
                 return rows;
               })}
             </Table.Tbody>

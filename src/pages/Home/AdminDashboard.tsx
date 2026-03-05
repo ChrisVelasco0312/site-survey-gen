@@ -193,7 +193,7 @@ export function AdminDashboard() {
       {loading ? (
         <Loader />
       ) : (
-        <Tabs value={activeTab} onChange={setActiveTab}>
+        <Tabs value={activeTab} onChange={setActiveTab} keepMounted={false}>
           <Tabs.List mb="md">
             <Tabs.Tab value="resumen">Resumen</Tabs.Tab>
             <Tabs.Tab value="en_campo">En Campo</Tabs.Tab>
