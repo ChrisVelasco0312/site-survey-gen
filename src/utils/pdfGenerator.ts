@@ -81,7 +81,6 @@ function toDMS(decimal: number, isLat: boolean): string {
  * to the corresponding template schema name.
  */
 export function buildPdfInputs(report: Report): Record<string, string> {
-  console.log("Report", report);
   const { dia, mes, anio } = parseDate(report.date);
   const inst = report.installation_type ?? [];
 
@@ -90,7 +89,7 @@ export function buildPdfInputs(report: Report): Record<string, string> {
     input_day: dia,
     input_month: mes,
     input_year: anio,
-    input_site_name: report.address?.site_name.replace(/\D/g, "") ?? "",
+    input_site_name: report.address?.site_name ?? "",
 
     chk_install_type:
       `TIPO INSTALACIÓN:   Fachada/mástil [${chk(inst.includes("fachada_mastil"))}]` +
@@ -267,7 +266,7 @@ export function buildPdfInputs(report: Report): Record<string, string> {
       const type = parts[0] === 'unidireccional' ? 'Uni.' : 'Bi.';
       const from = parts[1].charAt(0).toUpperCase() + parts[1].slice(1);
       const to = parts[2].charAt(0).toUpperCase() + parts[2].slice(1);
-      return `${type} ${from} -> ${to}`;
+      return `${type} ${from} ${type === 'Uni.' ? '->' : '<->' } ${to}`;
     };
 
     inputs.chk_lpr_sentido = `Sentido: ${formatSentido(lpr.sentido_vial)}`;
