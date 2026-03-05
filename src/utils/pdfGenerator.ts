@@ -174,7 +174,7 @@ export function buildPdfInputs(report: Report): Record<string, string> {
 
     // ─── Mounting & Support ──────────────────────────────────
     input_soporte_T: `Soporte T [${chk(report.infrastructure_details?.camera_mounting === "soporte_t")}]`,
-    input_support_pole: `Poste [${chk(report.infrastructure_details?.camera_mounting === "poste")}]`,
+    input_support_pole: `Soporte C [${chk(report.infrastructure_details?.camera_mounting === "poste" || report.infrastructure_details?.camera_mounting === "soporte_c")}]`,
     input_soporte_L: `Soporte L [${chk(report.infrastructure_details?.camera_mounting === "soporte_l")}]`,
 
     input_apoyo_si: `SI [${chk(report.infrastructure_details?.needs_support_point === true)}]`,
@@ -220,6 +220,10 @@ export function buildPdfInputs(report: Report): Record<string, string> {
     'lbl_cf_inst', 'chk_cf_estruc1', 'chk_cf_estruc2', 'lbl_cf_alt', 'lbl_cf_dist', 'lbl_cf_area', 'lbl_cf_ang'
   ];
 
+  const ptzKeys = [
+    'lbl_ptz_title', 'chk_ptz_cables', 'lbl_ptz_dist'
+  ];
+
   const lprKeys = [
     'sec_lpr_title', 'lbl_lpr_vial', 'chk_lpr_sentido', 'chk_lpr_carriles',
     'lbl_lpr_ub', 'chk_lpr_dist_alt', 'chk_lpr_ang',
@@ -254,6 +258,9 @@ export function buildPdfInputs(report: Report): Record<string, string> {
     inputs.lbl_cf_ang = `Ángulo H: ${cf.angulo_horizontal ?? ''}°   Ángulo V: ${cf.angulo_vertical ?? ''}°`;
 
     for (const key of lprKeys) {
+      inputs[key] = '';
+    }
+    for (const key of ptzKeys) {
       inputs[key] = '';
     }
   } else if (report.address?.site_type === 'lpr') {
@@ -294,14 +301,42 @@ export function buildPdfInputs(report: Report): Record<string, string> {
     for (const key of cfKeys) {
       inputs[key] = '';
     }
-  } else {
-    // Hide all CF fields and LPR fields
+    for (const key of ptzKeys) {
+      inputs[key] = '';
+    }
+  } else if (report.address?.site_type === 'ptz') {
+    const ptz = report.ptz_survey || {};
+    inputs.lbl_ptz_title = 'Condiciones relevantes del sitio:';
+    inputs.chk_ptz_cables = `Presencia de cables eléctricos aéreos [${chk(ptz.has_aerial_cables === true)}]`;
+    inputs.lbl_ptz_dist = ptz.has_aerial_cables 
+      ? `Distancia desde el poste de cámara: ${ptz.distance_from_pole ?? ''} m`
+      : '';
+
     for (const key of cfKeys) {
       inputs[key] = '';
     }
     for (const key of lprKeys) {
       inputs[key] = '';
     }
+  } else {
+    // Hide all CF fields, LPR fields and PTZ fields
+    for (const key of cfKeys) {
+      inputs[key] = '';
+    }
+    for (const key of lprKeys) {
+      inputs[key] = '';
+    }
+    for (const key of ptzKeys) {
+      inputs[key] = '';
+    }
+  }
+
+  // Hide mounting info for PTZ/Cotejo Facial
+  if (['ptz', 'cotejo_facial'].includes(report.address?.site_type || '')) {
+    inputs.lbl_installation_type = '';
+    inputs.input_soporte_T = '';
+    inputs.input_support_pole = '';
+    inputs.input_soporte_L = '';
   }
 
   // ─── Images: only include when present ─────────────────────

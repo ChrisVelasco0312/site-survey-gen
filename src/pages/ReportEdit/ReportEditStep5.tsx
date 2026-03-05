@@ -8,8 +8,9 @@ import {
   Radio,
   Group,
   SimpleGrid,
+  Checkbox,
 } from '@mantine/core';
-import type { Report, PoleInfrastructure, InfrastructureDetails } from '../../types/Report';
+import type { Report, PoleInfrastructure, InfrastructureDetails, PtzSurvey } from '../../types/Report';
 
 interface ReportEditStep5Props {
   report: Report;
@@ -33,6 +34,14 @@ function setInfrastructureDetails(report: Report, patch: Partial<InfrastructureD
   };
 }
 
+function setPtzSurvey(report: Report, patch: Partial<PtzSurvey>): Report {
+  return {
+    ...report,
+    ptz_survey: { ...report.ptz_survey, ...patch },
+    updated_at: Date.now(),
+  };
+}
+
 const parseNum = (n: string | number): number =>
   typeof n === 'string' ? parseFloat(n) || 0 : n ?? 0;
 
@@ -50,6 +59,8 @@ export function ReportEditStep5({ report, setReport, readOnly }: ReportEditStep5
     { label: 'Relleno', value: pole.fill_meters, key: 'fill_meters' as keyof PoleInfrastructure },
   ];
 
+  const isPtzOrFacial = ['ptz', 'cotejo_facial'].includes(report.address?.site_type || '');
+
   if (readOnly) {
     return (
       <Stack gap="md">
@@ -63,15 +74,18 @@ export function ReportEditStep5({ report, setReport, readOnly }: ReportEditStep5
           ))}
         </SimpleGrid>
 
-        <Box mt="md">
-          <Text size="sm" fw={600}>El punto de cámara se instalará con:</Text>
-          <Text size="sm">
-            {report.infrastructure_details.camera_mounting === 'soporte_t' && 'Soporte T'}
-            {report.infrastructure_details.camera_mounting === 'poste' && 'Poste'}
-            {report.infrastructure_details.camera_mounting === 'soporte_l' && 'Soporte L'}
-            {!report.infrastructure_details.camera_mounting && '—'}
-          </Text>
-        </Box>
+        {!isPtzOrFacial && (
+          <Box mt="md">
+            <Text size="sm" fw={600}>El punto de cámara se instalará con:</Text>
+            <Text size="sm">
+              {report.infrastructure_details.camera_mounting === 'soporte_t' && 'Soporte T'}
+              {report.infrastructure_details.camera_mounting === 'soporte_c' && 'Soporte C'}
+              {report.infrastructure_details.camera_mounting === 'poste' && 'Soporte C'}
+              {report.infrastructure_details.camera_mounting === 'soporte_l' && 'Soporte L'}
+              {!report.infrastructure_details.camera_mounting && '—'}
+            </Text>
+          </Box>
+        )}
 
         <Box mt="md">
           <Text size="sm" fw={600}>Requiere instalación de poste de apoyo:</Text>
@@ -111,9 +125,25 @@ export function ReportEditStep5({ report, setReport, readOnly }: ReportEditStep5
           <Text size="sm">Altura: {cp.height || '—'}</Text>
           <Text size="sm">Material: {cp.material || '—'}</Text>
         </Box>
+
+        {report.address.site_type === 'ptz' && (
+          <Box mt="md">
+            <Text size="sm" fw={600} td="underline">Condiciones relevantes del sitio:</Text>
+            <Text size="sm">
+              Presencia de cables eléctricos aéreos: {report.ptz_survey?.has_aerial_cables ? 'SI' : 'NO'}
+            </Text>
+            {report.ptz_survey?.has_aerial_cables && (
+              <Text size="sm">
+                Distancia desde el poste de cámara: {report.ptz_survey?.distance_from_pole ?? 0} mts
+              </Text>
+            )}
+          </Box>
+        )}
       </Stack>
     );
   }
+
+  const ptz = report.ptz_survey || {};
 
   return (
     <Stack gap="xl">
@@ -134,19 +164,21 @@ export function ReportEditStep5({ report, setReport, readOnly }: ReportEditStep5
           ))}
         </SimpleGrid>
 
-        <Box mb="md">
-          <Text size="sm" fw={700} mb="xs">El punto de cámara se instalará con:</Text>
-          <Radio.Group
-            value={report.infrastructure_details.camera_mounting || ''}
-            onChange={(val) => setReport(setInfrastructureDetails(report, { camera_mounting: val as any }))}
-          >
-            <Group>
-              <Radio value="soporte_t" label="Soporte T" />
-              <Radio value="poste" label="Poste" />
-              <Radio value="soporte_l" label="Soporte L" />
-            </Group>
-          </Radio.Group>
-        </Box>
+        {!isPtzOrFacial && (
+          <Box mb="md">
+            <Text size="sm" fw={700} mb="xs">El punto de cámara se instalará con:</Text>
+            <Radio.Group
+              value={report.infrastructure_details.camera_mounting || ''}
+              onChange={(val) => setReport(setInfrastructureDetails(report, { camera_mounting: val as any }))}
+            >
+              <Group>
+                <Radio value="soporte_t" label="Soporte T" />
+                <Radio value="soporte_c" label="Soporte C" />
+                <Radio value="soporte_l" label="Soporte L" />
+              </Group>
+            </Radio.Group>
+          </Box>
+        )}
 
         <Box mb="md">
           <Text size="sm" fw={700} mb="xs">Requiere instalación de poste de apoyo:</Text>
@@ -246,6 +278,30 @@ export function ReportEditStep5({ report, setReport, readOnly }: ReportEditStep5
             </Stack>
           </Box>
         </Stack>
+
+        {report.address.site_type === 'ptz' && (
+          <Box mt="xl">
+            <Divider mb="md" />
+            <Text size="sm" fw={700} mb="md" td="underline">Condiciones relevantes del sitio:</Text>
+            <Stack gap="sm">
+              <Checkbox
+                label="Presencia de cables eléctricos aéreos"
+                checked={ptz.has_aerial_cables}
+                onChange={(e) => setReport(setPtzSurvey(report, { has_aerial_cables: e.currentTarget.checked }))}
+              />
+              {ptz.has_aerial_cables && (
+                <NumberInput
+                  label="Distancia desde el poste de cámara (mts):"
+                  min={0}
+                  decimalScale={2}
+                  value={ptz.distance_from_pole}
+                  onChange={(v) => setReport(setPtzSurvey(report, { distance_from_pole: parseNum(v) }))}
+                  suffix=" mts"
+                />
+              )}
+            </Stack>
+          </Box>
+        )}
       </Box>
     </Stack>
   );

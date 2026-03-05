@@ -99,7 +99,7 @@ export interface InfrastructureDetails {
   camera_point: CameraPointDetail;            // Punto de Cámara
   
   // New fields
-  camera_mounting?: 'soporte_t' | 'poste' | 'soporte_l';
+  camera_mounting?: 'soporte_t' | 'poste' | 'soporte_c' | 'soporte_l';
   needs_support_point?: boolean;
   
   electrical_distance?: number;
@@ -203,7 +203,16 @@ export interface Report {
   // HU-20: Cotejo Facial
   cotejo_facial_survey?: CotejoFacialSurvey;
   lpr_survey?: LprSurvey;
+  
+  // HU-PTZ
+  ptz_survey?: PtzSurvey;
 }
+
+export interface PtzSurvey {
+  has_aerial_cables?: boolean;
+  distance_from_pole?: number;
+}
+
 
 // Helper to create an empty/initial report
 export const createInitialReport = (userId: string, group: GroupAssignment): Report => ({
@@ -271,5 +280,6 @@ export const createInitialReport = (userId: string, group: GroupAssignment): Rep
   owner_name: '',
   final_observations: '',
   cotejo_facial_survey: {},
-  lpr_survey: {}
+  lpr_survey: {},
+  ptz_survey: {}
 });
