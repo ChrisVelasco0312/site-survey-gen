@@ -49,6 +49,7 @@ export interface MapPinData {
   color: string;
   label: string;
   showLabel?: boolean;
+  icon?: 'pin' | 'T' | 'L' | 'C' | 'box' | 'circle';
 }
 
 export interface ConnectivityData {

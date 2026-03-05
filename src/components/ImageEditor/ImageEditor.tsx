@@ -1079,7 +1079,7 @@ export function ImageEditor({
             <Group gap="xs">
                 <Text size="xs" fw={500} c="dimmed">Color:</Text>
                 <Group gap={4}>
-                   {['#000000', '#228be6', '#fa5252', '#40c057', '#fcc419', '#ffffff'].map((c) => (
+                   {['#000000', '#0070C0', '#ff0000', '#00B050', '#A5510B', '#A0A0A0', '#ffffff'].map((c) => (
                      <ColorSwatch
                        key={c}
                        component="button"

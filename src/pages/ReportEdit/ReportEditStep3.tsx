@@ -18,6 +18,7 @@ import {
   Grid,
   NumberInput,
   Checkbox,
+  Select,
 } from '@mantine/core';
 import { IconExternalLink, IconWifiOff, IconPlus, IconTrash, IconMapPin, IconDeviceFloppy, IconAdjustments } from '@tabler/icons-react';
 import type { Report, MapPinData } from '../../types/Report';
@@ -38,6 +39,15 @@ const ZOOM_MIN = 15;
 const ZOOM_MAX = 21;
 const ZOOM_DEFAULT = 20;
 const MAX_NATIVE_ZOOM = 19;
+
+const ICON_OPTIONS = [
+  { value: 'pin', label: 'Pin (Por defecto)' },
+  { value: 'T', label: 'Forma T' },
+  { value: 'L', label: 'Forma L' },
+  { value: 'C', label: 'Forma C' },
+  { value: 'box', label: 'Caja' },
+  { value: 'circle', label: 'Círculo' },
+];
 
 /* ── Tile math ─────────────────────────────────────────────── */
 
@@ -167,8 +177,8 @@ async function generateBaseMap(
       const tx = centerTileX - halfW + dx;
       const ty = centerTileY - halfH + dy;
       
-      const drawX = Math.floor(CANVAS_WIDTH / 2 + (tx * TILE_SIZE - centerPtIntZoom.x));
-      const drawY = Math.floor(CANVAS_HEIGHT / 2 + (ty * TILE_SIZE - centerPtIntZoom.y));
+      const drawX = CANVAS_WIDTH / 2 + (tx * TILE_SIZE - centerPtIntZoom.x);
+      const drawY = CANVAS_HEIGHT / 2 + (ty * TILE_SIZE - centerPtIntZoom.y);
 
       const clampedTx = clamp(tx);
       const clampedTy = clamp(ty);
@@ -225,6 +235,7 @@ function renderComposite(
     color: mainPinData?.color || '#3186e0',
     label: mainPinData?.label || 'PC',
     showLabel: mainPinData?.showLabel ?? false,
+    icon: mainPinData?.icon || 'pin',
   };
 
   const allPins = [mainPin, ...pins];
@@ -235,23 +246,82 @@ function renderComposite(
     const cx = CANVAS_WIDTH / 2 + (pinPt.x - centerPt.x);
     const cy = CANVAS_HEIGHT / 2 + (pinPt.y - centerPt.y);
 
-    ctx.save();
-    ctx.translate(cx - 12 * basePinScale, cy - 22 * basePinScale);
-    ctx.scale(basePinScale, basePinScale);
+    const iconType = pin.icon || 'pin';
 
-    ctx.shadowColor = 'rgba(0, 0, 0, 0.4)';
-    ctx.shadowBlur = 4;
-    ctx.shadowOffsetY = 2;
+    if (iconType === 'pin') {
+      ctx.save();
+      ctx.translate(cx - 12 * basePinScale, cy - 22 * basePinScale);
+      ctx.scale(basePinScale, basePinScale);
 
-    ctx.fillStyle = pin.color;
-    ctx.fill(pinPath);
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.4)';
+      ctx.shadowBlur = 4;
+      ctx.shadowOffsetY = 2;
 
-    ctx.shadowColor = 'transparent';
-    ctx.strokeStyle = '#FFFFFF';
-    ctx.lineWidth = 1;
-    ctx.stroke(pinPath);
+      ctx.fillStyle = pin.color;
+      ctx.fill(pinPath);
 
-    ctx.restore();
+      ctx.shadowColor = 'transparent';
+      ctx.strokeStyle = '#FFFFFF';
+      ctx.lineWidth = 1;
+      ctx.stroke(pinPath);
+
+      ctx.restore();
+    } else {
+      ctx.save();
+      ctx.translate(cx, cy);
+      
+      const size = 20 * basePinScale;
+      const half = size / 2;
+
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.4)';
+      ctx.shadowBlur = 4;
+      ctx.shadowOffsetY = 2;
+
+      ctx.fillStyle = pin.color;
+      ctx.strokeStyle = '#FFFFFF';
+      ctx.lineWidth = 2;
+
+      ctx.beginPath();
+      if (iconType === 'circle') {
+        ctx.arc(0, 0, half, 0, Math.PI * 2);
+      } else if (iconType === 'box') {
+        ctx.rect(-half, -half, size, size);
+      } else {
+        const thickness = size * 0.3;
+        if (iconType === 'T') {
+          ctx.moveTo(-half, -half);
+          ctx.lineTo(half, -half);
+          ctx.lineTo(half, -half + thickness);
+          ctx.lineTo(thickness/2, -half + thickness);
+          ctx.lineTo(thickness/2, half);
+          ctx.lineTo(-thickness/2, half);
+          ctx.lineTo(-thickness/2, -half + thickness);
+          ctx.lineTo(-half, -half + thickness);
+        } else if (iconType === 'L') {
+          ctx.moveTo(-half, -half);
+          ctx.lineTo(-half + thickness, -half);
+          ctx.lineTo(-half + thickness, half - thickness);
+          ctx.lineTo(half, half - thickness);
+          ctx.lineTo(half, half);
+          ctx.lineTo(-half, half);
+        } else if (iconType === 'C') {
+          ctx.moveTo(-half, -half);
+          ctx.lineTo(half, -half);
+          ctx.lineTo(half, -half + thickness);
+          ctx.lineTo(-half + thickness, -half + thickness);
+          ctx.lineTo(-half + thickness, half - thickness);
+          ctx.lineTo(half, half - thickness);
+          ctx.lineTo(half, half);
+          ctx.lineTo(-half, half);
+        }
+        ctx.closePath();
+      }
+      ctx.fill();
+      
+      ctx.shadowColor = 'transparent';
+      ctx.stroke();
+      ctx.restore();
+    }
 
     if (pin.label && pin.showLabel !== false) {
       ctx.save();
@@ -851,6 +921,13 @@ export function ReportEditStep3({ report, setReport, readOnly }: ReportEditStep3
               placeholder="Nombre del marcador principal"
               style={{ flex: 1 }}
             />
+            <Select
+              size="xs"
+              data={ICON_OPTIONS}
+              value={report.main_map_pin?.icon || 'pin'}
+              onChange={(val) => setReport({ ...report, main_map_pin: { ...report.main_map_pin, icon: (val as any) || 'pin' }, updated_at: Date.now() })}
+              style={{ width: 140 }}
+            />
             <ColorInput
               size="xs"
               value={report.main_map_pin?.color ?? '#3186e0'}
@@ -883,6 +960,13 @@ export function ReportEditStep3({ report, setReport, readOnly }: ReportEditStep3
                   onChange={(e) => updatePin(pin.id, { label: e.currentTarget.value })}
                   placeholder="Nombre del marcador"
                   style={{ flex: 1 }}
+                />
+                <Select
+                  size="xs"
+                  data={ICON_OPTIONS}
+                  value={pin.icon || 'pin'}
+                  onChange={(val) => updatePin(pin.id, { icon: (val as any) || 'pin' })}
+                  style={{ width: 140 }}
                 />
                 <ColorInput
                   size="xs"
