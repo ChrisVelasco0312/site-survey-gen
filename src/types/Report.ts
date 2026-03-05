@@ -169,6 +169,8 @@ export interface Report {
   edited_map_image_url?: string; // Diagrammed image
   map_pins?: MapPinData[];       // Additional map pins
   main_map_pin?: Partial<MapPinData>; // Customization for the main pin
+  map_zoom?: number;             // Saved zoom level
+  map_pin_size?: number;         // Saved pin size multiplier
   legend_config?: {
     x?: number; // relative to canvas width (or absolute pixels? let's stick to absolute for now or relative if we want responsivenes, but canvas is fixed size)
     // Actually canvas size is fixed const CANVAS_WIDTH = 1732;

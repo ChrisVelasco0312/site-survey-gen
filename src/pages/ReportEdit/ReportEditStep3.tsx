@@ -284,10 +284,10 @@ export function ReportEditStep3({ report, setReport, readOnly }: ReportEditStep3
   const lon = hasCoords ? report.address.longitude : DEFAULT_LON;
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [zoom, setZoom] = useState(ZOOM_DEFAULT);
+  const [zoom, setZoom] = useState(report.map_zoom ?? ZOOM_DEFAULT);
   const [mapType, setMapType] = useState<'osm' | 'satellite'>('osm');
   const [loading, setLoading] = useState(false);
-  const [pinSizeMultiplier, setPinSizeMultiplier] = useState(1);
+  const [pinSizeMultiplier, setPinSizeMultiplier] = useState(report.map_pin_size ?? 0.5);
   const [editingPinId, setEditingPinId] = useState<string | null>(null);
   const [isLegendAdjusting, setIsLegendAdjusting] = useState(false);
   const [legendDragging, setLegendDragging] = useState<{ startX: number, startY: number, initialX: number, initialY: number } | null>(null);
@@ -747,6 +747,7 @@ export function ReportEditStep3({ report, setReport, readOnly }: ReportEditStep3
                     color={zoom > 20 ? 'red' : 'blue'}
                     value={zoom}
                     onChange={setZoom}
+                    onChangeEnd={(v) => setReport({ ...reportRef.current, map_zoom: v, updated_at: Date.now() })}
                     marks={[
                       { value: ZOOM_MIN, label: String(ZOOM_MIN) },
                       { value: 20, label: '20' },
@@ -762,6 +763,7 @@ export function ReportEditStep3({ report, setReport, readOnly }: ReportEditStep3
                     step={0.1}
                     value={pinSizeMultiplier}
                     onChange={setPinSizeMultiplier}
+                    onChangeEnd={(v) => setReport({ ...reportRef.current, map_pin_size: v, updated_at: Date.now() })}
                     marks={[
                       { value: 0.5, label: 'x0.5' },
                       { value: 1, label: 'x1' },
