@@ -29,8 +29,8 @@ import { drawLegend, LEGEND_WIDTH, LEGEND_HEIGHT } from '../../utils/mapLegend';
 const DEFAULT_LAT = 4.5709;
 const DEFAULT_LON = -74.2973;
 const TILE_SIZE = 256;
-const GRID_W = 7; // Covers 1792px width
-const GRID_H = 4; // Covers 1024px height
+const GRID_W = 9; // Covers horizontal area with leeway
+const GRID_H = 7; // Covers vertical area with leeway
 // Exact resolution requested by user
 const CANVAS_WIDTH = 1732;
 const CANVAS_HEIGHT = 974;
@@ -146,19 +146,16 @@ async function generateBaseMap(
   ctx.fillStyle = '#e8e8e8';
   ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
-  const center = latLonToTile(lat, lon, intZoom);
+  const centerPtIntZoom = latLonToPoint(lat, lon, intZoom);
+  const centerTileX = Math.floor(centerPtIntZoom.x / TILE_SIZE);
+  const centerTileY = Math.floor(centerPtIntZoom.y / TILE_SIZE);
+
   const max = 2 ** intZoom - 1;
   const clamp = (v: number) => Math.max(0, Math.min(max, v));
   const halfW = Math.floor(GRID_W / 2);
   const halfH = Math.floor(GRID_H / 2);
 
-  // Calculate offsets
-  const gridPixelWidth = GRID_W * TILE_SIZE;
-  const gridPixelHeight = GRID_H * TILE_SIZE;
-  const offsetX = (CANVAS_WIDTH - gridPixelWidth) / 2;
-  const offsetY = (CANVAS_HEIGHT - gridPixelHeight) / 2;
-
-  // Apply scaling
+  // Apply scaling around canvas center
   const scaleCx = CANVAS_WIDTH / 2;
   const scaleCy = CANVAS_HEIGHT / 2;
   ctx.translate(scaleCx, scaleCy);
@@ -167,13 +164,17 @@ async function generateBaseMap(
 
   for (let dy = 0; dy < GRID_H; dy++) {
     for (let dx = 0; dx < GRID_W; dx++) {
-      const tx = clamp(center.x - halfW + dx);
-      const ty = clamp(center.y - halfH + dy);
-      const drawX = Math.floor(dx * TILE_SIZE + offsetX);
-      const drawY = Math.floor(dy * TILE_SIZE + offsetY);
+      const tx = centerTileX - halfW + dx;
+      const ty = centerTileY - halfH + dy;
+      
+      const drawX = Math.floor(CANVAS_WIDTH / 2 + (tx * TILE_SIZE - centerPtIntZoom.x));
+      const drawY = Math.floor(CANVAS_HEIGHT / 2 + (ty * TILE_SIZE - centerPtIntZoom.y));
+
+      const clampedTx = clamp(tx);
+      const clampedTy = clamp(ty);
 
       try {
-        const img = await loadTile(intZoom, tx, ty, type);
+        const img = await loadTile(intZoom, clampedTx, clampedTy, type);
         if (isCancelled()) return null;
         ctx.drawImage(img, drawX, drawY, TILE_SIZE, TILE_SIZE);
       } catch {
