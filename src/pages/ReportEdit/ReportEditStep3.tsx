@@ -247,6 +247,16 @@ function renderComposite(
     const cy = CANVAS_HEIGHT / 2 + (pinPt.y - centerPt.y);
 
     const iconType = pin.icon || 'pin';
+    
+    // Override color based on icon type to match legend
+    let pinColor = pin.color;
+    if (iconType === 'box') {
+      pinColor = '#00B050'; // Caja 60x60 (Verde)
+    } else if (iconType === 'T' || iconType === 'L' || iconType === 'C') {
+      pinColor = '#A0A0A0'; // Estructura LPR (Gris)
+    } else if (iconType === 'circle') {
+      pinColor = '#FFFFFF'; // Poste de Apoyo (Blanco)
+    }
 
     if (iconType === 'pin') {
       ctx.save();
@@ -257,7 +267,7 @@ function renderComposite(
       ctx.shadowBlur = 4;
       ctx.shadowOffsetY = 2;
 
-      ctx.fillStyle = pin.color;
+      ctx.fillStyle = pinColor;
       ctx.fill(pinPath);
 
       ctx.shadowColor = 'transparent';
@@ -270,16 +280,16 @@ function renderComposite(
       ctx.save();
       ctx.translate(cx, cy);
       
-      const size = 20 * basePinScale;
+      const size = 14 * basePinScale;
       const half = size / 2;
 
       ctx.shadowColor = 'rgba(0, 0, 0, 0.4)';
       ctx.shadowBlur = 4;
       ctx.shadowOffsetY = 2;
 
-      ctx.fillStyle = pin.color;
-      ctx.strokeStyle = '#FFFFFF';
-      ctx.lineWidth = 2;
+      ctx.fillStyle = pinColor;
+      ctx.strokeStyle = iconType === 'circle' ? '#808080' : '#FFFFFF';
+      ctx.lineWidth = iconType === 'circle' ? 1 : 2;
 
       ctx.beginPath();
       if (iconType === 'circle') {
@@ -324,14 +334,15 @@ function renderComposite(
     }
 
     if (pin.label && pin.showLabel !== false) {
+      const textOffsetY = iconType === 'pin' ? 24 * (basePinScale / 3.5) : (8 * basePinScale) + 16;
       ctx.save();
       ctx.font = 'bold 16px sans-serif';
       ctx.fillStyle = 'white';
       ctx.strokeStyle = 'black';
       ctx.lineWidth = 3;
       ctx.textAlign = 'center';
-      ctx.strokeText(pin.label, cx, cy + 24 * (basePinScale / 3.5)); 
-      ctx.fillText(pin.label, cx, cy + 24 * (basePinScale / 3.5));
+      ctx.strokeText(pin.label, cx, cy + textOffsetY); 
+      ctx.fillText(pin.label, cx, cy + textOffsetY);
       ctx.restore();
     }
   }
@@ -928,12 +939,14 @@ export function ReportEditStep3({ report, setReport, readOnly }: ReportEditStep3
               onChange={(val) => setReport({ ...report, main_map_pin: { ...report.main_map_pin, icon: (val as any) || 'pin' }, updated_at: Date.now() })}
               style={{ width: 140 }}
             />
-            <ColorInput
-              size="xs"
-              value={report.main_map_pin?.color ?? '#3186e0'}
-              onChange={(c) => setReport({ ...report, main_map_pin: { ...report.main_map_pin, color: c }, updated_at: Date.now() })}
-              style={{ width: 120 }}
-            />
+            {(!report.main_map_pin?.icon || report.main_map_pin?.icon === 'pin') && (
+              <ColorInput
+                size="xs"
+                value={report.main_map_pin?.color ?? '#3186e0'}
+                onChange={(c) => setReport({ ...report, main_map_pin: { ...report.main_map_pin, color: c }, updated_at: Date.now() })}
+                style={{ width: 120 }}
+              />
+            )}
             <Checkbox
               size="xs"
               label="Mostrar etiqueta"
@@ -968,12 +981,14 @@ export function ReportEditStep3({ report, setReport, readOnly }: ReportEditStep3
                   onChange={(val) => updatePin(pin.id, { icon: (val as any) || 'pin' })}
                   style={{ width: 140 }}
                 />
-                <ColorInput
-                  size="xs"
-                  value={pin.color}
-                  onChange={(c) => updatePin(pin.id, { color: c })}
-                  style={{ width: 120 }}
-                />
+                {(!pin.icon || pin.icon === 'pin') && (
+                  <ColorInput
+                    size="xs"
+                    value={pin.color}
+                    onChange={(c) => updatePin(pin.id, { color: c })}
+                    style={{ width: 120 }}
+                  />
+                )}
                 <Checkbox
                   size="xs"
                   label="Mostrar etiqueta"
