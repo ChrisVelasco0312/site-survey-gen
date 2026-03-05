@@ -24,8 +24,6 @@ export function SitesSummary() {
   const [filterDistrito, setFilterDistrito] = useState<string | null>(null);
   const [filterMunicipio, setFilterMunicipio] = useState<string | null>(null);
   const [filterSiteType, setFilterSiteType] = useState<string | null>(null);
-  const [filterSecurityLevel, setFilterSecurityLevel] = useState<string | null>(null);
-  const [filterContractComponent, setFilterContractComponent] = useState<string | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -64,11 +62,9 @@ export function SitesSummary() {
     setFilterDistrito(null);
     setFilterMunicipio(null);
     setFilterSiteType(null);
-    setFilterSecurityLevel(null);
-    setFilterContractComponent(null);
   };
 
-  const hasActiveFilters = !!(filterDistrito || filterMunicipio || filterSiteType || filterSecurityLevel || filterContractComponent);
+  const hasActiveFilters = !!(filterDistrito || filterMunicipio || filterSiteType);
 
   const stats = useMemo(() => {
     // 1. Map site to latest report
@@ -89,14 +85,6 @@ export function SitesSummary() {
       if (filterMunicipio && site.municipio !== filterMunicipio) return false;
       if (filterSiteType && site.site_type !== filterSiteType) return false;
       
-      const report = latestReportBySite.get(site.id);
-      if (filterSecurityLevel) {
-        if (!report || report.security_level !== filterSecurityLevel) return false;
-      }
-      if (filterContractComponent) {
-        if (!report || report.contract_component !== filterContractComponent) return false;
-      }
-
       return true;
     });
 
@@ -162,7 +150,7 @@ export function SitesSummary() {
     }
 
     return { globalStats, districtStats, municipalityStats, siteTypeStats };
-  }, [sites, reports, filterDistrito, filterMunicipio, filterSiteType, filterSecurityLevel, filterContractComponent]);
+  }, [sites, reports, filterDistrito, filterMunicipio, filterSiteType]);
 
   if (loading) {
     return <Loader mt="xl" />;
@@ -215,7 +203,7 @@ export function SitesSummary() {
       <Collapse in={filtersOpened} mb="xl">
         <Card shadow="xs" padding="md" radius="md" withBorder>
           <Grid>
-            <Grid.Col span={{ base: 12, md: 4, lg: 2.4 }}>
+            <Grid.Col span={{ base: 12, md: 4, lg: 4 }}>
               <Select
                 label="Distrito"
                 placeholder="Todos"
@@ -229,7 +217,7 @@ export function SitesSummary() {
                 searchable
               />
             </Grid.Col>
-            <Grid.Col span={{ base: 12, md: 4, lg: 2.4 }}>
+            <Grid.Col span={{ base: 12, md: 4, lg: 4 }}>
               <Select
                 label="Municipio"
                 placeholder="Todos"
@@ -240,7 +228,7 @@ export function SitesSummary() {
                 searchable
               />
             </Grid.Col>
-            <Grid.Col span={{ base: 12, md: 4, lg: 2.4 }}>
+            <Grid.Col span={{ base: 12, md: 4, lg: 4 }}>
               <Select
                 label="Tipo de Sitio"
                 placeholder="Todos"
@@ -251,34 +239,6 @@ export function SitesSummary() {
                 ]}
                 value={filterSiteType}
                 onChange={setFilterSiteType}
-                clearable
-              />
-            </Grid.Col>
-            <Grid.Col span={{ base: 12, md: 4, lg: 2.4 }}>
-              <Select
-                label="Nivel de Seguridad"
-                placeholder="Todos"
-                data={[
-                  { value: 'alto', label: 'Alto' },
-                  { value: 'medio', label: 'Medio' },
-                  { value: 'bajo', label: 'Bajo' },
-                ]}
-                value={filterSecurityLevel}
-                onChange={setFilterSecurityLevel}
-                clearable
-              />
-            </Grid.Col>
-            <Grid.Col span={{ base: 12, md: 4, lg: 2.4 }}>
-              <Select
-                label="Componente Contrato"
-                placeholder="Todos"
-                data={[
-                  { value: 'valle_seguro', label: 'Valle Seguro' },
-                  { value: 'lpr', label: 'LPR' },
-                  { value: 'cotejo_facial', label: 'Cotejo Facial' },
-                ]}
-                value={filterContractComponent}
-                onChange={setFilterContractComponent}
                 clearable
               />
             </Grid.Col>
@@ -328,10 +288,10 @@ export function SitesSummary() {
         ))}
       </Grid>
 
-      <Card shadow="sm" padding="md" radius="md" withBorder>
+      <div>
         <Title order={4} mb="md">Desglose por Distrito, Municipio y Tipo</Title>
         <ScrollArea>
-          <Table striped highlightOnHover withTableBorder>
+          <Table highlightOnHover withTableBorder>
             <Table.Thead>
               <Table.Tr>
                 <Table.Th>Nivel</Table.Th>
@@ -409,7 +369,7 @@ export function SitesSummary() {
             </Table.Tbody>
           </Table>
         </ScrollArea>
-      </Card>
+      </div>
     </div>
   );
 }
