@@ -174,7 +174,7 @@ export function buildPdfInputs(report: Report): Record<string, string> {
 
     // ─── Mounting & Support ──────────────────────────────────
     input_soporte_T: `Soporte T [${chk(report.infrastructure_details?.camera_mounting === "soporte_t")}]`,
-    input_support_pole: `Soporte C [${chk(report.infrastructure_details?.camera_mounting === "poste" || report.infrastructure_details?.camera_mounting === "soporte_c")}]`,
+    input_support_pole: `Soporte C (Pórtico) [${chk(report.infrastructure_details?.camera_mounting === "poste" || report.infrastructure_details?.camera_mounting === "soporte_c")}]`,
     input_soporte_L: `Soporte L [${chk(report.infrastructure_details?.camera_mounting === "soporte_l")}]`,
 
     input_apoyo_si: `SI [${chk(report.infrastructure_details?.needs_support_point === true)}]`,

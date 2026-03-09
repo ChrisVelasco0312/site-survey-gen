@@ -173,7 +173,7 @@ export function ReportEditStep5({ report, setReport, readOnly }: ReportEditStep5
             >
               <Group>
                 <Radio value="soporte_t" label="Soporte T" />
-                <Radio value="soporte_c" label="Soporte C" />
+                <Radio value="soporte_c" label="Soporte C (Pórtico)" />
                 <Radio value="soporte_l" label="Soporte L" />
               </Group>
             </Radio.Group>
