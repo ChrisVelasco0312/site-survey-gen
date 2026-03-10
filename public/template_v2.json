@@ -1620,7 +1620,7 @@
       {
         "type": "text",
         "position": { "x": 10, "y": 256.04 },
-        "width": 80,
+        "width": 60,
         "height": 7,
         "content": "Firma Director Proyectos:",
         "fontSize": 9,
@@ -1630,8 +1630,8 @@
       },
       {
         "type": "text",
-        "position": { "x": 120, "y": 255.84 },
-        "width": 80,
+        "position": { "x": 140, "y": 256.04 },
+        "width": 60,
         "height": 7,
         "content": "Firma Director Interventoría:",
         "fontSize": 9,
@@ -1642,7 +1642,7 @@
       {
         "type": "line",
         "position": { "x": 10, "y": 286.5 },
-        "width": 80,
+        "width": 60,
         "height": 0.5,
         "color": "#000000",
         "name": "line_sig_proj",
@@ -1651,11 +1651,32 @@
       },
       {
         "type": "line",
-        "position": { "x": 120, "y": 286.5 },
-        "width": 80,
+        "position": { "x": 140, "y": 286.5 },
+        "width": 60,
         "height": 0.5,
         "color": "#000000",
         "name": "line_sig_int",
+        "content": "",
+        "fontName": "Roboto"
+      },
+      {
+        "type": "text",
+        "position": { "x": 75, "y": 256.04 },
+        "width": 60,
+        "height": 7,
+        "content": "Firma Coordinador de zona:",
+        "fontSize": 9,
+        "fontName": "Roboto-Bold",
+        "name": "lbl_sig_coord",
+        "fontColor": "#000000"
+      },
+      {
+        "type": "line",
+        "position": { "x": 75, "y": 286.5 },
+        "width": 60,
+        "height": 0.5,
+        "color": "#000000",
+        "name": "line_sig_coord",
         "content": "",
         "fontName": "Roboto"
       },
