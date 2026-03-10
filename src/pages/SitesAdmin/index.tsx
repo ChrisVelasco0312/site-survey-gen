@@ -33,7 +33,7 @@ const EMPTY_FORM: Omit<SiteRecord, 'id'> = {
   description: '',
 };
 
-const GMS_REGEX = /^(\d+)°(\d+)'(\d+(?:\.\d+)?)"([NSns])\s+(\d+)°(\d+)'(\d+(?:\.\d+)?)"([EWew])$/;
+const GMS_REGEX = /^(\d+)°(\d+)'(\d+(?:\.\d+)?)"([NSns])\s+(\d+)°(\d+)'(\d+(?:\.\d+)?)"([EWewOo])$/;
 
 function parseGMS(gms: string): { latitude: number; longitude: number } | null {
   const match = gms.trim().match(GMS_REGEX);
@@ -45,7 +45,7 @@ function parseGMS(gms: string): { latitude: number; longitude: number } | null {
   let longitude = parseInt(lonDeg) + parseInt(lonMin) / 60 + parseFloat(lonSec) / 3600;
 
   if (latDir.toUpperCase() === 'S') latitude = -latitude;
-  if (lonDir.toUpperCase() === 'W') longitude = -longitude;
+  if (lonDir.toUpperCase() === 'W' || lonDir.toUpperCase() === 'O') longitude = -longitude;
 
   return { latitude, longitude };
 }
@@ -259,12 +259,15 @@ export function SitesAdmin() {
   };
 
   const handleGmsChange = (value: string) => {
-    setGmsInput(value);
-    if (!value.trim()) {
+    // Transformar 'O'/'o' (Oeste) a 'W'/'w' automáticamente
+    const transformedVal = value.replace(/O/g, 'W').replace(/o/g, 'w');
+    setGmsInput(transformedVal);
+    
+    if (!transformedVal.trim()) {
       setGmsError(null);
       return;
     }
-    const parsed = parseGMS(value);
+    const parsed = parseGMS(transformedVal);
     if (!parsed) {
       setGmsError('Formato inválido. Ejemplo: 3°48\'44.5"N 76°37\'18.25"W');
       return;

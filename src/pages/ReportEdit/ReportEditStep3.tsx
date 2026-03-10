@@ -45,7 +45,8 @@ const ICON_OPTIONS = [
   { value: 'T', label: 'Forma T' },
   { value: 'L', label: 'Forma L' },
   { value: 'C', label: 'Forma C' },
-  { value: 'box', label: 'Caja' },
+  { value: 'box60', label: 'Caja 60 x 60' },
+  { value: 'box40', label: 'Caja 40 x 40' },
   { value: 'circle', label: 'Círculo' },
 ];
 
@@ -76,20 +77,39 @@ function pointToLatLon(x: number, y: number, z: number) {
   return { lat, lon };
 }
 
-function decimalToGMS(dec: number, isLat: boolean): { d: number, m: number, s: number, dir: string } {
-  const dir = dec < 0 ? (isLat ? 'S' : 'W') : (isLat ? 'N' : 'E');
-  let abs = Math.abs(dec);
-  const d = Math.floor(abs);
-  abs = (abs - d) * 60;
-  const m = Math.floor(abs);
-  const s = Number(((abs - m) * 60).toFixed(2));
-  return { d, m, s, dir };
+const GMS_REGEX = /^(\d+)°(\d+)'(\d+(?:\.\d+)?)"([NSns])\s+(\d+)°(\d+)'(\d+(?:\.\d+)?)"([EWewOo])$/;
+
+function parseGMS(gms: string): { latitude: number; longitude: number } | null {
+  const match = gms.trim().match(GMS_REGEX);
+  if (!match) return null;
+
+  const [, latDeg, latMin, latSec, latDir, lonDeg, lonMin, lonSec, lonDir] = match;
+
+  let latitude = parseInt(latDeg) + parseInt(latMin) / 60 + parseFloat(latSec) / 3600;
+  let longitude = parseInt(lonDeg) + parseInt(lonMin) / 60 + parseFloat(lonSec) / 3600;
+
+  if (latDir.toUpperCase() === 'S') latitude = -latitude;
+  if (lonDir.toUpperCase() === 'W' || lonDir.toUpperCase() === 'O') longitude = -longitude;
+
+  return { latitude, longitude };
 }
 
-function gmsToDecimal(d: number, m: number, s: number, dir: string): number {
-  let dec = d + m / 60 + s / 3600;
-  if (dir === 'S' || dir === 'W') dec = -dec;
-  return dec;
+function formatToGMS(latitude: number, longitude: number): string {
+  const latDir = latitude >= 0 ? 'N' : 'S';
+  const lonDir = longitude >= 0 ? 'E' : 'W';
+
+  const absLat = Math.abs(latitude);
+  const absLon = Math.abs(longitude);
+
+  const latDeg = Math.floor(absLat);
+  const latMin = Math.floor((absLat - latDeg) * 60);
+  const latSec = ((absLat - latDeg - latMin / 60) * 3600).toFixed(2);
+
+  const lonDeg = Math.floor(absLon);
+  const lonMin = Math.floor((absLon - lonDeg) * 60);
+  const lonSec = ((absLon - lonDeg - lonMin / 60) * 3600).toFixed(2);
+
+  return `${latDeg}°${latMin}'${latSec}"${latDir} ${lonDeg}°${lonMin}'${lonSec}"${lonDir}`;
 }
 
 /** Load a single OSM or Satellite tile as an Image. Supports digital zoom beyond MAX_NATIVE_ZOOM. */
@@ -250,8 +270,10 @@ function renderComposite(
     
     // Override color based on icon type to match legend
     let pinColor = pin.color;
-    if (iconType === 'box') {
+    if (iconType === 'box60' || iconType === 'box' as any) {
       pinColor = '#00B050'; // Caja 60x60 (Verde)
+    } else if (iconType === 'box40') {
+      pinColor = '#A5510B'; // Caja 40x40 (Marrón)
     } else if (iconType === 'T' || iconType === 'L' || iconType === 'C') {
       pinColor = '#A0A0A0'; // Estructura LPR (Gris)
     } else if (iconType === 'circle') {
@@ -294,8 +316,12 @@ function renderComposite(
       ctx.beginPath();
       if (iconType === 'circle') {
         ctx.arc(0, 0, half, 0, Math.PI * 2);
-      } else if (iconType === 'box') {
-        ctx.rect(-half, -half, size, size);
+      } else if (iconType === 'box60' || iconType === 'box' as any) {
+        const boxSize = size * 1.25;
+        ctx.rect(-boxSize / 2, -boxSize / 2, boxSize, boxSize);
+      } else if (iconType === 'box40') {
+        const boxSize = size;
+        ctx.rect(-boxSize / 2, -boxSize / 2, boxSize, boxSize);
       } else {
         const thickness = size * 0.3;
         if (iconType === 'T') {
@@ -349,6 +375,47 @@ function renderComposite(
 
   // 3. Draw Legend
   drawLegend(ctx, CANVAS_WIDTH, CANVAS_HEIGHT, legendConfig);
+}
+
+function PinGMSInput({ lat, lon, onChange }: { lat: number, lon: number, onChange: (lat: number, lon: number) => void }) {
+  const [value, setValue] = useState(() => formatToGMS(lat, lon));
+  const [error, setError] = useState<string | null>(null);
+
+  // Keep in sync if lat/lon change externally
+  useEffect(() => {
+    setValue(formatToGMS(lat, lon));
+    setError(null);
+  }, [lat, lon]);
+
+  const handleChange = (val: string) => {
+    // Transformar 'O'/'o' (Oeste) a 'W'/'w' automáticamente
+    const transformedVal = val.replace(/O/g, 'W').replace(/o/g, 'w');
+    setValue(transformedVal);
+    
+    if (!transformedVal.trim()) {
+      setError(null);
+      return;
+    }
+    const parsed = parseGMS(transformedVal);
+    if (!parsed) {
+      setError('Formato inválido. Ejemplo: 3°48\'44.5"N 76°37\'18.25"W');
+      return;
+    }
+    setError(null);
+    onChange(parsed.latitude, parsed.longitude);
+  };
+
+  return (
+    <TextInput
+      size="xs"
+      label="Coordenadas GMS"
+      placeholder="3°48'44.5&quot;N 76°37'18.25&quot;W"
+      value={value}
+      onChange={(e) => handleChange(e.currentTarget.value)}
+      error={error}
+      style={{ flex: 1 }}
+    />
+  );
 }
 
 /* ── Component ─────────────────────────────────────────────── */
@@ -1002,46 +1069,11 @@ export function ReportEditStep3({ report, setReport, readOnly }: ReportEditStep3
 
               <Group align="flex-end" gap="xs">
                 <Box style={{ flex: 1 }}>
-                  <Text size="xs" fw={500} mb={2}>Latitud (GMS)</Text>
-                  <Group gap={4}>
-                    <NumberInput size="xs" value={decimalToGMS(pin.lat, true).d} hideControls style={{ width: 50 }} onChange={(v) => {
-                      const gms = decimalToGMS(pin.lat, true);
-                      updatePin(pin.id, { lat: gmsToDecimal(Number(v), gms.m, gms.s, gms.dir) });
-                    }} /> <Text size="xs">°</Text>
-                    <NumberInput size="xs" value={decimalToGMS(pin.lat, true).m} hideControls style={{ width: 50 }} onChange={(v) => {
-                      const gms = decimalToGMS(pin.lat, true);
-                      updatePin(pin.id, { lat: gmsToDecimal(gms.d, Number(v), gms.s, gms.dir) });
-                    }} /> <Text size="xs">'</Text>
-                    <NumberInput size="xs" value={decimalToGMS(pin.lat, true).s} hideControls style={{ width: 60 }} decimalScale={2} onChange={(v) => {
-                      const gms = decimalToGMS(pin.lat, true);
-                      updatePin(pin.id, { lat: gmsToDecimal(gms.d, gms.m, Number(v), gms.dir) });
-                    }} /> <Text size="xs">"</Text>
-                    <SegmentedControl size="xs" data={['N', 'S']} value={decimalToGMS(pin.lat, true).dir} onChange={(v) => {
-                      const gms = decimalToGMS(pin.lat, true);
-                      updatePin(pin.id, { lat: gmsToDecimal(gms.d, gms.m, gms.s, String(v)) });
-                    }} />
-                  </Group>
-                </Box>
-                <Box style={{ flex: 1 }}>
-                  <Text size="xs" fw={500} mb={2}>Longitud (GMS)</Text>
-                  <Group gap={4}>
-                    <NumberInput size="xs" value={decimalToGMS(pin.lon, false).d} hideControls style={{ width: 50 }} onChange={(v) => {
-                      const gms = decimalToGMS(pin.lon, false);
-                      updatePin(pin.id, { lon: gmsToDecimal(Number(v), gms.m, gms.s, gms.dir) });
-                    }} /> <Text size="xs">°</Text>
-                    <NumberInput size="xs" value={decimalToGMS(pin.lon, false).m} hideControls style={{ width: 50 }} onChange={(v) => {
-                      const gms = decimalToGMS(pin.lon, false);
-                      updatePin(pin.id, { lon: gmsToDecimal(gms.d, Number(v), gms.s, gms.dir) });
-                    }} /> <Text size="xs">'</Text>
-                    <NumberInput size="xs" value={decimalToGMS(pin.lon, false).s} hideControls style={{ width: 60 }} decimalScale={2} onChange={(v) => {
-                      const gms = decimalToGMS(pin.lon, false);
-                      updatePin(pin.id, { lon: gmsToDecimal(gms.d, gms.m, Number(v), gms.dir) });
-                    }} /> <Text size="xs">"</Text>
-                    <SegmentedControl size="xs" data={['E', 'W']} value={decimalToGMS(pin.lon, false).dir} onChange={(v) => {
-                      const gms = decimalToGMS(pin.lon, false);
-                      updatePin(pin.id, { lon: gmsToDecimal(gms.d, gms.m, gms.s, String(v)) });
-                    }} />
-                  </Group>
+                  <PinGMSInput
+                    lat={pin.lat}
+                    lon={pin.lon}
+                    onChange={(lat, lon) => updatePin(pin.id, { lat, lon })}
+                  />
                 </Box>
                 <Button 
                   size="xs" 
