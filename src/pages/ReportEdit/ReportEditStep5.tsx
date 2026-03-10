@@ -4,7 +4,7 @@ import {
   NumberInput,
   Divider,
   Box,
-  Select,
+  NativeSelect,
   Radio,
   Group,
   SimpleGrid,
@@ -252,13 +252,12 @@ export function ReportEditStep5({ report, setReport, readOnly }: ReportEditStep5
                   service_entrance: { ...se, height: parseNum(v) },
                 }))}
               />
-              <Select
+              <NativeSelect
                 label="Material:"
-                placeholder="Seleccione"
                 data={['Concreto', 'Fibra']}
-                value={se.material}
-                onChange={(v) => setReport(setInfrastructureDetails(report, {
-                  service_entrance: { ...se, material: v || '' },
+                value={se.material || 'Concreto'}
+                onChange={(e) => setReport(setInfrastructureDetails(report, {
+                  service_entrance: { ...se, material: e.currentTarget.value || 'Concreto' },
                 }))}
               />
             </Stack>
@@ -278,13 +277,12 @@ export function ReportEditStep5({ report, setReport, readOnly }: ReportEditStep5
                   camera_point: { ...cp, height: parseNum(v) },
                 }))}
               />
-              <Select
+              <NativeSelect
                 label="Material:"
-                placeholder="Seleccione"
                 data={['Concreto', 'Fibra', 'Metal']}
-                value={cp.material}
-                onChange={(v) => setReport(setInfrastructureDetails(report, {
-                  camera_point: { ...cp, material: v || '' },
+                value={cp.material || 'Concreto'}
+                onChange={(e) => setReport(setInfrastructureDetails(report, {
+                  camera_point: { ...cp, material: e.currentTarget.value || 'Concreto' },
                 }))}
               />
             </Stack>
