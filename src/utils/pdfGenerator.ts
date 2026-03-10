@@ -184,10 +184,28 @@ export function buildPdfInputs(report: Report): Record<string, string> {
       : "",
 
     input_distancia_electrica: String(
-      report.infrastructure_details?.electrical_distance ?? 0,
+      (report.pole_infrastructure?.aerial_meters ?? 0) +
+      (report.pole_infrastructure?.grass_meters ?? 0) +
+      (report.pole_infrastructure?.asphalt_meters ?? 0) +
+      (report.pole_infrastructure?.adoquin_meters ?? 0) +
+      (report.pole_infrastructure?.concrete_meters ?? 0) +
+      (report.pole_infrastructure?.fill_meters ?? 0) +
+      (report.infrastructure_details?.service_entrance?.height ?? 0) +
+      (report.infrastructure_details?.camera_point?.height ?? 0) +
+      (report.infrastructure_details?.electrical_distance ?? 0) +
+      " mts",
     ),
     input_distancia_fibra: String(
-      report.infrastructure_details?.fiber_distance ?? 0,
+      (report.pole_infrastructure?.aerial_meters ?? 0) +
+      (report.pole_infrastructure?.grass_meters ?? 0) +
+      (report.pole_infrastructure?.asphalt_meters ?? 0) +
+      (report.pole_infrastructure?.adoquin_meters ?? 0) +
+      (report.pole_infrastructure?.concrete_meters ?? 0) +
+      (report.pole_infrastructure?.fill_meters ?? 0) +
+      (report.infrastructure_details?.service_entrance?.height ?? 0) +
+      (report.infrastructure_details?.camera_point?.height ?? 0) +
+      (report.infrastructure_details?.fiber_distance ?? 0) +
+      " mts",
     ),
 
     // ─── Facade ──────────────────────────────────────────────

@@ -85,7 +85,7 @@ export interface FacadeInfrastructure {
 
 export interface InfrastructureDetailItem {
   pipe_type: string;
-  height: string; // string to allow "3m" or descriptions if needed, or number if strict
+  height: number; // Changed to number
   material: string; // Added material here for service_entrance (Acometida) too
   other: string;
 }
@@ -269,8 +269,8 @@ export const createInitialReport = (userId: string, group: GroupAssignment): Rep
   },
   
   infrastructure_details: {
-    service_entrance: { pipe_type: '', height: '', other: '', material: '' },
-    camera_point: { pipe_type: '', height: '', other: '', material: '', other_material: '' },
+    service_entrance: { pipe_type: '', height: 0, other: '', material: '' },
+    camera_point: { pipe_type: '', height: 0, other: '', material: '', other_material: '' },
     needs_support_point: false,
     apoyo_cant: 0,
     electrical_distance: 0,

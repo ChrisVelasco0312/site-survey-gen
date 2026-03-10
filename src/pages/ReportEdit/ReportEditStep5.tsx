@@ -59,6 +59,10 @@ export function ReportEditStep5({ report, setReport, readOnly }: ReportEditStep5
     { label: 'Relleno', value: pole.fill_meters, key: 'fill_meters' as keyof PoleInfrastructure },
   ];
 
+  const rowsSum = rows.reduce((sum, row) => sum + (row.value ?? 0), 0);
+  const baseDistance = rowsSum + (se.height ?? 0) + (cp.height ?? 0);
+  console.log('Total acometida (suma de filas + extras):', baseDistance);
+
   const isPtzOrFacial = ['ptz', 'cotejo_facial'].includes(report.address?.site_type || '');
 
   if (readOnly) {
@@ -104,12 +108,12 @@ export function ReportEditStep5({ report, setReport, readOnly }: ReportEditStep5
 
         <Box mt="md">
           <Text size="sm" fw={600}>DISTANCIA DE ACOMETIDA DE RED ELÉCTRICA A INSTALAR (desde el punto de conexión hasta el gabinete)</Text>
-          <Text size="sm">{report.infrastructure_details.electrical_distance ?? 0} mts</Text>
+          <Text size="sm">{baseDistance + (report.infrastructure_details.electrical_distance ?? 0)} mts</Text>
         </Box>
 
         <Box mt="md">
           <Text size="sm" fw={600}>DISTANCIA DE ACOMETIDA FIBRA ÓPTICA A INSTALAR (desde la mufla de Cámara hasta el gabinete)</Text>
-          <Text size="sm">{report.infrastructure_details.fiber_distance ?? 0} mts</Text>
+          <Text size="sm">{baseDistance + (report.infrastructure_details.fiber_distance ?? 0)} mts</Text>
         </Box>
 
         <Divider my="md" />
@@ -159,7 +163,7 @@ export function ReportEditStep5({ report, setReport, readOnly }: ReportEditStep5
               decimalScale={2}
               value={row.value}
               onChange={(n) => setReport(setPoleInfra(report, { [row.key]: parseNum(n) }))}
-              suffix=" mts"
+
             />
           ))}
         </SimpleGrid>
@@ -205,22 +209,28 @@ export function ReportEditStep5({ report, setReport, readOnly }: ReportEditStep5
         <Box mb="md">
           <Text size="sm" fw={700} mb="xs">DISTANCIA DE ACOMETIDA DE RED ELÉCTRICA A INSTALAR (desde el punto de conexión hasta el gabinete)</Text>
           <NumberInput
-            min={0}
+            min={baseDistance}
             decimalScale={2}
-            value={report.infrastructure_details.electrical_distance ?? 0}
-            onChange={(n) => setReport(setInfrastructureDetails(report, { electrical_distance: parseNum(n) }))}
-            suffix=" mts"
+            value={baseDistance + (report.infrastructure_details.electrical_distance ?? 0)}
+            onChange={(n) => {
+              const total = parseNum(n);
+              const extra = Math.max(0, total - baseDistance);
+              setReport(setInfrastructureDetails(report, { electrical_distance: extra }));
+            }}
           />
         </Box>
 
         <Box mb="md">
           <Text size="sm" fw={700} mb="xs">DISTANCIA DE ACOMETIDA FIBRA ÓPTICA A INSTALAR (desde la mufla de Cámara hasta el gabinete)</Text>
           <NumberInput
-            min={0}
+            min={baseDistance}
             decimalScale={2}
-            value={report.infrastructure_details.fiber_distance ?? 0}
-            onChange={(n) => setReport(setInfrastructureDetails(report, { fiber_distance: parseNum(n) }))}
-            suffix=" mts"
+            value={baseDistance + (report.infrastructure_details.fiber_distance ?? 0)}
+            onChange={(n) => {
+              const total = parseNum(n);
+              const extra = Math.max(0, total - baseDistance);
+              setReport(setInfrastructureDetails(report, { fiber_distance: extra }));
+            }}
           />
         </Box>
       </Box>
@@ -234,12 +244,13 @@ export function ReportEditStep5({ report, setReport, readOnly }: ReportEditStep5
             <Stack gap="xs">
               <NumberInput
                 label="Altura (mts):"
+                min={0}
+                decimalScale={2}
                 placeholder="Ej. 3"
-                value={parseFloat(se.height) || ''}
+                value={se.height ?? 0}
                 onChange={(v) => setReport(setInfrastructureDetails(report, {
-                  service_entrance: { ...se, height: String(v) },
+                  service_entrance: { ...se, height: parseNum(v) },
                 }))}
-                suffix=" mts"
               />
               <Select
                 label="Material:"
@@ -259,12 +270,13 @@ export function ReportEditStep5({ report, setReport, readOnly }: ReportEditStep5
             <Stack gap="xs">
               <NumberInput
                 label="Altura (mts):"
+                min={0}
+                decimalScale={2}
                 placeholder="Ej. 3"
-                value={parseFloat(cp.height) || ''}
+                value={cp.height ?? 0}
                 onChange={(v) => setReport(setInfrastructureDetails(report, {
-                  camera_point: { ...cp, height: String(v) },
+                  camera_point: { ...cp, height: parseNum(v) },
                 }))}
-                suffix=" mts"
               />
               <Select
                 label="Material:"
@@ -296,7 +308,7 @@ export function ReportEditStep5({ report, setReport, readOnly }: ReportEditStep5
                   decimalScale={2}
                   value={ptz.distance_from_pole}
                   onChange={(v) => setReport(setPtzSurvey(report, { distance_from_pole: parseNum(v) }))}
-                  suffix=" mts"
+    
                 />
               )}
             </Stack>
