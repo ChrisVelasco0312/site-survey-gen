@@ -155,14 +155,10 @@ async function loadTile(z: number, x: number, y: number, type: 'osm' | 'satellit
 async function generateBaseMap(
   lat: number,
   lon: number,
-  zoom: number,
+  intZoom: number,
   type: 'osm' | 'satellite',
   isCancelled: () => boolean
 ): Promise<HTMLCanvasElement | null> {
-  // Handle fractional zoom:
-  const intZoom = Math.floor(zoom);
-  const scale = 2 ** (zoom - intZoom);
-
   const canvas = document.createElement('canvas');
   canvas.width = CANVAS_WIDTH;
   canvas.height = CANVAS_HEIGHT;
@@ -185,12 +181,7 @@ async function generateBaseMap(
   const halfW = Math.floor(GRID_W / 2);
   const halfH = Math.floor(GRID_H / 2);
 
-  // Apply scaling around canvas center
-  const scaleCx = CANVAS_WIDTH / 2;
-  const scaleCy = CANVAS_HEIGHT / 2;
-  ctx.translate(scaleCx, scaleCy);
-  ctx.scale(scale, scale);
-  ctx.translate(-scaleCx, -scaleCy);
+  const promises: Promise<void>[] = [];
 
   for (let dy = 0; dy < GRID_H; dy++) {
     for (let dx = 0; dx < GRID_W; dx++) {
@@ -203,17 +194,22 @@ async function generateBaseMap(
       const clampedTx = clamp(tx);
       const clampedTy = clamp(ty);
 
-      try {
-        const img = await loadTile(intZoom, clampedTx, clampedTy, type);
-        if (isCancelled()) return null;
-        ctx.drawImage(img, drawX, drawY, TILE_SIZE, TILE_SIZE);
-      } catch {
-        if (isCancelled()) return null;
-        ctx.fillStyle = '#ddd';
-        ctx.fillRect(drawX, drawY, TILE_SIZE, TILE_SIZE);
-      }
+      promises.push((async () => {
+        try {
+          const img = await loadTile(intZoom, clampedTx, clampedTy, type);
+          if (isCancelled()) return;
+          ctx.drawImage(img, drawX, drawY, TILE_SIZE, TILE_SIZE);
+        } catch {
+          if (isCancelled()) return;
+          ctx.fillStyle = '#ddd';
+          ctx.fillRect(drawX, drawY, TILE_SIZE, TILE_SIZE);
+        }
+      })());
     }
   }
+
+  await Promise.all(promises);
+  if (isCancelled()) return null;
 
   return canvas;
 }
@@ -221,7 +217,7 @@ async function generateBaseMap(
 /** Render composite: Base Map + Pins + Legend onto target canvas. */
 function renderComposite(
   targetCanvas: HTMLCanvasElement,
-  baseMap: HTMLCanvasElement,
+  baseMapState: { canvas: HTMLCanvasElement; zoom: number; lat: number; lon: number },
   lat: number,
   lon: number,
   zoom: number,
@@ -237,8 +233,27 @@ function renderComposite(
   targetCanvas.height = CANVAS_HEIGHT;
 
   // 1. Draw Base Map
+  const visualScale = 2 ** (zoom - baseMapState.zoom);
+  const oldCenterPtNewZoom = latLonToPoint(baseMapState.lat, baseMapState.lon, zoom);
+  const currentCenterPtNewZoom = latLonToPoint(lat, lon, zoom);
+  
+  const offsetX = currentCenterPtNewZoom.x - oldCenterPtNewZoom.x;
+  const offsetY = currentCenterPtNewZoom.y - oldCenterPtNewZoom.y;
+
+  ctx.save();
   ctx.setTransform(1, 0, 0, 1, 0, 0);
-  ctx.drawImage(baseMap, 0, 0);
+  ctx.fillStyle = '#e8e8e8';
+  ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+  ctx.translate(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2);
+  ctx.translate(-offsetX, -offsetY);
+  ctx.scale(visualScale, visualScale);
+  ctx.translate(-CANVAS_WIDTH / 2, -CANVAS_HEIGHT / 2);
+  ctx.drawImage(baseMapState.canvas, 0, 0);
+  ctx.restore();
+
+  // Reset transform for pins and legend
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
 
   // 2. Draw Pins
   const pinPath = new Path2D(
@@ -439,7 +454,7 @@ export function ReportEditStep3({ report, setReport, readOnly }: ReportEditStep3
   const [editingPinId, setEditingPinId] = useState<string | null>(null);
   const [isLegendAdjusting, setIsLegendAdjusting] = useState(false);
   const [legendDragging, setLegendDragging] = useState<{ startX: number, startY: number, initialX: number, initialY: number } | null>(null);
-  const [baseMap, setBaseMap] = useState<HTMLCanvasElement | null>(null);
+  const [baseMap, setBaseMap] = useState<{ canvas: HTMLCanvasElement; zoom: number; lat: number; lon: number } | null>(null);
   const isOnline = useConnectivity();
   const reportRef = useRef(report);
 
@@ -453,7 +468,8 @@ export function ReportEditStep3({ report, setReport, readOnly }: ReportEditStep3
   // We need to know where it is to check hit detection.
   // We'll calculate "current" position inside handlers or render.
 
-  // 1. Re-render BASE MAP whenever lat, lon, zoom or map type changes
+  // 1. Re-render BASE MAP whenever lat, lon, intZoom or map type changes
+  const intZoom = Math.floor(zoom);
   useEffect(() => {
     if (!isOnline) {
       setLoading(false);
@@ -464,15 +480,15 @@ export function ReportEditStep3({ report, setReport, readOnly }: ReportEditStep3
     const isCancelled = () => cancelled;
     setLoading(true);
     
-    generateBaseMap(lat, lon, zoom, mapType, isCancelled).then((bm) => {
+    generateBaseMap(lat, lon, intZoom, mapType, isCancelled).then((bm) => {
       if (!cancelled && bm) {
-        setBaseMap(bm);
+        setBaseMap({ canvas: bm, zoom: intZoom, lat, lon });
       }
       if (!cancelled) setLoading(false);
     });
 
     return () => { cancelled = true; };
-  }, [lat, lon, zoom, isOnline, mapType]);
+  }, [lat, lon, intZoom, isOnline, mapType]);
 
   // 2. Composite everything whenever baseMap, pins, or legend changes
   useEffect(() => {
