@@ -2,20 +2,58 @@
 
 Bienvenido a la documentación oficial de **Site Survey Generator**. Este portal está diseñado para proporcionar información técnica, guías de uso y detalles de implementación.
 
-## Secciones Principales
+## Guías de Usuario
 
-### [📖 Manual de Usuario](user_manual.md)
-Guía detallada paso a paso para el uso del sistema, desde la creación de reportes hasta la generación de PDFs. Ideal para **Técnicos de Campo** y **Administradores**.
+### [Manual de Usuario](guides/user_manual.md)
+Guía paso a paso para el uso del sistema, desde la creación de reportes hasta la generación de PDFs.
 
-### [🏗️ Arquitectura Técnica](architecture.md)
-Documentación sobre el diseño interno del software, incluyendo:
--   Stack tecnológico (Frontend, Backend).
--   Estructura de archivos y directorios.
--   Modelo de datos en Firestore.
+### [Editor de Imágenes](guides/image_editor.md)
+Herramientas de anotación y dibujo sobre las fotografías de evidencia del reporte.
 
-### [🔄 Flujos y Estados](workflow.md)
-Explica la lógica de negocio y el ciclo de vida de los reportes, con diagramas visuales (Mermaid) que detallan las transiciones de estados y permisos.
+### [Mapa y Marcadores](guides/map_markers.md)
+Diagrama interactivo con mapa satelital, marcadores de infraestructura y leyenda técnica.
+
+### [Administración de Sitios](guides/site_admin.md)
+Gestión del catálogo de sitios: crear, editar, importar/exportar desde Excel.
+
+### [Administración de Usuarios](guides/user_admin.md)
+Gestión de cuentas de usuario, roles y grupos de trabajo.
+
+### [Dashboard Administrativo](guides/admin_dashboard.md)
+Panel de control con resumen de progreso, reportes por estado y desglose geográfico.
 
 ---
 
-Para cualquier duda o sugerencia, consulte el repositorio oficial.
+## Referencia Técnica
+
+### [Arquitectura](technical/architecture.md)
+Stack tecnológico, estructura del proyecto, modelo de datos y estrategia offline.
+
+### [Flujos y Estados](technical/workflow.md)
+Ciclo de vida de los reportes, máquina de estados y permisos por rol.
+
+### [Estructura de Firestore](technical/firestore_structure.md)
+Esquema detallado de las colecciones, campos y tipos de datos en Firestore.
+
+### [Migración de Template PDF](technical/template_migration.md)
+Plan de migración del template PDF de v1 a v2.
+
+---
+
+## Planificación
+
+### [Historias de Usuario](planning/user_stories.md)
+Épicas e historias de usuario con criterios de aceptación.
+
+### [Plan de Implementación](planning/implementation_plan.md)
+Fases de implementación con checklist de progreso.
+
+### [Base de Datos de Sitios](planning/sites_database.md)
+Datos de referencia de sitios LPR y Cotejo Facial.
+
+---
+
+## Despliegue
+
+### [Guía de Despliegue](deployment/guide.md)
+Configuración de GitHub Pages, Docsify y despliegue automático.

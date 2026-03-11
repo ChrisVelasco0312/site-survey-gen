@@ -21,45 +21,61 @@ Será redirigido automáticamente a **Mis Reportes**. Aquí encontrará:
 -   Una lista de los reportes que ha creado o que tiene asignados.
 -   El estado de cada reporte (En Campo, En Revisión, etc.).
 -   Un botón para **+ Nuevo Reporte** (o seleccionar uno existente para editar).
+-   Opción de **duplicar** un reporte existente como base para uno nuevo.
 
 ### Para Administradores
-Verá un panel general con todos los reportes del sistema, permitiéndole filtrar por estado, usuario o fecha.
+Verá un [Dashboard Administrativo](admin_dashboard) con:
+-   Pestaña **Resumen:** Progreso de sitios con desglose por distrito, municipio y tipo.
+-   Pestaña **En Campo:** Reportes actualmente en edición por los técnicos.
+-   Pestaña **En Revisión:** Reportes pendientes de aprobación.
+
+### Para Superadministradores
+Además del dashboard, tienen acceso a:
+-   [Administración de Usuarios](user_admin) (`/admin/usuarios`).
+-   [Administración de Sitios](site_admin) (`/admin/sitios`).
 
 ## 3. Realizar un Levantamiento (Crear/Editar Reporte)
 
-El formulario de levantamiento está dividido en **7 pasos** para facilitar la captura de datos en dispositivos móviles. Puede navegar entre ellos usando los botones "Siguiente" y "Anterior", o tocando el número del paso en la parte superior.
+El formulario de levantamiento está dividido en **6 pasos** para facilitar la captura de datos en dispositivos móviles. Puede navegar entre ellos usando los botones "Siguiente" y "Anterior", o tocando el número del paso en la parte superior.
 
 ### Paso 1: Datos Generales y Ubicación
--   Seleccione el **Sitio** del catálogo (si aplica) o ingrese la dirección manualmente.
--   Verifique las coordenadas GPS (Latitud/Longitud).
--   Indique el **Tipo de Instalación** (Fachada, Poste, Torre).
-
-### Paso 2: Seguridad y Contrato
+-   Seleccione el **Sitio** del catálogo.
+-   Indique la fecha del levantamiento.
+-   Seleccione el **Tipo de Instalación** (Fachada, Poste, Torre).
 -   Defina el **Nivel de Seguridad** del sitio (Alto, Medio, Bajo).
--   Seleccione el componente del contrato asociado (ej. Valle Seguro).
--   Añada observaciones generales preliminares.
 
-### Paso 3: Datos Técnicos
--   **Conectividad:** Especifique si hay línea de vista, tipo de transmisión (Fibra Óptica/Radio) y tipo de cableado.
--   **Hardware:** Realice el inventario de equipos existentes (Cámaras Fijas, PTZ, Multisensor, Cajas adicionales).
+### Paso 2: Datos Técnicos e Infraestructura
 
-### Paso 4: Diagrama y Mapa
--   Esta sección permite visualizar la ubicación en el mapa.
--   Puede cargar o dibujar un croquis simple sobre la imagen satelital para indicar la ubicación de los elementos.
+Este paso varía según el **tipo de sitio** seleccionado:
 
-### Paso 5: Evidencia Fotográfica
-Suba las fotos requeridas para el reporte. El sistema comprimirá automáticamente las imágenes.
--   **Vista de Cámara:** Foto de lo que ve la cámara.
+-   **LPR:** Formulario especializado con datos de sentido vial, tipo de estructura y campos específicos para lectura de placas.
+-   **Cotejo Facial:** Formulario especializado con datos de reconocimiento facial.
+-   **Otros tipos:** Formulario general con:
+    -   **Conectividad:** Línea de vista, tipo de transmisión (Fibra Óptica/Radio), tipo de cableado.
+    -   **Hardware:** Inventario de equipos existentes (Cámaras Fijas, PTZ, Multisensor, Cajas adicionales).
+
+### Paso 3: Diagrama y Mapa
+-   Visualización de la ubicación en mapa interactivo (OSM o Satélite).
+-   Colocación de [marcadores de infraestructura](map_markers) sobre el mapa.
+-   Leyenda técnica con simbología estándar.
+-   Captura del mapa como imagen PNG para incluir en el reporte.
+-   Ver detalles completos en [Mapa y Marcadores](map_markers).
+
+### Paso 4: Evidencia Fotográfica
+Suba las fotos requeridas para el reporte. El sistema comprimirá automáticamente las imágenes (máx. 500 KB).
+-   **Visual de Cámara:** Foto de lo que ve la cámara.
 -   **Acometida:** Foto del punto de conexión eléctrica/datos.
+-   Cada foto puede editarse con el [Editor de Imágenes](image_editor) para agregar anotaciones.
 
-### Paso 6: Metrajes y Obra Civil
+### Paso 5: Metrajes y Obra Civil
 Detalle los materiales necesarios para la instalación:
 -   Metros de cableado aéreo o subterráneo.
 -   Metros de canalización en tierra/asfalto.
 -   Detalles de la acometida eléctrica (tipo de tubería, altura).
 -   Detalles del punto de cámara (material del poste, altura).
+-   Detalles de PTZ (si aplica).
 
-### Paso 7: Cierre y Guardado
+### Paso 6: Cierre y Guardado
 -   Ingrese el nombre del responsable del sitio (propietario/contacto).
 -   Añada **Observaciones Finales**.
 -   Guardar el reporte.
@@ -82,11 +98,11 @@ En cualquier momento durante la edición, puede acceder a una **Vista Previa** d
 *   **Importante:** Este documento es un **BORRADOR**. No tiene validez oficial hasta que el reporte haya sido aprobado y generado por un administrador.
 
 ### Validación de Campos
-Actualmente, el sistema permite guardar el progreso con campos incompletos para facilitar el trabajo en campo. Sin embargo, para que un reporte sea considerado completo y válido, debe diligenciar campos críticos, incluyendo:
+El sistema permite guardar el progreso con campos incompletos para facilitar el trabajo en campo. Sin embargo, para que un reporte sea considerado completo y válido, debe diligenciar campos críticos, incluyendo:
 
-*   **Paso 1:** Fecha y Selección del Sitio (o dirección).
-*   **Paso 4:** Imagen del **Diagrama Editado**. (Requisito obligatorio para enviar a revisión).
-*   **Paso 6:** Metrajes de instalación (al menos un valor mayor a 0 si aplica).
+*   **Paso 1:** Fecha y Selección del Sitio.
+*   **Paso 3:** Imagen del **Diagrama/Mapa guardado**. (Requisito obligatorio para enviar a revisión).
+*   **Paso 5:** Metrajes de instalación (al menos un valor mayor a 0 si aplica).
 
 ## 6. Finalizar y Enviar
 
