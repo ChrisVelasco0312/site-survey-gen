@@ -11,13 +11,17 @@
 <body>
   <div id="app">Cargando documentación...</div>
   <script>
-    window.docsify = {
+    window.$docsify = {
       name: 'Site Survey Generator',
-      repo: '', // Se puede configurar si se desea un enlace al repo en la esquina
+      repo: '',
       loadSidebar: true,
       subMaxLevel: 2,
       loadNavbar: false,
       auto2top: true,
+      relativePath: true,
+      alias: {
+        '/.*/_sidebar.md': '/_sidebar.md'
+      },
       search: {
         maxAge: 86400000,
         paths: 'auto',

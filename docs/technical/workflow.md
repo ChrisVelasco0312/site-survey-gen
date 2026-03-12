@@ -118,8 +118,8 @@ El proceso de edición (`ReportEdit`) se divide en 6 pasos lógicos para facilit
     -   *LPR:* Formulario especializado (sentido vial, estructura).
     -   *Cotejo Facial:* Formulario especializado.
     -   *General:* Conectividad (Fibra, Radio), hardware existente.
-3.  **Diagrama y mapa:** Mapa interactivo con [marcadores de infraestructura](../guides/map_markers), leyenda técnica y captura PNG.
-4.  **Evidencia fotográfica:** Carga de fotos con compresión automática y [editor de anotaciones](../guides/image_editor).
+3.  **Diagrama y mapa:** Mapa interactivo con [marcadores de infraestructura](../guides/map_markers.md), leyenda técnica y captura PNG.
+4.  **Evidencia fotográfica:** Carga de fotos con compresión automática y [editor de anotaciones](../guides/image_editor.md).
 5.  **Metrajes y obra civil:** Distancias (cables, zanjas), detalles de acometida, punto de cámara, PTZ.
 6.  **Cierre:** Responsable del sitio y observaciones finales.
 

@@ -99,6 +99,12 @@ export function ReportEditStep2({ report, setReport, readOnly }: ReportEditStep2
       value: h.cameras_lpr,
       onChange: (n: number) => setReport(setHardware(report, { cameras_lpr: n }))
     }] : []),
+    ...(isLPR ? [{
+      key: 'ptz',
+      label: 'PTZ',
+      value: h.cameras_ptz,
+      onChange: (n: number) => setReport(setHardware(report, { cameras_ptz: n }))
+    }] : []),
   ];
 
   const cameraDisplay = [
