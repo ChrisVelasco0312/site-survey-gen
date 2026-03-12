@@ -24,15 +24,15 @@ Será redirigido automáticamente a **Mis Reportes**. Aquí encontrará:
 -   Opción de **duplicar** un reporte existente como base para uno nuevo.
 
 ### Para Administradores
-Verá un [Dashboard Administrativo](admin_dashboard) con:
+Verá un [Dashboard Administrativo](admin_dashboard.md) con:
 -   Pestaña **Resumen:** Progreso de sitios con desglose por distrito, municipio y tipo.
 -   Pestaña **En Campo:** Reportes actualmente en edición por los técnicos.
 -   Pestaña **En Revisión:** Reportes pendientes de aprobación.
 
 ### Para Superadministradores
 Además del dashboard, tienen acceso a:
--   [Administración de Usuarios](user_admin) (`/admin/usuarios`).
--   [Administración de Sitios](site_admin) (`/admin/sitios`).
+-   [Administración de Usuarios](user_admin.md) (`/admin/usuarios`).
+-   [Administración de Sitios](site_admin.md) (`/admin/sitios`).
 
 ## 3. Realizar un Levantamiento (Crear/Editar Reporte)
 
@@ -56,16 +56,16 @@ Este paso varía según el **tipo de sitio** seleccionado:
 
 ### Paso 3: Diagrama y Mapa
 -   Visualización de la ubicación en mapa interactivo (OSM o Satélite).
--   Colocación de [marcadores de infraestructura](map_markers) sobre el mapa.
+-   Colocación de [marcadores de infraestructura](map_markers.md) sobre el mapa.
 -   Leyenda técnica con simbología estándar.
 -   Captura del mapa como imagen PNG para incluir en el reporte.
--   Ver detalles completos en [Mapa y Marcadores](map_markers).
+-   Ver detalles completos en [Mapa y Marcadores](map_markers.md).
 
 ### Paso 4: Evidencia Fotográfica
 Suba las fotos requeridas para el reporte. El sistema comprimirá automáticamente las imágenes (máx. 500 KB).
 -   **Visual de Cámara:** Foto de lo que ve la cámara.
 -   **Acometida:** Foto del punto de conexión eléctrica/datos.
--   Cada foto puede editarse con el [Editor de Imágenes](image_editor) para agregar anotaciones.
+-   Cada foto puede editarse con el [Editor de Imágenes](image_editor.md) para agregar anotaciones.
 
 ### Paso 5: Metrajes y Obra Civil
 Detalle los materiales necesarios para la instalación:
