@@ -1,8 +1,8 @@
 import { useEffect, useState, useMemo } from 'preact/hooks';
-import { Title, Card, Grid, Text, Group, RingProgress, Table, Loader, Badge, ScrollArea, Select, Button, Collapse } from '@mantine/core';
+import { Title, Card, Grid, Text, Group, RingProgress, Table, Loader, Badge, ScrollArea, Select, Button, Collapse, Stack } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
-import { IconFilter, IconX } from '@tabler/icons-react';
-import type { SiteRecord, Report, ReportStatus } from '../../types/Report';
+import { IconFilter, IconX, IconCamera } from '@tabler/icons-react';
+import type { SiteRecord, Report, ReportStatus, HardwareInventory } from '../../types/Report';
 import { getAllReports } from '../../services/reportsService';
 import { fetchSitesAndPersist } from '../../services/sitesService';
 
@@ -13,6 +13,25 @@ const SITE_TYPE_LABELS: Record<string, string> = {
   cotejo_facial: 'Cotejo Facial',
   ptz: 'PTZ',
 };
+
+type CameraFieldKey = keyof Pick<HardwareInventory, 'cameras_multisensor' | 'cameras_ptz' | 'cameras_fixed' | 'cameras_facial' | 'cameras_lpr'>;
+
+const CAMERA_FIELDS_BY_SITE_TYPE: Record<string, { key: CameraFieldKey; label: string }[]> = {
+  ptz: [
+    { key: 'cameras_multisensor', label: 'Multisensor' },
+    { key: 'cameras_ptz', label: 'PTZ' },
+    { key: 'cameras_fixed', label: 'Fijas' },
+  ],
+  cotejo_facial: [
+    { key: 'cameras_facial', label: 'Facial' },
+  ],
+  lpr: [
+    { key: 'cameras_lpr', label: 'LPR' },
+    { key: 'cameras_ptz', label: 'PTZ' },
+  ],
+};
+
+type CameraCounts = Partial<Record<CameraFieldKey, number>>;
 
 export function SitesSummary() {
   const [reports, setReports] = useState<Report[]>([]);
@@ -111,6 +130,34 @@ export function SitesSummary() {
     const municipalityStats = new Map<string, Map<string, Counts>>();
     const siteTypeStats = new Map<string, Map<string, Map<string, Counts>>>();
 
+    const districtCameras = new Map<string, CameraCounts>();
+    const municipalityCameras = new Map<string, Map<string, CameraCounts>>();
+    const siteTypeCameras = new Map<string, Map<string, Map<string, CameraCounts>>>();
+
+    const addCameras = (target: CameraCounts, hw: HardwareInventory, siteType: string) => {
+      const fields = CAMERA_FIELDS_BY_SITE_TYPE[siteType];
+      if (!fields) return;
+      for (let f = 0; f < fields.length; f++) {
+        const val = hw[fields[f].key] || 0;
+        if (val > 0) {
+          target[fields[f].key] = (target[fields[f].key] || 0) + val;
+        }
+      }
+    };
+
+    const getOrCreate = <V,>(map: Map<string, V>, key: string, factory: () => V): V => {
+      let v = map.get(key);
+      if (!v) { v = factory(); map.set(key, v); }
+      return v;
+    };
+
+    const getOrCreateNested = <V,>(
+      outer: Map<string, Map<string, V>>, k1: string, k2: string, factory: () => V
+    ): V => {
+      const inner = getOrCreate(outer, k1, () => new Map<string, V>());
+      return getOrCreate(inner, k2, factory);
+    };
+
     // Process each site
     for (let i = 0; i < filteredSites.length; i++) {
       const site = filteredSites[i];
@@ -118,41 +165,11 @@ export function SitesSummary() {
       const municipality = site.municipio || 'Sin Municipio';
       const siteType = site.site_type || 'lpr';
 
-      let dStats = districtStats.get(district);
-      if (!dStats) {
-        dStats = createCounts();
-        districtStats.set(district, dStats);
-      }
+      const dStats = getOrCreate(districtStats, district, createCounts);
+      const mStats = getOrCreateNested(municipalityStats, district, municipality, createCounts);
 
-      let munMap = municipalityStats.get(district);
-      if (!munMap) {
-        munMap = new Map();
-        municipalityStats.set(district, munMap);
-      }
-      
-      let mStats = munMap.get(municipality);
-      if (!mStats) {
-        mStats = createCounts();
-        munMap.set(municipality, mStats);
-      }
-      
-      let stDistMap = siteTypeStats.get(district);
-      if (!stDistMap) {
-        stDistMap = new Map();
-        siteTypeStats.set(district, stDistMap);
-      }
-
-      let stMunMap = stDistMap.get(municipality);
-      if (!stMunMap) {
-        stMunMap = new Map();
-        stDistMap.set(municipality, stMunMap);
-      }
-
-      let stStats = stMunMap.get(siteType);
-      if (!stStats) {
-        stStats = createCounts();
-        stMunMap.set(siteType, stStats);
-      }
+      const stDistMap = getOrCreate(siteTypeStats, district, () => new Map<string, Map<string, Counts>>());
+      const stStats = getOrCreateNested(stDistMap, municipality, siteType, createCounts);
 
       const report = latestReportBySite.get(site.id);
       const status: ExtendedStatus = report ? report.status : 'sin_iniciar';
@@ -168,32 +185,80 @@ export function SitesSummary() {
 
       stStats.total++;
       stStats[status]++;
+
+      if (report?.hardware) {
+        const dCam = getOrCreate(districtCameras, district, () => ({} as CameraCounts));
+        const mCam = getOrCreateNested(municipalityCameras, district, municipality, () => ({} as CameraCounts));
+        const stCamOuter = getOrCreate(siteTypeCameras, district, () => new Map<string, Map<string, CameraCounts>>());
+        const stCam = getOrCreateNested(stCamOuter, municipality, siteType, () => ({} as CameraCounts));
+
+        addCameras(dCam, report.hardware, siteType);
+        addCameras(mCam, report.hardware, siteType);
+        addCameras(stCam, report.hardware, siteType);
+      }
     }
+
+    const getCameraEntries = (cam: CameraCounts | undefined, siteType?: string) => {
+      if (!cam) return [];
+      const entries: { key: CameraFieldKey; label: string; count: number }[] = [];
+      const fieldSet = siteType ? CAMERA_FIELDS_BY_SITE_TYPE[siteType] : undefined;
+      const keys = Object.keys(cam) as CameraFieldKey[];
+      for (let k = 0; k < keys.length; k++) {
+        const count = cam[keys[k]] || 0;
+        if (count === 0) continue;
+        let label: string = keys[k];
+        if (fieldSet) {
+          const match = fieldSet.find(f => f.key === keys[k]);
+          if (match) label = match.label;
+        } else {
+          for (const st in CAMERA_FIELDS_BY_SITE_TYPE) {
+            const match = CAMERA_FIELDS_BY_SITE_TYPE[st].find(f => f.key === keys[k]);
+            if (match) { label = match.label; break; }
+          }
+        }
+        entries.push({ key: keys[k], label, count });
+      }
+      return entries;
+    };
 
     const sortedDistricts = Array.from(districtStats.entries())
       .sort((a, b) => a[0].localeCompare(b[0]))
       .map(([district, dStats]) => {
         const munsMap = municipalityStats.get(district);
+        const dCam = getCameraEntries(districtCameras.get(district));
         const sortedMuns = munsMap 
           ? Array.from(munsMap.entries())
               .sort((a, b) => a[0].localeCompare(b[0]))
               .map(([municipality, mStats]) => {
                 const sTypesMap = siteTypeStats.get(district)?.get(municipality);
+                const mCam = getCameraEntries(municipalityCameras.get(district)?.get(municipality));
                 const sortedSTypes = sTypesMap
                   ? Array.from(sTypesMap.entries())
                       .sort((a, b) => a[0].localeCompare(b[0]))
+                      .map(([siteType, stStats]) => {
+                        const stCam = getCameraEntries(
+                          siteTypeCameras.get(district)?.get(municipality)?.get(siteType),
+                          siteType,
+                        );
+                        return { siteType, stStats, stCam };
+                      })
                   : [];
-                return { municipality, mStats, sortedSTypes };
+                return { municipality, mStats, mCam, sortedSTypes };
               })
           : [];
-        return { district, dStats, sortedMuns };
+        return { district, dStats, dCam, sortedMuns };
       });
 
     return { globalStats, sortedDistricts };
   }, [sites, latestReportBySite, filterDistrito, filterMunicipio, filterSiteType]);
 
   if (loading) {
-    return <Loader mt="xl" />;
+    return (
+      <Stack align="center" mt="xl" gap="sm">
+        <Loader size="md" />
+        <Text size="sm" c="dimmed">Cargando sitios y reportes…</Text>
+      </Stack>
+    );
   }
 
   const { globalStats, sortedDistricts } = stats;
@@ -346,7 +411,6 @@ export function SitesSummary() {
             <Table.Tbody>
               {sortedDistricts.map(({ district, dStats, sortedMuns }) => {
                 const rows = [];
-                // District row
                 rows.push(
                   <Table.Tr key={`d-${district}`} bg="var(--mantine-color-gray-2)">
                     <Table.Td>
@@ -361,7 +425,6 @@ export function SitesSummary() {
                   </Table.Tr>
                 );
 
-                // Municipality rows
                 sortedMuns.forEach(({ municipality, mStats, sortedSTypes }) => {
                   rows.push(
                     <Table.Tr key={`m-${district}-${municipality}`} bg="var(--mantine-color-gray-0)">
@@ -377,8 +440,7 @@ export function SitesSummary() {
                     </Table.Tr>
                   );
 
-                  // Site Type rows
-                  sortedSTypes.forEach(([siteType, stStats]) => {
+                  sortedSTypes.forEach(({ siteType, stStats, stCam }) => {
                     rows.push(
                       <Table.Tr key={`st-${district}-${municipality}-${siteType}`}>
                         <Table.Td style={{ paddingLeft: '4rem' }}>
@@ -394,6 +456,27 @@ export function SitesSummary() {
                         <Table.Td>{renderStatusCount(stStats.generado, stStats.total)}</Table.Td>
                       </Table.Tr>
                     );
+
+                    stCam.forEach(({ key, label, count }) => {
+                      rows.push(
+                        <Table.Tr key={`cam-${district}-${municipality}-${siteType}-${key}`} bg="var(--mantine-color-violet-0)">
+                          <Table.Td style={{ paddingLeft: '6rem' }}>
+                            <Group gap={6} wrap="nowrap">
+                              <IconCamera size={14} style={{ opacity: 0.6 }} />
+                              <Badge size="sm" variant="light" color="violet">Cam. {label}</Badge>
+                            </Group>
+                          </Table.Td>
+                          <Table.Td>
+                            <Text size="sm" fw={600} c="violet">{count}</Text>
+                          </Table.Td>
+                          <Table.Td />
+                          <Table.Td />
+                          <Table.Td />
+                          <Table.Td />
+                          <Table.Td />
+                        </Table.Tr>
+                      );
+                    });
                   });
                 });
                 return rows;
