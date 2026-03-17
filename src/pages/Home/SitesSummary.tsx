@@ -195,6 +195,8 @@ export function SitesSummary() {
       cameras: { label: string; count: number }[];
     };
     const cameraInventory: CameraInventoryRow[] = [];
+    let totalCameras = 0;
+    const camerasByType = new Map<string, number>();
 
     const getOrCreate = <V,>(map: Map<string, V>, key: string, factory: () => V): V => {
       let v = map.get(key);
@@ -243,7 +245,11 @@ export function SitesSummary() {
           const cameras: { label: string; count: number }[] = [];
           for (let f = 0; f < fields.length; f++) {
             const val = report.hardware[fields[f].key] || 0;
-            if (val > 0) cameras.push({ label: fields[f].label, count: val });
+            if (val > 0) {
+              cameras.push({ label: fields[f].label, count: val });
+              totalCameras += val;
+              camerasByType.set(fields[f].label, (camerasByType.get(fields[f].label) || 0) + val);
+            }
           }
           if (cameras.length > 0) {
             cameraInventory.push({
@@ -286,7 +292,11 @@ export function SitesSummary() {
       || a.siteCode.localeCompare(b.siteCode),
     );
 
-    return { globalStats, sortedDistricts, cameraInventory };
+    const sortedCameraTypes = Array.from(camerasByType.entries())
+      .sort((a, b) => b[1] - a[1])
+      .map(([label, count]) => ({ label, count }));
+
+    return { globalStats, sortedDistricts, cameraInventory, totalCameras, sortedCameraTypes };
   }, [sites, latestReportBySite, filterDistrito, filterMunicipio, filterSiteType]);
 
   if (loading) {
@@ -298,7 +308,7 @@ export function SitesSummary() {
     );
   }
 
-  const { globalStats, sortedDistricts, cameraInventory } = stats;
+  const { globalStats, sortedDistricts, cameraInventory, totalCameras, sortedCameraTypes } = stats;
 
   const renderStatusCount = (count: number, total: number) => {
     if (total === 0) return '-';
@@ -570,7 +580,27 @@ export function SitesSummary() {
             </Text>
           </Card>
         </Grid.Col>
-        
+
+        <Grid.Col span={{ base: 12, md: 4 }}>
+          <Card shadow="sm" padding="lg" radius="md" withBorder style={{ height: '100%' }}>
+            <Group justify="space-between" mb="xs">
+              <Text fw={500} size="lg">Cámaras Instaladas</Text>
+              <Badge size="xl" variant="filled" color="violet">{totalCameras}</Badge>
+            </Group>
+            {sortedCameraTypes.length > 0 ? (
+              <Group gap={6} mt="xs">
+                {sortedCameraTypes.map((cam) => (
+                  <Badge key={cam.label} size="sm" variant="light" color="violet">
+                    {cam.label}: {cam.count}
+                  </Badge>
+                ))}
+              </Group>
+            ) : (
+              <Text size="sm" c="dimmed">Sin datos de hardware reportados.</Text>
+            )}
+          </Card>
+        </Grid.Col>
+
         {statusList.map(status => (
           <Grid.Col span={{ base: 6, md: 4, lg: 1.6 }} key={status}>
             <Card shadow="sm" padding="sm" radius="md" withBorder style={{ height: '100%' }}>
