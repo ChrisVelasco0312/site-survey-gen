@@ -22,6 +22,7 @@ import {
   IconFileExport,
   IconMapPin,
   IconUsers,
+  IconReportAnalytics,
 } from '@tabler/icons-react';
 import { JSX } from 'preact';
 
@@ -79,6 +80,7 @@ export function SideMenu({ children }: SideMenuProps) {
     
     if (userData?.role === 'admin' || userData?.role === 'superadmin' || userData?.role === 'read_only') {
       items.push({ label: 'Dashboard', path: '/', icon: IconLayoutDashboard });
+      items.push({ label: 'Resumen de Sitios', path: '/resumen-sitios', icon: IconReportAnalytics });
       items.push({ label: 'Sitios', path: '/admin/sitios', icon: IconMapPin });
     }
 

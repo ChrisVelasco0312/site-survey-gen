@@ -18,12 +18,11 @@ import { Report } from "../../types/Report";
 import { IconEye, IconRefresh } from "@tabler/icons-react";
 import { useLocation } from "preact-iso";
 import { getAllReports } from "../../services/reportsService";
-import { SitesSummary } from "./SitesSummary";
 
 export function AdminDashboard() {
   const [reports, setReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<string | null>("resumen");
+  const [activeTab, setActiveTab] = useState<string | null>("en_campo");
   const location = useLocation();
   const isMobile = useMediaQuery("(max-width: 768px)");
 
@@ -195,14 +194,9 @@ export function AdminDashboard() {
       ) : (
         <Tabs value={activeTab} onChange={setActiveTab} keepMounted={false}>
           <Tabs.List mb="md">
-            <Tabs.Tab value="resumen">Resumen</Tabs.Tab>
             <Tabs.Tab value="en_campo">En Campo</Tabs.Tab>
             <Tabs.Tab value="en_revision">En Revisión</Tabs.Tab>
           </Tabs.List>
-
-          <Tabs.Panel value="resumen">
-            <SitesSummary />
-          </Tabs.Panel>
 
           <Tabs.Panel value="en_campo">
             {renderContent(["en_campo"])}
