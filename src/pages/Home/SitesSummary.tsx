@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo } from 'preact/hooks';
-import { Title, Card, Grid, Text, Group, RingProgress, Table, Loader, Badge, ScrollArea, Select, Button, Collapse, Stack, MultiSelect, Tabs } from '@mantine/core';
+import { Title, Card, Grid, Text, Group, RingProgress, Table, Loader, Badge, ScrollArea, Select, Button, Collapse, Stack, MultiSelect, Tabs, Modal, Tooltip, ActionIcon } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
-import { IconFilter, IconX, IconCamera, IconFileSpreadsheet, IconTable } from '@tabler/icons-react';
+import { IconFilter, IconX, IconCamera, IconFileSpreadsheet, IconTable, IconMapPin, IconEye } from '@tabler/icons-react';
 import * as XLSX from 'xlsx';
 import type { SiteRecord, Report, ReportStatus, HardwareInventory } from '../../types/Report';
 import { getAllReports } from '../../services/reportsService';
@@ -11,7 +11,7 @@ type ExtendedStatus = ReportStatus | 'sin_iniciar';
 
 const SITE_TYPE_LABELS: Record<string, string> = {
   lpr: 'LPR',
-  cotejo_facial: 'Cotejo Facial',
+  cotejo_facial: 'Facial',
   ptz: 'PTZ',
 };
 
@@ -45,6 +45,24 @@ export function SitesSummary() {
   const [filterMunicipio, setFilterMunicipio] = useState<string | null>(null);
   const [filterSiteType, setFilterSiteType] = useState<string | null>(null);
   const [hiddenColumns, setHiddenColumns] = useState<Array<'total' | ExtendedStatus>>([]);
+
+  // Detail modal
+  type ModalSite = {
+    siteCode: string;
+    name: string;
+    address: string;
+    siteType: string;
+    distrito: string;
+    municipio: string;
+    camerasCount: number;
+    status: ExtendedStatus;
+    updatedAt: number | null;
+    description: string;
+    hasReport: boolean;
+  };
+  const [modalOpened, setModalOpened] = useState(false);
+  const [modalTitle, setModalTitle] = useState('');
+  const [modalSites, setModalSites] = useState<ModalSite[]>([]);
 
   useEffect(() => {
     let mounted = true;
@@ -104,6 +122,43 @@ export function SitesSummary() {
   };
 
   const hasActiveFilters = !!(filterDistrito || filterMunicipio || filterSiteType);
+
+  const openSitesModal = (title: string, matchDistrict?: string, matchMunicipality?: string, matchSiteType?: string) => {
+    const result: ModalSite[] = [];
+    for (let i = 0; i < sites.length; i++) {
+      const site = sites[i];
+      if (filterDistrito && site.distrito !== filterDistrito) continue;
+      if (filterMunicipio && site.municipio !== filterMunicipio) continue;
+      if (filterSiteType && site.site_type !== filterSiteType) continue;
+
+      const district = site.distrito || 'Sin Distrito';
+      const municipality = site.municipio || 'Sin Municipio';
+      const siteType = site.site_type || 'lpr';
+
+      if (matchDistrict && district !== matchDistrict) continue;
+      if (matchMunicipality && municipality !== matchMunicipality) continue;
+      if (matchSiteType && siteType !== matchSiteType) continue;
+
+      const report = latestReportBySite.get(site.id);
+      result.push({
+        siteCode: site.site_code,
+        name: site.name,
+        address: site.address,
+        siteType,
+        distrito: district,
+        municipio: municipality,
+        camerasCount: site.cameras_count,
+        status: report ? report.status : 'sin_iniciar',
+        updatedAt: report ? report.updated_at : null,
+        description: site.description,
+        hasReport: !!report,
+      });
+    }
+    result.sort((a, b) => a.siteCode.localeCompare(b.siteCode));
+    setModalTitle(title);
+    setModalSites(result);
+    setModalOpened(true);
+  };
 
   const stats = useMemo(() => {
     // Apply filters
@@ -565,6 +620,7 @@ export function SitesSummary() {
                   {visibleMetricColumns.map((metric) => (
                     <Table.Th key={`header-${metric.key}`}>{metric.label}</Table.Th>
                   ))}
+                  <Table.Th w={50} />
                 </Table.Tr>
               </Table.Thead>
               <Table.Tbody>
@@ -578,6 +634,13 @@ export function SitesSummary() {
                       {visibleMetricColumns.map((metric) => (
                         <Table.Td key={`d-${district}-${metric.key}`}>{renderMetricCell(dStats, metric.key, true)}</Table.Td>
                       ))}
+                      <Table.Td>
+                        <Tooltip label="Ver sitios" withArrow>
+                          <ActionIcon variant="subtle" size="sm" onClick={() => openSitesModal(district, district)}>
+                            <IconEye size={16} />
+                          </ActionIcon>
+                        </Tooltip>
+                      </Table.Td>
                     </Table.Tr>
                   );
 
@@ -590,6 +653,13 @@ export function SitesSummary() {
                         {visibleMetricColumns.map((metric) => (
                           <Table.Td key={`m-${district}-${municipality}-${metric.key}`}>{renderMetricCell(mStats, metric.key)}</Table.Td>
                         ))}
+                        <Table.Td>
+                          <Tooltip label="Ver sitios" withArrow>
+                            <ActionIcon variant="subtle" size="sm" onClick={() => openSitesModal(`${district} › ${municipality}`, district, municipality)}>
+                              <IconEye size={16} />
+                            </ActionIcon>
+                          </Tooltip>
+                        </Table.Td>
                       </Table.Tr>
                     );
 
@@ -604,6 +674,16 @@ export function SitesSummary() {
                               {renderMetricCell(stStats, metric.key)}
                             </Table.Td>
                           ))}
+                          <Table.Td>
+                            <Tooltip label="Ver sitios" withArrow>
+                              <ActionIcon variant="subtle" size="sm" onClick={() => openSitesModal(
+                                `${district} › ${municipality} › ${SITE_TYPE_LABELS[siteType] || siteType}`,
+                                district, municipality, siteType,
+                              )}>
+                                <IconEye size={16} />
+                              </ActionIcon>
+                            </Tooltip>
+                          </Table.Td>
                         </Table.Tr>
                       );
                     });
@@ -671,6 +751,61 @@ export function SitesSummary() {
           )}
         </Tabs.Panel>
       </Tabs>
+
+      <Modal
+        opened={modalOpened}
+        onClose={() => setModalOpened(false)}
+        title={<Group gap={8}><IconMapPin size={18} /><Text fw={600}>{modalTitle}</Text><Badge size="sm" variant="light">{modalSites.length} sitios</Badge></Group>}
+        size="xl"
+        centered
+      >
+        <ScrollArea.Autosize mah="70vh">
+          <Table highlightOnHover withTableBorder striped>
+            <Table.Thead>
+              <Table.Tr>
+                <Table.Th>Código</Table.Th>
+                <Table.Th>Nombre</Table.Th>
+                <Table.Th>Dirección</Table.Th>
+                <Table.Th>Tipo</Table.Th>
+                <Table.Th>Estado</Table.Th>
+                <Table.Th>Últ. Actualización</Table.Th>
+                <Table.Th ta="center">Cámaras</Table.Th>
+              </Table.Tr>
+            </Table.Thead>
+            <Table.Tbody>
+              {modalSites.map((s) => (
+                <Table.Tr key={s.siteCode}>
+                  <Table.Td>
+                    <Text size="sm" fw={600}>{s.siteCode}</Text>
+                  </Table.Td>
+                  <Table.Td>
+                    <Tooltip label={s.description || s.name} multiline w={260} withArrow disabled={!s.description}>
+                      <Text size="sm" lineClamp={1}>{s.name}</Text>
+                    </Tooltip>
+                  </Table.Td>
+                  <Table.Td>
+                    <Text size="xs" c="dimmed" lineClamp={1}>{s.address}</Text>
+                  </Table.Td>
+                  <Table.Td>
+                    <Badge size="sm" variant="light">{SITE_TYPE_LABELS[s.siteType] || s.siteType}</Badge>
+                  </Table.Td>
+                  <Table.Td>
+                    <Badge size="sm" color={statusColors[s.status]} variant="filled">{statusLabels[s.status]}</Badge>
+                  </Table.Td>
+                  <Table.Td>
+                    <Text size="xs" c="dimmed">
+                      {s.updatedAt ? new Date(s.updatedAt).toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
+                    </Text>
+                  </Table.Td>
+                  <Table.Td ta="center">
+                    <Text size="sm" fw={500}>{s.camerasCount}</Text>
+                  </Table.Td>
+                </Table.Tr>
+              ))}
+            </Table.Tbody>
+          </Table>
+        </ScrollArea.Autosize>
+      </Modal>
     </div>
   );
 }
