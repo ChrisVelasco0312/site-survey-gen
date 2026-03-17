@@ -1,7 +1,8 @@
 import { useEffect, useState, useMemo } from 'preact/hooks';
-import { Title, Card, Grid, Text, Group, RingProgress, Table, Loader, Badge, ScrollArea, Select, Button, Collapse, Stack } from '@mantine/core';
+import { Title, Card, Grid, Text, Group, RingProgress, Table, Loader, Badge, ScrollArea, Select, Button, Collapse, Stack, MultiSelect, Tabs } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
-import { IconFilter, IconX, IconCamera } from '@tabler/icons-react';
+import { IconFilter, IconX, IconCamera, IconFileSpreadsheet, IconTable } from '@tabler/icons-react';
+import * as XLSX from 'xlsx';
 import type { SiteRecord, Report, ReportStatus, HardwareInventory } from '../../types/Report';
 import { getAllReports } from '../../services/reportsService';
 import { fetchSitesAndPersist } from '../../services/sitesService';
@@ -31,7 +32,7 @@ const CAMERA_FIELDS_BY_SITE_TYPE: Record<string, { key: CameraFieldKey; label: s
   ],
 };
 
-type CameraCounts = Partial<Record<CameraFieldKey, number>>;
+type SummaryCounts = Record<ExtendedStatus, number> & { total: number };
 
 export function SitesSummary() {
   const [reports, setReports] = useState<Report[]>([]);
@@ -43,6 +44,7 @@ export function SitesSummary() {
   const [filterDistrito, setFilterDistrito] = useState<string | null>(null);
   const [filterMunicipio, setFilterMunicipio] = useState<string | null>(null);
   const [filterSiteType, setFilterSiteType] = useState<string | null>(null);
+  const [hiddenColumns, setHiddenColumns] = useState<Array<'total' | ExtendedStatus>>([]);
 
   useEffect(() => {
     let mounted = true;
@@ -115,8 +117,7 @@ export function SitesSummary() {
     }
 
     // Initialize counts
-    type Counts = Record<ExtendedStatus, number> & { total: number };
-    const createCounts = (): Counts => ({
+    const createCounts = (): SummaryCounts => ({
       total: 0,
       sin_iniciar: 0,
       en_campo: 0,
@@ -126,24 +127,19 @@ export function SitesSummary() {
     });
 
     const globalStats = createCounts();
-    const districtStats = new Map<string, Counts>();
-    const municipalityStats = new Map<string, Map<string, Counts>>();
-    const siteTypeStats = new Map<string, Map<string, Map<string, Counts>>>();
+    const districtStats = new Map<string, SummaryCounts>();
+    const municipalityStats = new Map<string, Map<string, SummaryCounts>>();
+    const siteTypeStats = new Map<string, Map<string, Map<string, SummaryCounts>>>();
 
-    const districtCameras = new Map<string, CameraCounts>();
-    const municipalityCameras = new Map<string, Map<string, CameraCounts>>();
-    const siteTypeCameras = new Map<string, Map<string, Map<string, CameraCounts>>>();
-
-    const addCameras = (target: CameraCounts, hw: HardwareInventory, siteType: string) => {
-      const fields = CAMERA_FIELDS_BY_SITE_TYPE[siteType];
-      if (!fields) return;
-      for (let f = 0; f < fields.length; f++) {
-        const val = hw[fields[f].key] || 0;
-        if (val > 0) {
-          target[fields[f].key] = (target[fields[f].key] || 0) + val;
-        }
-      }
+    type CameraInventoryRow = {
+      siteCode: string;
+      siteName: string;
+      distrito: string;
+      municipio: string;
+      siteType: string;
+      cameras: { label: string; count: number }[];
     };
+    const cameraInventory: CameraInventoryRow[] = [];
 
     const getOrCreate = <V,>(map: Map<string, V>, key: string, factory: () => V): V => {
       let v = map.get(key);
@@ -168,7 +164,7 @@ export function SitesSummary() {
       const dStats = getOrCreate(districtStats, district, createCounts);
       const mStats = getOrCreateNested(municipalityStats, district, municipality, createCounts);
 
-      const stDistMap = getOrCreate(siteTypeStats, district, () => new Map<string, Map<string, Counts>>());
+      const stDistMap = getOrCreate(siteTypeStats, district, () => new Map<string, Map<string, SummaryCounts>>());
       const stStats = getOrCreateNested(stDistMap, municipality, siteType, createCounts);
 
       const report = latestReportBySite.get(site.id);
@@ -187,69 +183,55 @@ export function SitesSummary() {
       stStats[status]++;
 
       if (report?.hardware) {
-        const dCam = getOrCreate(districtCameras, district, () => ({} as CameraCounts));
-        const mCam = getOrCreateNested(municipalityCameras, district, municipality, () => ({} as CameraCounts));
-        const stCamOuter = getOrCreate(siteTypeCameras, district, () => new Map<string, Map<string, CameraCounts>>());
-        const stCam = getOrCreateNested(stCamOuter, municipality, siteType, () => ({} as CameraCounts));
-
-        addCameras(dCam, report.hardware, siteType);
-        addCameras(mCam, report.hardware, siteType);
-        addCameras(stCam, report.hardware, siteType);
-      }
-    }
-
-    const getCameraEntries = (cam: CameraCounts | undefined, siteType?: string) => {
-      if (!cam) return [];
-      const entries: { key: CameraFieldKey; label: string; count: number }[] = [];
-      const fieldSet = siteType ? CAMERA_FIELDS_BY_SITE_TYPE[siteType] : undefined;
-      const keys = Object.keys(cam) as CameraFieldKey[];
-      for (let k = 0; k < keys.length; k++) {
-        const count = cam[keys[k]] || 0;
-        if (count === 0) continue;
-        let label: string = keys[k];
-        if (fieldSet) {
-          const match = fieldSet.find(f => f.key === keys[k]);
-          if (match) label = match.label;
-        } else {
-          for (const st in CAMERA_FIELDS_BY_SITE_TYPE) {
-            const match = CAMERA_FIELDS_BY_SITE_TYPE[st].find(f => f.key === keys[k]);
-            if (match) { label = match.label; break; }
+        const fields = CAMERA_FIELDS_BY_SITE_TYPE[siteType];
+        if (fields) {
+          const cameras: { label: string; count: number }[] = [];
+          for (let f = 0; f < fields.length; f++) {
+            const val = report.hardware[fields[f].key] || 0;
+            if (val > 0) cameras.push({ label: fields[f].label, count: val });
+          }
+          if (cameras.length > 0) {
+            cameraInventory.push({
+              siteCode: site.site_code,
+              siteName: site.name,
+              distrito: district,
+              municipio: municipality,
+              siteType,
+              cameras,
+            });
           }
         }
-        entries.push({ key: keys[k], label, count });
       }
-      return entries;
-    };
+    }
 
     const sortedDistricts = Array.from(districtStats.entries())
       .sort((a, b) => a[0].localeCompare(b[0]))
       .map(([district, dStats]) => {
         const munsMap = municipalityStats.get(district);
-        const dCam = getCameraEntries(districtCameras.get(district));
         const sortedMuns = munsMap 
           ? Array.from(munsMap.entries())
               .sort((a, b) => a[0].localeCompare(b[0]))
               .map(([municipality, mStats]) => {
                 const sTypesMap = siteTypeStats.get(district)?.get(municipality);
-                const mCam = getCameraEntries(municipalityCameras.get(district)?.get(municipality));
                 const sortedSTypes = sTypesMap
                   ? Array.from(sTypesMap.entries())
                       .sort((a, b) => a[0].localeCompare(b[0]))
-                      .map(([siteType, stStats]) => {
-                        const stCam = getCameraEntries(
-                          siteTypeCameras.get(district)?.get(municipality)?.get(siteType),
-                          siteType,
-                        );
-                        return { siteType, stStats, stCam };
-                      })
+                      .map(([siteType, stStats]) => ({ siteType, stStats }))
                   : [];
-                return { municipality, mStats, mCam, sortedSTypes };
+                return { municipality, mStats, sortedSTypes };
               })
           : [];
-        return { district, dStats, dCam, sortedMuns };
+        return { district, dStats, sortedMuns };
       });
 
-    return { globalStats, sortedDistricts };
+    cameraInventory.sort((a, b) =>
+      a.distrito.localeCompare(b.distrito)
+      || a.municipio.localeCompare(b.municipio)
+      || a.siteType.localeCompare(b.siteType)
+      || a.siteCode.localeCompare(b.siteCode),
+    );
+
+    return { globalStats, sortedDistricts, cameraInventory };
   }, [sites, latestReportBySite, filterDistrito, filterMunicipio, filterSiteType]);
 
   if (loading) {
@@ -261,7 +243,7 @@ export function SitesSummary() {
     );
   }
 
-  const { globalStats, sortedDistricts } = stats;
+  const { globalStats, sortedDistricts, cameraInventory } = stats;
 
   const renderStatusCount = (count: number, total: number) => {
     if (total === 0) return '-';
@@ -291,18 +273,171 @@ export function SitesSummary() {
   };
 
   const statusList: ExtendedStatus[] = ['sin_iniciar', 'en_campo', 'en_revision', 'listo_para_generar', 'generado'];
+  const metricColumns: Array<{ key: 'total' | ExtendedStatus; label: string }> = [
+    { key: 'total', label: 'Total' },
+    { key: 'sin_iniciar', label: 'Sin Iniciar' },
+    { key: 'en_campo', label: 'En Campo' },
+    { key: 'en_revision', label: 'En Revisión' },
+    { key: 'listo_para_generar', label: 'Listos' },
+    { key: 'generado', label: 'Generados' },
+  ];
+  const visibleMetricColumns = metricColumns.filter((col) => !hiddenColumns.includes(col.key));
+
+  const renderMetricCell = (counts: SummaryCounts, metricKey: 'total' | ExtendedStatus, emphasized = false) => {
+    if (metricKey === 'total') {
+      return <Text fw={emphasized ? 700 : 500} size={emphasized ? undefined : 'sm'}>{counts.total}</Text>;
+    }
+    return renderStatusCount(counts[metricKey], counts.total);
+  };
+
+  const handleExportExcel = () => {
+    const filtersText = [
+      `Distrito: ${filterDistrito || 'Todos'}`,
+      `Municipio: ${filterMunicipio || 'Todos'}`,
+      `Tipo de sitio: ${filterSiteType ? (SITE_TYPE_LABELS[filterSiteType] || filterSiteType) : 'Todos'}`,
+    ].join(' | ');
+
+    const overviewRows: (string | number)[][] = [
+      ['Resumen de Sitios'],
+      ['Generado', new Date().toLocaleString('es-CO')],
+      ['Filtros aplicados', filtersText],
+      [],
+      ['Métrica', 'Cantidad', 'Porcentaje'],
+      ...(visibleMetricColumns.length > 0
+        ? visibleMetricColumns.map((metric) => {
+            if (metric.key === 'total') {
+              return [metric.label, globalStats.total, '100%'];
+            }
+            const percent = globalStats.total ? Math.round((globalStats[metric.key] / globalStats.total) * 100) : 0;
+            return [metric.label, globalStats[metric.key], `${percent}%`];
+          })
+        : [['Sin métricas visibles', '', '']]),
+    ];
+
+    const detailHeader = [
+      'Nivel',
+      'Distrito',
+      'Municipio',
+      'Tipo de Sitio',
+      ...visibleMetricColumns.map((metric) => metric.label),
+    ];
+    const detailRows: (string | number)[][] = [detailHeader];
+    const getMetricValues = (counts: SummaryCounts): (string | number)[] =>
+      visibleMetricColumns.map((metric) => (metric.key === 'total' ? counts.total : counts[metric.key]));
+
+    for (let d = 0; d < sortedDistricts.length; d++) {
+      const { district, dStats, sortedMuns } = sortedDistricts[d];
+      detailRows.push([
+        'Distrito',
+        district,
+        '',
+        '',
+        ...getMetricValues(dStats),
+      ]);
+
+      for (let m = 0; m < sortedMuns.length; m++) {
+        const { municipality, mStats, sortedSTypes } = sortedMuns[m];
+        detailRows.push([
+          'Municipio',
+          district,
+          municipality,
+          '',
+          ...getMetricValues(mStats),
+        ]);
+
+        for (let s = 0; s < sortedSTypes.length; s++) {
+          const { siteType, stStats } = sortedSTypes[s];
+          detailRows.push([
+            'Tipo de Sitio',
+            district,
+            municipality,
+            SITE_TYPE_LABELS[siteType] || siteType,
+            ...getMetricValues(stStats),
+          ]);
+        }
+      }
+    }
+
+    const wb = XLSX.utils.book_new();
+    const wsOverview = XLSX.utils.aoa_to_sheet(overviewRows);
+    wsOverview['!cols'] = [{ wch: 26 }, { wch: 22 }, { wch: 45 }];
+    XLSX.utils.book_append_sheet(wb, wsOverview, 'Resumen');
+
+    const wsDetail = XLSX.utils.aoa_to_sheet(detailRows);
+    const baseCols = [
+      { wch: 15 },
+      { wch: 24 },
+      { wch: 24 },
+      { wch: 16 },
+    ];
+    const metricCols = visibleMetricColumns.map((metric) => ({ wch: metric.key === 'en_revision' ? 12 : 11 }));
+    wsDetail['!cols'] = [...baseCols, ...metricCols];
+    const colToLetter = (index: number) => {
+      let value = '';
+      let n = index + 1;
+      while (n > 0) {
+        const rem = (n - 1) % 26;
+        value = String.fromCharCode(65 + rem) + value;
+        n = Math.floor((n - 1) / 26);
+      }
+      return value;
+    };
+    wsDetail['!autofilter'] = { ref: `A1:${colToLetter(detailHeader.length - 1)}1` };
+    XLSX.utils.book_append_sheet(wb, wsDetail, 'Desglose');
+
+    if (cameraInventory.length > 0) {
+      const camHeader = ['Código', 'Nombre del Sitio', 'Distrito', 'Municipio', 'Tipo de Sitio', 'Cámaras (tipo: cantidad)'];
+      const camRows: (string | number)[][] = [camHeader];
+      for (let i = 0; i < cameraInventory.length; i++) {
+        const row = cameraInventory[i];
+        const camSummary = row.cameras.map((c) => `${c.label}: ${c.count}`).join(', ');
+        camRows.push([
+          row.siteCode,
+          row.siteName,
+          row.distrito,
+          row.municipio,
+          SITE_TYPE_LABELS[row.siteType] || row.siteType,
+          camSummary,
+        ]);
+      }
+      const wsCam = XLSX.utils.aoa_to_sheet(camRows);
+      wsCam['!cols'] = [
+        { wch: 14 },
+        { wch: 30 },
+        { wch: 22 },
+        { wch: 22 },
+        { wch: 16 },
+        { wch: 40 },
+      ];
+      wsCam['!autofilter'] = { ref: 'A1:F1' };
+      XLSX.utils.book_append_sheet(wb, wsCam, 'Cámaras por Sitio');
+    }
+
+    const today = new Date().toISOString().slice(0, 10);
+    XLSX.writeFile(wb, `resumen_sitios_${today}.xlsx`);
+  };
 
   return (
     <div style={{ paddingTop: '1rem' }}>
       <Group justify="space-between" mb="md">
         <Title order={4}>Resumen de Sitios</Title>
-        <Button 
-          variant={hasActiveFilters ? "light" : "subtle"} 
-          leftSection={<IconFilter size={16} />} 
-          onClick={toggleFilters}
-        >
-          {hasActiveFilters ? 'Filtros Activos' : 'Filtros'}
-        </Button>
+        <Group gap="sm">
+          <Button
+            variant="light"
+            color="green"
+            leftSection={<IconFileSpreadsheet size={16} />}
+            onClick={handleExportExcel}
+          >
+            Exportar Excel
+          </Button>
+          <Button 
+            variant={hasActiveFilters ? "light" : "subtle"} 
+            leftSection={<IconFilter size={16} />} 
+            onClick={toggleFilters}
+          >
+            {hasActiveFilters ? 'Filtros Activos' : 'Filtros'}
+          </Button>
+        </Group>
       </Group>
 
       <Collapse in={filtersOpened} mb="xl">
@@ -344,6 +479,16 @@ export function SitesSummary() {
                 ]}
                 value={filterSiteType}
                 onChange={setFilterSiteType}
+                clearable
+              />
+            </Grid.Col>
+            <Grid.Col span={{ base: 12, md: 12, lg: 12 }}>
+              <MultiSelect
+                label="Columnas a ocultar (tabla y Excel)"
+                placeholder="Selecciona columnas"
+                data={metricColumns.map((metric) => ({ value: metric.key, label: metric.label }))}
+                value={hiddenColumns}
+                onChange={(values) => setHiddenColumns(values as Array<'total' | ExtendedStatus>)}
                 clearable
               />
             </Grid.Col>
@@ -393,98 +538,139 @@ export function SitesSummary() {
         ))}
       </Grid>
 
-      <div>
-        <Title order={4} mb="md">Desglose por Distrito, Municipio y Tipo</Title>
-        <ScrollArea>
-          <Table highlightOnHover withTableBorder>
-            <Table.Thead>
-              <Table.Tr>
-                <Table.Th>Nivel</Table.Th>
-                <Table.Th>Total</Table.Th>
-                <Table.Th>Sin Iniciar</Table.Th>
-                <Table.Th>En Campo</Table.Th>
-                <Table.Th>En Revisión</Table.Th>
-                <Table.Th>Listos</Table.Th>
-                <Table.Th>Generados</Table.Th>
-              </Table.Tr>
-            </Table.Thead>
-            <Table.Tbody>
-              {sortedDistricts.map(({ district, dStats, sortedMuns }) => {
-                const rows = [];
-                rows.push(
-                  <Table.Tr key={`d-${district}`} bg="var(--mantine-color-gray-2)">
-                    <Table.Td>
-                      <Text fw={700}>{district}</Text>
-                    </Table.Td>
-                    <Table.Td><Text fw={700}>{dStats.total}</Text></Table.Td>
-                    <Table.Td>{renderStatusCount(dStats.sin_iniciar, dStats.total)}</Table.Td>
-                    <Table.Td>{renderStatusCount(dStats.en_campo, dStats.total)}</Table.Td>
-                    <Table.Td>{renderStatusCount(dStats.en_revision, dStats.total)}</Table.Td>
-                    <Table.Td>{renderStatusCount(dStats.listo_para_generar, dStats.total)}</Table.Td>
-                    <Table.Td>{renderStatusCount(dStats.generado, dStats.total)}</Table.Td>
-                  </Table.Tr>
-                );
+      <Tabs defaultValue="desglose" keepMounted={false}>
+        <Tabs.List mb="md">
+          <Tabs.Tab value="desglose" leftSection={<IconTable size={16} />}>
+            Desglose por Distrito
+          </Tabs.Tab>
+          <Tabs.Tab
+            value="camaras"
+            leftSection={<IconCamera size={16} />}
+            rightSection={
+              cameraInventory.length > 0
+                ? <Badge size="sm" variant="filled" color="violet" circle>{cameraInventory.length}</Badge>
+                : undefined
+            }
+          >
+            Cámaras por Sitio
+          </Tabs.Tab>
+        </Tabs.List>
 
-                sortedMuns.forEach(({ municipality, mStats, sortedSTypes }) => {
+        <Tabs.Panel value="desglose">
+          <ScrollArea>
+            <Table highlightOnHover withTableBorder>
+              <Table.Thead>
+                <Table.Tr>
+                  <Table.Th>Nivel</Table.Th>
+                  {visibleMetricColumns.map((metric) => (
+                    <Table.Th key={`header-${metric.key}`}>{metric.label}</Table.Th>
+                  ))}
+                </Table.Tr>
+              </Table.Thead>
+              <Table.Tbody>
+                {sortedDistricts.map(({ district, dStats, sortedMuns }) => {
+                  const rows = [];
                   rows.push(
-                    <Table.Tr key={`m-${district}-${municipality}`} bg="var(--mantine-color-gray-0)">
-                      <Table.Td style={{ paddingLeft: '2rem' }}>
-                        <Text fw={600} size="sm">{municipality}</Text>
+                    <Table.Tr key={`d-${district}`} bg="var(--mantine-color-gray-2)">
+                      <Table.Td>
+                        <Text fw={700}>{district}</Text>
                       </Table.Td>
-                      <Table.Td fw={600}>{mStats.total}</Table.Td>
-                      <Table.Td>{renderStatusCount(mStats.sin_iniciar, mStats.total)}</Table.Td>
-                      <Table.Td>{renderStatusCount(mStats.en_campo, mStats.total)}</Table.Td>
-                      <Table.Td>{renderStatusCount(mStats.en_revision, mStats.total)}</Table.Td>
-                      <Table.Td>{renderStatusCount(mStats.listo_para_generar, mStats.total)}</Table.Td>
-                      <Table.Td>{renderStatusCount(mStats.generado, mStats.total)}</Table.Td>
+                      {visibleMetricColumns.map((metric) => (
+                        <Table.Td key={`d-${district}-${metric.key}`}>{renderMetricCell(dStats, metric.key, true)}</Table.Td>
+                      ))}
                     </Table.Tr>
                   );
 
-                  sortedSTypes.forEach(({ siteType, stStats, stCam }) => {
+                  sortedMuns.forEach(({ municipality, mStats, sortedSTypes }) => {
                     rows.push(
-                      <Table.Tr key={`st-${district}-${municipality}-${siteType}`}>
-                        <Table.Td style={{ paddingLeft: '4rem' }}>
-                          <Text size="sm" c="dimmed">{SITE_TYPE_LABELS[siteType] || siteType}</Text>
+                      <Table.Tr key={`m-${district}-${municipality}`} bg="var(--mantine-color-gray-0)">
+                        <Table.Td style={{ paddingLeft: '2rem' }}>
+                          <Text fw={600} size="sm">{municipality}</Text>
                         </Table.Td>
-                        <Table.Td fw={500}>
-                          <Text size="sm" fw={500}>{stStats.total}</Text>
-                        </Table.Td>
-                        <Table.Td>{renderStatusCount(stStats.sin_iniciar, stStats.total)}</Table.Td>
-                        <Table.Td>{renderStatusCount(stStats.en_campo, stStats.total)}</Table.Td>
-                        <Table.Td>{renderStatusCount(stStats.en_revision, stStats.total)}</Table.Td>
-                        <Table.Td>{renderStatusCount(stStats.listo_para_generar, stStats.total)}</Table.Td>
-                        <Table.Td>{renderStatusCount(stStats.generado, stStats.total)}</Table.Td>
+                        {visibleMetricColumns.map((metric) => (
+                          <Table.Td key={`m-${district}-${municipality}-${metric.key}`}>{renderMetricCell(mStats, metric.key)}</Table.Td>
+                        ))}
                       </Table.Tr>
                     );
 
-                    stCam.forEach(({ key, label, count }) => {
+                    sortedSTypes.forEach(({ siteType, stStats }) => {
                       rows.push(
-                        <Table.Tr key={`cam-${district}-${municipality}-${siteType}-${key}`} bg="var(--mantine-color-violet-0)">
-                          <Table.Td style={{ paddingLeft: '6rem' }}>
-                            <Group gap={6} wrap="nowrap">
-                              <IconCamera size={14} style={{ opacity: 0.6 }} />
-                              <Badge size="sm" variant="light" color="violet">Cam. {label}</Badge>
-                            </Group>
+                        <Table.Tr key={`st-${district}-${municipality}-${siteType}`}>
+                          <Table.Td style={{ paddingLeft: '4rem' }}>
+                            <Text size="sm" c="dimmed">{SITE_TYPE_LABELS[siteType] || siteType}</Text>
                           </Table.Td>
-                          <Table.Td>
-                            <Text size="sm" fw={600} c="violet">{count}</Text>
-                          </Table.Td>
-                          <Table.Td />
-                          <Table.Td />
-                          <Table.Td />
-                          <Table.Td />
-                          <Table.Td />
+                          {visibleMetricColumns.map((metric) => (
+                            <Table.Td key={`st-${district}-${municipality}-${siteType}-${metric.key}`}>
+                              {renderMetricCell(stStats, metric.key)}
+                            </Table.Td>
+                          ))}
                         </Table.Tr>
                       );
                     });
                   });
-                });
-                return rows;
-              })}
-            </Table.Tbody>
-          </Table>
-        </ScrollArea>
-      </div>
+                  return rows;
+                })}
+              </Table.Tbody>
+            </Table>
+          </ScrollArea>
+        </Tabs.Panel>
+
+        <Tabs.Panel value="camaras">
+          {cameraInventory.length === 0 ? (
+            <Text c="dimmed" ta="center" py="xl">No hay datos de cámaras para los filtros seleccionados.</Text>
+          ) : (
+            <>
+              <Text size="sm" c="dimmed" mb="sm">
+                Cámaras reportadas en cada sitio (según su último reporte). Solo se muestran sitios con datos de hardware.
+              </Text>
+              <ScrollArea>
+                <Table highlightOnHover withTableBorder>
+                  <Table.Thead>
+                    <Table.Tr>
+                      <Table.Th>Código</Table.Th>
+                      <Table.Th>Nombre del Sitio</Table.Th>
+                      <Table.Th>Distrito</Table.Th>
+                      <Table.Th>Municipio</Table.Th>
+                      <Table.Th>Tipo</Table.Th>
+                      <Table.Th>Cámaras</Table.Th>
+                    </Table.Tr>
+                  </Table.Thead>
+                  <Table.Tbody>
+                    {cameraInventory.map((row) => (
+                      <Table.Tr key={row.siteCode}>
+                        <Table.Td>
+                          <Text size="sm" fw={600}>{row.siteCode}</Text>
+                        </Table.Td>
+                        <Table.Td>
+                          <Text size="sm">{row.siteName}</Text>
+                        </Table.Td>
+                        <Table.Td>
+                          <Text size="sm">{row.distrito}</Text>
+                        </Table.Td>
+                        <Table.Td>
+                          <Text size="sm">{row.municipio}</Text>
+                        </Table.Td>
+                        <Table.Td>
+                          <Badge size="sm" variant="light">{SITE_TYPE_LABELS[row.siteType] || row.siteType}</Badge>
+                        </Table.Td>
+                        <Table.Td>
+                          <Group gap={6} wrap="wrap">
+                            {row.cameras.map((cam) => (
+                              <Badge key={cam.label} size="sm" variant="light" color="violet">
+                                {cam.label}: {cam.count}
+                              </Badge>
+                            ))}
+                          </Group>
+                        </Table.Td>
+                      </Table.Tr>
+                    ))}
+                  </Table.Tbody>
+                </Table>
+              </ScrollArea>
+            </>
+          )}
+        </Tabs.Panel>
+      </Tabs>
     </div>
   );
 }
