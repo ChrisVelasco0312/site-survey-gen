@@ -160,6 +160,7 @@ export function buildPdfInputs(report: Report): Record<string, string> {
       ["Adoquín", String(report.pole_infrastructure?.adoquin_meters ?? 0)],
       ["Concreto", String(report.pole_infrastructure?.concrete_meters ?? 0)],
       ["Relleno", String(report.pole_infrastructure?.fill_meters ?? 0)],
+      ["Otra superficie", String(report.pole_infrastructure?.other_surface_meters ?? 0)],
     ]),
 
     input_total_ruta:
@@ -169,6 +170,7 @@ export function buildPdfInputs(report: Report): Record<string, string> {
         (report.pole_infrastructure?.asphalt_meters ?? 0) +
         (report.pole_infrastructure?.adoquin_meters ?? 0) +
         (report.pole_infrastructure?.concrete_meters ?? 0) +
+        (report.pole_infrastructure?.other_surface_meters ?? 0) +
         (report.pole_infrastructure?.fill_meters ?? 0),
       ) + " mts",
 
@@ -189,6 +191,7 @@ export function buildPdfInputs(report: Report): Record<string, string> {
       (report.pole_infrastructure?.asphalt_meters ?? 0) +
       (report.pole_infrastructure?.adoquin_meters ?? 0) +
       (report.pole_infrastructure?.concrete_meters ?? 0) +
+      (report.pole_infrastructure?.other_surface_meters ?? 0) +
       (report.pole_infrastructure?.fill_meters ?? 0) +
       (report.infrastructure_details?.service_entrance?.height ?? 0) +
       (report.infrastructure_details?.camera_point?.height ?? 0) +
@@ -201,6 +204,7 @@ export function buildPdfInputs(report: Report): Record<string, string> {
       (report.pole_infrastructure?.asphalt_meters ?? 0) +
       (report.pole_infrastructure?.adoquin_meters ?? 0) +
       (report.pole_infrastructure?.concrete_meters ?? 0) +
+      (report.pole_infrastructure?.other_surface_meters ?? 0) +
       (report.pole_infrastructure?.fill_meters ?? 0) +
       (report.infrastructure_details?.service_entrance?.height ?? 0) +
       (report.infrastructure_details?.camera_point?.height ?? 0) +

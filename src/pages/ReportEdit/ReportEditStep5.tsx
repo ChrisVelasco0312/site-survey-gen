@@ -57,6 +57,7 @@ export function ReportEditStep5({ report, setReport, readOnly }: ReportEditStep5
     { label: 'Adoquín', value: pole.adoquin_meters, key: 'adoquin_meters' as keyof PoleInfrastructure },
     { label: 'Concreto', value: pole.concrete_meters, key: 'concrete_meters' as keyof PoleInfrastructure },
     { label: 'Relleno', value: pole.fill_meters, key: 'fill_meters' as keyof PoleInfrastructure },
+    { label: 'Otra superficie', value: pole.other_surface_meters, key: 'other_surface_meters' as keyof PoleInfrastructure },
   ];
 
   const rowsSum = rows.reduce((sum, row) => sum + (row.value ?? 0), 0);
