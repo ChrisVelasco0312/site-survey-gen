@@ -1633,7 +1633,7 @@
         "position": { "x": 140, "y": 256.04 },
         "width": 60,
         "height": 7,
-        "content": "Firma Director Interventoría:",
+        "content": "Firma Interventoría:",
         "fontSize": 9,
         "fontName": "Roboto-Bold",
         "name": "lbl_sig_int",
