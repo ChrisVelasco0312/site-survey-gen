@@ -200,6 +200,10 @@ export interface Report {
   // PDF Generation metadata (HU-09)
   pdf_url?: string;
 
+  // Signature images (Storage URLs)
+  signature_img_director_url?: string;
+  signature_img_coordinator_url?: string;
+
   // HU-20: Cotejo Facial
   cotejo_facial_survey?: CotejoFacialSurvey;
   lpr_survey?: LprSurvey;

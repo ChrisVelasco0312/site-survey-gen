@@ -1640,6 +1640,15 @@
         "fontColor": "#000000"
       },
       {
+        "type": "image",
+        "position": { "x": 10, "y": 264 },
+        "width": 60,
+        "height": 21,
+        "name": "sig_img_proj",
+        "content": "",
+        "fontName": "Roboto"
+      },
+      {
         "type": "line",
         "position": { "x": 10, "y": 286.5 },
         "width": 60,
@@ -1669,6 +1678,15 @@
         "fontName": "Roboto-Bold",
         "name": "lbl_sig_coord",
         "fontColor": "#000000"
+      },
+      {
+        "type": "image",
+        "position": { "x": 75, "y": 264 },
+        "width": 60,
+        "height": 21,
+        "name": "sig_img_coord",
+        "content": "",
+        "fontName": "Roboto"
       },
       {
         "type": "line",

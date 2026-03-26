@@ -1,4 +1,4 @@
-import { ref, uploadBytes, getDownloadURL, getBlob } from 'firebase/storage';
+import { ref, uploadBytes, getDownloadURL, getBlob, deleteObject } from 'firebase/storage';
 import { storage } from '../firebase-config';
 import type { Report } from '../types/Report';
 
@@ -86,6 +86,41 @@ function removeUndefinedFields(obj: any): any {
     return newObj;
   }
   return obj;
+}
+
+export type SignatureType = 'director' | 'coordinator';
+
+/**
+ * Upload a signature image file to Firebase Storage.
+ * Path: reports/{reportId}/signature_{type}
+ * Returns the download URL.
+ */
+export async function uploadSignatureImage(
+  reportId: string,
+  type: SignatureType,
+  file: File,
+): Promise<string> {
+  const path = `reports/${reportId}/signature_${type}`;
+  const storageRef = ref(storage, path);
+  await uploadBytes(storageRef, file);
+  return getDownloadURL(storageRef);
+}
+
+/**
+ * Delete a signature image from Firebase Storage.
+ * Silently ignores "not found" errors.
+ */
+export async function deleteSignatureImage(
+  reportId: string,
+  type: SignatureType,
+): Promise<void> {
+  const path = `reports/${reportId}/signature_${type}`;
+  const storageRef = ref(storage, path);
+  try {
+    await deleteObject(storageRef);
+  } catch (e: any) {
+    if (e?.code !== 'storage/object-not-found') throw e;
+  }
 }
 
 /**
