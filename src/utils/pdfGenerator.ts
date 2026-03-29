@@ -3,6 +3,36 @@ import { text, image, line, table, rectangle } from "@pdfme/schemas";
 import type { Template, Font } from "@pdfme/common";
 import type { Report } from "../types/Report";
 import pdfLogoBase64 from "../../public/pdf_logo_base64.txt?raw";
+import { storageUrlToDataUrl } from "./reportImagesStorage";
+
+const TRANSPARENT_1PX =
+  "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=";
+
+function isDataUrl(value: string): boolean {
+  return value.startsWith("data:");
+}
+
+async function isValidImageDataUrl(dataUrl: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    const img = new globalThis.Image();
+    img.onload = () => resolve(true);
+    img.onerror = () => resolve(false);
+    img.src = dataUrl;
+  });
+}
+
+async function resolvePdfImageSource(value?: string): Promise<string | undefined> {
+  if (!value) return undefined;
+
+  try {
+    const localDataUrl = isDataUrl(value) ? value : await storageUrlToDataUrl(value);
+    const isValid = await isValidImageDataUrl(localDataUrl);
+    return isValid ? localDataUrl : undefined;
+  } catch (error) {
+    console.warn("Failed to resolve PDF image source:", error);
+    return undefined;
+  }
+}
 
 let cachedFont: Font | null = null;
 
@@ -368,6 +398,14 @@ export function buildPdfInputs(report: Report): Record<string, string> {
     inputs.photo_detail = report.service_entrance_photo_url;
   }
 
+  // Signature images (from persisted Storage URLs)
+  if (report.signature_img_director_url) {
+    inputs.sig_img_proj = report.signature_img_director_url;
+  }
+  if (report.signature_img_coordinator_url) {
+    inputs.sig_img_coord = report.signature_img_coordinator_url;
+  }
+
   // Static logo
   inputs.pdf_logo = pdfLogoBase64;
 
@@ -393,10 +431,19 @@ function extractDefaults(template: Template): Record<string, string> {
   return defaults;
 }
 
+export interface SignatureImages {
+  directorProyectos?: string;
+  coordinadorZona?: string;
+}
+
 /**
  * Generate a PDF Uint8Array from a Report using the pdfme template.
+ * Optionally embed signature images in the designated areas.
  */
-export async function generateReportPdf(report: Report): Promise<Uint8Array> {
+export async function generateReportPdf(
+  report: Report,
+  signatureImages?: SignatureImages,
+): Promise<Uint8Array> {
   const template = await loadTemplate();
   const font = await loadFont();
   const reportInputs = buildPdfInputs(report);
@@ -404,6 +451,31 @@ export async function generateReportPdf(report: Report): Promise<Uint8Array> {
   // Merge: template defaults first, then our explicit overrides on top
   const defaults = extractDefaults(template);
   const inputs = { ...defaults, ...reportInputs };
+
+  if (signatureImages?.directorProyectos) {
+    inputs.sig_img_proj = signatureImages.directorProyectos;
+  }
+  if (signatureImages?.coordinadorZona) {
+    inputs.sig_img_coord = signatureImages.coordinadorZona;
+  }
+
+  // pdfme needs real local image data. Persisted Storage URLs must be fetched,
+  // validated, and converted before they are passed to the image plugin.
+  const imageSchemaNames = new Set<string>();
+  for (const page of template.schemas as any[][]) {
+    for (const schema of page) {
+      if (schema.type === "image" && schema.name) {
+        imageSchemaNames.add(schema.name);
+      }
+    }
+  }
+
+  await Promise.all(
+    Array.from(imageSchemaNames).map(async (name) => {
+      const resolved = await resolvePdfImageSource(inputs[name]);
+      inputs[name] = resolved ?? TRANSPARENT_1PX;
+    }),
+  );
 
   return generate({
     template,

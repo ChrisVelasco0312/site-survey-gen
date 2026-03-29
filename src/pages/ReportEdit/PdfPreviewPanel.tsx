@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'preact/hooks';
 import {
+  ActionIcon,
   Box,
   Text,
   Button,
@@ -11,11 +12,14 @@ import {
   Modal,
   Tooltip,
   FileInput,
+  Image,
+  SimpleGrid,
 } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
-import { IconDownload, IconRefresh, IconArrowLeft, IconFileExport, IconWifiOff, IconSend, IconCheck, IconUpload } from '@tabler/icons-react';
+import { IconDownload, IconRefresh, IconArrowLeft, IconFileExport, IconWifiOff, IconSend, IconCheck, IconUpload, IconSignature, IconTrash, IconDeviceFloppy } from '@tabler/icons-react';
 import type { Report } from '../../types/Report';
-import { generateReportPdf } from '../../utils/pdfGenerator';
+import { generateReportPdf, type SignatureImages } from '../../utils/pdfGenerator';
+import { uploadSignatureImage, deleteSignatureImage } from '../../utils/reportImagesStorage';
 import { validateReportForReview } from '../../utils/reportValidation';
 
 interface PdfPreviewPanelProps {
@@ -33,6 +37,10 @@ interface PdfPreviewPanelProps {
   onSendToReview?: () => Promise<void>;
   /** Called when admin approves report (en_revision → listo_para_generar) */
   onApprove?: () => Promise<void>;
+  /** Whether the user can upload signature images directly */
+  canUploadSignatures?: boolean;
+  /** Called after saving signature images to persist changes to the report */
+  onUpdateReport?: (updated: Report) => void;
 }
 
 export function PdfPreviewPanel({
@@ -44,6 +52,8 @@ export function PdfPreviewPanel({
   generatedPdfUrl,
   onSendToReview,
   onApprove,
+  canUploadSignatures = false,
+  onUpdateReport,
 }: PdfPreviewPanelProps) {
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -54,10 +64,30 @@ export function PdfPreviewPanel({
   const [confirmOpened, { open: openConfirm, close: closeConfirm }] = useDisclosure(false);
   const [signedPdfBytes, setSignedPdfBytes] = useState<Uint8Array | null>(null);
   const [signedPdfUrl, setSignedPdfUrl] = useState<string | null>(null);
+  // Signature images: display value (base64 for unsaved uploads, Storage URL for saved)
+  const [sigImgProj, setSigImgProj] = useState<string | null>(
+    report.signature_img_director_url ?? null,
+  );
+  const [sigImgCoord, setSigImgCoord] = useState<string | null>(
+    report.signature_img_coordinator_url ?? null,
+  );
+  // File objects for pending uploads (null when image comes from report)
+  const [sigFileProj, setSigFileProj] = useState<File | null>(null);
+  const [sigFileCoord, setSigFileCoord] = useState<File | null>(null);
+  const [sigDirty, setSigDirty] = useState(false);
+  const [sigSaving, setSigSaving] = useState(false);
 
   const validation = validateReportForReview(report);
   const isGenerado = report.status === 'generado';
   const isListoParaGenerar = report.status === 'listo_para_generar';
+
+  // Sync signature state when report URLs change externally
+  useEffect(() => {
+    if (!sigDirty) {
+      setSigImgProj(report.signature_img_director_url ?? null);
+      setSigImgCoord(report.signature_img_coordinator_url ?? null);
+    }
+  }, [report.signature_img_director_url, report.signature_img_coordinator_url]);
 
   // --- Generado reports: use stored PDF URL ---
   useEffect(() => {
@@ -67,13 +97,21 @@ export function PdfPreviewPanel({
     }
   }, [isGenerado, generatedPdfUrl]);
 
+  const buildSigImages = (): SignatureImages | undefined => {
+    if (!canUploadSignatures || !isListoParaGenerar) return undefined;
+    return {
+      directorProyectos: sigImgProj || undefined,
+      coordinadorZona: sigImgCoord || undefined,
+    };
+  };
+
   // --- Non-generado reports: generate PDF client-side ---
   async function doGenerate() {
     if (isGenerado) return;
     setLoading(true);
     setError(null);
     try {
-      const pdf = await generateReportPdf(report);
+      const pdf = await generateReportPdf(report, buildSigImages());
       const blob = new Blob([pdf.buffer as ArrayBuffer], { type: 'application/pdf' });
       const url = URL.createObjectURL(blob);
       if (blobUrlRef.current) URL.revokeObjectURL(blobUrlRef.current);
@@ -87,17 +125,22 @@ export function PdfPreviewPanel({
     }
   }
 
-  // Generate on mount (debounced) for non-generado reports
+  // Generate on mount (debounced) for non-generado reports;
+  // also regenerates when signature images change
   useEffect(() => {
     if (isGenerado) return;
 
     let cancelled = false;
     setLoading(true);
 
+    const sigImages = (canUploadSignatures && isListoParaGenerar)
+      ? { directorProyectos: sigImgProj || undefined, coordinadorZona: sigImgCoord || undefined } as SignatureImages
+      : undefined;
+
     const timer = setTimeout(async () => {
       setError(null);
       try {
-        const pdf = await generateReportPdf(report);
+        const pdf = await generateReportPdf(report, sigImages);
         if (cancelled) return;
         const blob = new Blob([pdf.buffer as ArrayBuffer], { type: 'application/pdf' });
         const url = URL.createObjectURL(blob);
@@ -117,7 +160,7 @@ export function PdfPreviewPanel({
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [report, isGenerado]);
+  }, [report, isGenerado, sigImgProj, sigImgCoord]);
 
   // Cleanup blob URLs on unmount
   useEffect(() => {
@@ -145,6 +188,76 @@ export function PdfPreviewPanel({
       setSignedPdfUrl(url);
     };
     reader.readAsArrayBuffer(file);
+  };
+
+  const handleSignatureImageUpload = (
+    file: File | null,
+    type: 'proj' | 'coord',
+  ) => {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const base64 = reader.result as string;
+      if (type === 'proj') {
+        setSigImgProj(base64);
+        setSigFileProj(file);
+      } else {
+        setSigImgCoord(base64);
+        setSigFileCoord(file);
+      }
+      setSigDirty(true);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleRemoveSignature = (type: 'proj' | 'coord') => {
+    if (type === 'proj') {
+      setSigImgProj(null);
+      setSigFileProj(null);
+    } else {
+      setSigImgCoord(null);
+      setSigFileCoord(null);
+    }
+    setSigDirty(true);
+  };
+
+  const handleSaveSignatures = async () => {
+    if (!onUpdateReport) return;
+    setSigSaving(true);
+    try {
+      const updated = { ...report };
+
+      // Director de Proyectos
+      if (sigFileProj) {
+        const url = await uploadSignatureImage(report.id, 'director', sigFileProj);
+        updated.signature_img_director_url = url;
+        setSigFileProj(null);
+        setSigImgProj(url);
+      } else if (!sigImgProj && report.signature_img_director_url) {
+        await deleteSignatureImage(report.id, 'director');
+        updated.signature_img_director_url = '';
+      }
+
+      // Coordinador de zona
+      if (sigFileCoord) {
+        const url = await uploadSignatureImage(report.id, 'coordinator', sigFileCoord);
+        updated.signature_img_coordinator_url = url;
+        setSigFileCoord(null);
+        setSigImgCoord(url);
+      } else if (!sigImgCoord && report.signature_img_coordinator_url) {
+        await deleteSignatureImage(report.id, 'coordinator');
+        updated.signature_img_coordinator_url = '';
+      }
+
+      updated.updated_at = Date.now();
+      onUpdateReport(updated);
+      setSigDirty(false);
+    } catch (e: any) {
+      console.error('Error saving signatures:', e);
+      setError(e?.message ?? 'Error al guardar las firmas');
+    } finally {
+      setSigSaving(false);
+    }
   };
 
   const handleDownload = () => {
@@ -340,6 +453,89 @@ export function PdfPreviewPanel({
       {error && (
         <Alert color="red" variant="light" title="Error de generación">
           {error}
+        </Alert>
+      )}
+
+      {/* Signature image uploads for listo_para_generar */}
+      {isListoParaGenerar && canUploadSignatures && (
+        <Alert color="violet" variant="light" title="Subir firmas" icon={<IconSignature size={20} />}>
+          <Stack gap="sm" mt="xs">
+            <Text size="sm">
+              Suba las imágenes de firma para que se incrusten automáticamente en el PDF.
+            </Text>
+            <SimpleGrid cols={2}>
+              <Stack gap="xs">
+                <Text size="xs" fw={600}>Firma Director de Proyectos</Text>
+                {sigImgProj ? (
+                  <Box pos="relative">
+                    <Image src={sigImgProj} alt="Firma Director" mah={80} fit="contain" />
+                    <ActionIcon
+                      color="red"
+                      variant="filled"
+                      size="sm"
+                      radius="xl"
+                      pos="absolute"
+                      top={4}
+                      right={4}
+                      onClick={() => handleRemoveSignature('proj')}
+                    >
+                      <IconTrash size={14} />
+                    </ActionIcon>
+                  </Box>
+                ) : (
+                  <FileInput
+                    placeholder="Seleccionar imagen"
+                    accept="image/png,image/jpeg,image/webp"
+                    leftSection={<IconUpload size={16} />}
+                    onChange={(f) => handleSignatureImageUpload(f, 'proj')}
+                    size="xs"
+                  />
+                )}
+              </Stack>
+              <Stack gap="xs">
+                <Text size="xs" fw={600}>Firma Coordinador de zona</Text>
+                {sigImgCoord ? (
+                  <Box pos="relative">
+                    <Image src={sigImgCoord} alt="Firma Coordinador" mah={80} fit="contain" />
+                    <ActionIcon
+                      color="red"
+                      variant="filled"
+                      size="sm"
+                      radius="xl"
+                      pos="absolute"
+                      top={4}
+                      right={4}
+                      onClick={() => handleRemoveSignature('coord')}
+                    >
+                      <IconTrash size={14} />
+                    </ActionIcon>
+                  </Box>
+                ) : (
+                  <FileInput
+                    placeholder="Seleccionar imagen"
+                    accept="image/png,image/jpeg,image/webp"
+                    leftSection={<IconUpload size={16} />}
+                    onChange={(f) => handleSignatureImageUpload(f, 'coord')}
+                    size="xs"
+                  />
+                )}
+              </Stack>
+            </SimpleGrid>
+            <Group justify="flex-end" gap="sm" mt="xs">
+              {sigDirty && (
+                <Text size="xs" c="orange" fw={500}>● Cambios sin guardar</Text>
+              )}
+              <Button
+                size="xs"
+                leftSection={<IconDeviceFloppy size={16} />}
+                onClick={handleSaveSignatures}
+                loading={sigSaving}
+                disabled={!sigDirty}
+              >
+                Guardar firmas
+              </Button>
+            </Group>
+          </Stack>
         </Alert>
       )}
 

@@ -1633,11 +1633,20 @@
         "position": { "x": 140, "y": 256.04 },
         "width": 60,
         "height": 7,
-        "content": "Firma Director Interventoría:",
+        "content": "Firma Interventoría:",
         "fontSize": 9,
         "fontName": "Roboto-Bold",
         "name": "lbl_sig_int",
         "fontColor": "#000000"
+      },
+      {
+        "type": "image",
+        "position": { "x": 10, "y": 264 },
+        "width": 60,
+        "height": 21,
+        "name": "sig_img_proj",
+        "content": "",
+        "fontName": "Roboto"
       },
       {
         "type": "line",
@@ -1669,6 +1678,15 @@
         "fontName": "Roboto-Bold",
         "name": "lbl_sig_coord",
         "fontColor": "#000000"
+      },
+      {
+        "type": "image",
+        "position": { "x": 75, "y": 264 },
+        "width": 60,
+        "height": 21,
+        "name": "sig_img_coord",
+        "content": "",
+        "fontName": "Roboto"
       },
       {
         "type": "line",

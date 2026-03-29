@@ -110,6 +110,29 @@
   background-color: var(--mantine-color-blue-1);
 }
 
+@media (max-width: 48em) {
+  .report-edit-mobile-layout {
+    width: 100%;
+  }
+
+  .report-edit-mobile-main {
+    width: 100%;
+  }
+
+  .stepper-item {
+    gap: 0.75rem;
+  }
+
+  .stepper-label-col {
+    padding-top: 0.35rem;
+    padding-bottom: 0.5rem;
+  }
+
+  .step-title-btn {
+    padding: 0.625rem;
+  }
+}
+
 [data-mantine-color-scheme='dark'] .step-title-btn {
   background-color: var(--mantine-color-dark-6);
   border-color: var(--mantine-color-dark-4);

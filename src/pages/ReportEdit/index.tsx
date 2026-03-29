@@ -49,7 +49,21 @@ export function ReportEdit() {
   const { userData } = useAuth();
   const id = params?.id;
 
-  const isAdmin = userData?.role === 'admin';
+  const isAdmin = userData?.role === 'admin' || userData?.role === 'superadmin';
+
+  const canUploadSignatures = (() => {
+    if (!userData) return false;
+    if (userData.role === 'superadmin') return true;
+    const isProd = import.meta.env.VITE_FIREBASE_PROJECT_ID === 'gen-site-survey-prod';
+    if (isProd) {
+      const allowedUids = [
+        'hkgZVJPy11StlPNvBuJo98qJikd2', // cnarvaez@consorciovalleseguro.com
+        '6izFTtDZ3NZaFhBHAJjE2mx7zvh1', // amarrugo@consorciovalleseguro.com
+      ];
+      return allowedUids.includes(userData.uid);
+    }
+    return false;
+  })();
 
   const [report, setReport] = useState<Report | null>(null);
   const [loading, setLoading] = useState(!!id);
@@ -237,6 +251,15 @@ export function ReportEdit() {
     location.route('/reportes-finales');
   };
 
+  /** Called by PdfPreviewPanel after saving signature images to Storage. */
+  const handleUpdateReport = (updated: Report) => {
+    isDirty.current = true;
+    setReport(updated);
+    saveReport(updated).catch((e) =>
+      console.error('Error al guardar reporte:', e),
+    );
+  };
+
   // Admin can edit en_campo, en_revision, and listo_para_generar (with explicit toggle); workers can only edit en_campo
   const readOnly = userData?.role === 'read_only' || (isAdmin
     ? report?.status === 'generado' || (report?.status === 'listo_para_generar' && !adminEditOverride)
@@ -387,7 +410,7 @@ export function ReportEdit() {
           size="100%"
           title={<Text fw={600} size="lg">Pasos del reporte</Text>}
         >
-          <Box p="md">
+          <Box>
             {renderStepper(handleStepClickMobile)}
             <Divider my="lg" />
             <UnstyledButton
@@ -417,7 +440,7 @@ export function ReportEdit() {
         </Drawer>
       )}
 
-      <div className={isMobile ? undefined : 'report-edit-wrapper'}>
+      <div className={isMobile ? 'report-edit-mobile-layout' : 'report-edit-wrapper'}>
         {/* Desktop sidebar with vertical stepper */}
         {!isMobile && (
           <aside className="report-edit-sidebar">
@@ -454,9 +477,13 @@ export function ReportEdit() {
         )}
 
         {/* Main content */}
-        <div className={isMobile ? undefined : 'report-edit-main'}>
-          <Container size="md" py="xl">
-            <Stack gap="lg">
+        <div className={isMobile ? 'report-edit-mobile-main' : 'report-edit-main'}>
+          <Container
+            size={isMobile ? undefined : 'md'}
+            px={isMobile ? 'sm' : undefined}
+            py={isMobile ? 'md' : 'xl'}
+          >
+            <Stack gap={isMobile ? 'md' : 'lg'}>
               {/* Mobile: title row with save button */}
               {isMobile && (
                 <Group justify="space-between" align="center">
@@ -568,11 +595,13 @@ export function ReportEdit() {
                   generatedPdfUrl={generatedPdfUrl}
                   onSendToReview={handleSubmitForReview}
                   onApprove={handleApprove}
+                  canUploadSignatures={canUploadSignatures}
+                  onUpdateReport={handleUpdateReport}
                 />
               ) : (
                 <>
                   {/* Step content */}
-                  <Box py="sm">
+                  <Box py={isMobile ? 0 : 'sm'}>
                     {renderStepContent()}
                   </Box>
 

@@ -30,7 +30,7 @@ export function ReportesFinales() {
   const [activeTab, setActiveTab] = useState<string | null>('listo_para_generar');
   const isMobile = useMediaQuery('(max-width: 768px)');
 
-  const isAdmin = userData?.role === 'admin';
+  const isAdmin = userData?.role === 'admin' || userData?.role === 'superadmin';
   const effectiveUid = userData?.uid ?? user?.uid ?? null;
 
   const fetchReports = async () => {
