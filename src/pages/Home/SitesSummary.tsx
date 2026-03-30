@@ -16,6 +16,32 @@ const SITE_TYPE_LABELS: Record<string, string> = {
 };
 
 type CameraFieldKey = keyof Pick<HardwareInventory, 'cameras_multisensor' | 'cameras_ptz' | 'cameras_fixed' | 'cameras_facial' | 'cameras_lpr'>;
+type ComponentKey = 'componente_1' | 'componente_2' | 'componente_3';
+
+const COMPONENT_CAMERA_LIMITS: Record<ComponentKey, { title: string; siteLimit: number; cameras: { label: string; key: CameraFieldKey; limit: number }[] }> = {
+  componente_1: {
+    title: 'Componente 1',
+    siteLimit: 161,
+    cameras: [
+      { label: 'PTZ', key: 'cameras_ptz', limit: 161 },
+      { label: 'Fijas', key: 'cameras_fixed', limit: 305 },
+    ],
+  },
+  componente_2: {
+    title: 'Componente 2',
+    siteLimit: 29,
+    cameras: [
+      { label: 'LPR', key: 'cameras_lpr', limit: 54 },
+    ],
+  },
+  componente_3: {
+    title: 'Componente 3',
+    siteLimit: 32,
+    cameras: [
+      { label: 'Facial', key: 'cameras_facial', limit: 32 },
+    ],
+  },
+};
 
 const CAMERA_FIELDS_BY_SITE_TYPE: Record<string, { key: CameraFieldKey; label: string }[]> = {
   ptz: [
@@ -195,18 +221,30 @@ export function SitesSummary() {
       cameras: { label: string; count: number }[];
     };
     const cameraInventory: CameraInventoryRow[] = [];
-    const cameraTypesByComponent = {
-      componente_1: [
-        { label: 'Multisensor', count: 0 },
-        { label: 'PTZ', count: 0 },
-        { label: 'Fijas', count: 0 },
-      ],
-      componente_2: [
-        { label: 'LPR', count: 0 },
-      ],
-      componente_3: [
-        { label: 'Facial', count: 0 },
-      ],
+    const cameraTypesByComponent: Record<ComponentKey, {
+      title: string;
+      siteCount: number;
+      siteLimit: number;
+      cameras: { label: string; count: number; limit: number }[];
+    }> = {
+      componente_1: {
+        title: COMPONENT_CAMERA_LIMITS.componente_1.title,
+        siteCount: 0,
+        siteLimit: COMPONENT_CAMERA_LIMITS.componente_1.siteLimit,
+        cameras: COMPONENT_CAMERA_LIMITS.componente_1.cameras.map((cam) => ({ label: cam.label, count: 0, limit: cam.limit })),
+      },
+      componente_2: {
+        title: COMPONENT_CAMERA_LIMITS.componente_2.title,
+        siteCount: 0,
+        siteLimit: COMPONENT_CAMERA_LIMITS.componente_2.siteLimit,
+        cameras: COMPONENT_CAMERA_LIMITS.componente_2.cameras.map((cam) => ({ label: cam.label, count: 0, limit: cam.limit })),
+      },
+      componente_3: {
+        title: COMPONENT_CAMERA_LIMITS.componente_3.title,
+        siteCount: 0,
+        siteLimit: COMPONENT_CAMERA_LIMITS.componente_3.siteLimit,
+        cameras: COMPONENT_CAMERA_LIMITS.componente_3.cameras.map((cam) => ({ label: cam.label, count: 0, limit: cam.limit })),
+      },
     };
 
     const getOrCreate = <V,>(map: Map<string, V>, key: string, factory: () => V): V => {
@@ -250,15 +288,24 @@ export function SitesSummary() {
       stStats.total++;
       stStats[status]++;
 
+      if (report) {
+        if (siteType === 'ptz') {
+          cameraTypesByComponent.componente_1.siteCount++;
+        } else if (siteType === 'lpr') {
+          cameraTypesByComponent.componente_2.siteCount++;
+        } else if (siteType === 'cotejo_facial') {
+          cameraTypesByComponent.componente_3.siteCount++;
+        }
+      }
+
       if (report?.hardware) {
         if (siteType === 'ptz') {
-          cameraTypesByComponent.componente_1[0].count += report.hardware.cameras_multisensor || 0;
-          cameraTypesByComponent.componente_1[1].count += report.hardware.cameras_ptz || 0;
-          cameraTypesByComponent.componente_1[2].count += report.hardware.cameras_fixed || 0;
+          cameraTypesByComponent.componente_1.cameras[0].count += report.hardware.cameras_ptz || 0;
+          cameraTypesByComponent.componente_1.cameras[1].count += report.hardware.cameras_fixed || 0;
         } else if (siteType === 'lpr') {
-          cameraTypesByComponent.componente_2[0].count += report.hardware.cameras_lpr || 0;
+          cameraTypesByComponent.componente_2.cameras[0].count += report.hardware.cameras_lpr || 0;
         } else if (siteType === 'cotejo_facial') {
-          cameraTypesByComponent.componente_3[0].count += report.hardware.cameras_facial || 0;
+          cameraTypesByComponent.componente_3.cameras[0].count += report.hardware.cameras_facial || 0;
         }
 
         const fields = CAMERA_FIELDS_BY_SITE_TYPE[siteType];
@@ -601,44 +648,26 @@ export function SitesSummary() {
             <Group justify="space-between" mb="xs">
               <Text fw={500} size="lg">Cámaras por componente</Text>
             </Group>
-            {(cameraTypesByComponent.componente_1.some((cam) => cam.count > 0)
-              || cameraTypesByComponent.componente_2.some((cam) => cam.count > 0)
-              || cameraTypesByComponent.componente_3.some((cam) => cam.count > 0)) ? (
-              <Stack gap="sm" mt="xs">
-                <div>
-                  <Text size="sm" fw={600} c="dimmed" mb={4}>Componente 1</Text>
-                  <Group gap={6}>
-                    {cameraTypesByComponent.componente_1.map((cam) => (
-                      <Badge key={`comp1-${cam.label}`} size="sm" variant="light" color="violet">
-                        {cam.label}: {cam.count}
-                      </Badge>
-                    ))}
-                  </Group>
-                </div>
-                <div>
-                  <Text size="sm" fw={600} c="dimmed" mb={4}>Componente 2</Text>
-                  <Group gap={6}>
-                    {cameraTypesByComponent.componente_2.map((cam) => (
-                      <Badge key={`comp2-${cam.label}`} size="sm" variant="light" color="violet">
-                        {cam.label}: {cam.count}
-                      </Badge>
-                    ))}
-                  </Group>
-                </div>
-                <div>
-                  <Text size="sm" fw={600} c="dimmed" mb={4}>Componente 3</Text>
-                  <Group gap={6}>
-                    {cameraTypesByComponent.componente_3.map((cam) => (
-                      <Badge key={`comp3-${cam.label}`} size="sm" variant="light" color="violet">
-                        {cam.label}: {cam.count}
-                      </Badge>
-                    ))}
-                  </Group>
-                </div>
-              </Stack>
-            ) : (
-              <Text size="sm" c="dimmed">Sin datos de hardware reportados.</Text>
-            )}
+            <Stack gap="sm" mt="xs">
+              {(Object.keys(cameraTypesByComponent) as ComponentKey[]).map((componentKey) => {
+                const component = cameraTypesByComponent[componentKey];
+                return (
+                  <div key={componentKey}>
+                    <Text size="sm" fw={600} c="dimmed" mb={2}>{component.title}</Text>
+                    <Text size="xs" c="dimmed" mb={4}>
+                      Sitios: {component.siteCount} / {component.siteLimit}
+                    </Text>
+                    <Group gap={6}>
+                      {component.cameras.map((cam) => (
+                        <Badge key={`${componentKey}-${cam.label}`} size="sm" variant="light" color="violet">
+                          {cam.label}: {cam.count} / {cam.limit}
+                        </Badge>
+                      ))}
+                    </Group>
+                  </div>
+                );
+              })}
+            </Stack>
           </Card>
         </Grid.Col>
 
