@@ -6,6 +6,7 @@ import { useLocation } from 'preact-iso';
 import { useAuth } from '../../features/auth/AuthContext';
 import { Report, ReportStatus, createInitialReport } from '../../types/Report';
 import { getUserReports, saveReport, deleteReport } from '../../services/reportsService';
+import { formatReportDate } from '../../utils/reportDate';
 
 export function MisReportes() {
   const { user, userData, loading: authLoading } = useAuth();
@@ -129,7 +130,7 @@ export function MisReportes() {
                 </Group>
 
                 <Text size="sm" c="dimmed" mb="xs">
-                    {[report.date, report.address?.municipio, report.address?.distrito].filter(Boolean).join(' · ')}
+                  {[formatReportDate(report.date, report.created_at), report.address?.municipio, report.address?.distrito].filter(Boolean).join(' · ')}
                 </Text>
                 {report.address?.full_address && (
                     <Text size="xs" c="dimmed" mb="xs">{report.address.full_address}</Text>
@@ -205,7 +206,7 @@ export function MisReportes() {
         <Table.Tbody>
           {filtered.map((report) => (
             <Table.Tr key={report.id}>
-              <Table.Td>{report.date}</Table.Td>
+              <Table.Td>{formatReportDate(report.date, report.created_at)}</Table.Td>
               <Table.Td>
                 <Text size="sm" fw={500}>{report.address?.site_name || 'Sin punto'}</Text>
                 {(report.address?.municipio || report.address?.distrito) && (

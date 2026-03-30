@@ -88,8 +88,10 @@ export function SideMenu({ children }: SideMenuProps) {
       // Both roles can see "Mis Reportes"
       items.push({ label: 'Mis Reportes', path: '/mis-reportes', icon: IconFileCheck });
 
-      // Both roles can see "Reportes Finales"
-      items.push({ label: 'Reportes Finales', path: '/reportes-finales', icon: IconFileExport });
+      // Field workers can see "Reportes Finales"
+      if (userData?.role === 'field_worker') {
+        items.push({ label: 'Reportes Finales', path: '/reportes-finales', icon: IconFileExport });
+      }
     }
 
     return items;

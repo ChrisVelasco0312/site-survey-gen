@@ -584,7 +584,7 @@ export function SitesSummary() {
         <Grid.Col span={{ base: 12, md: 4 }}>
           <Card shadow="sm" padding="lg" radius="md" withBorder style={{ height: '100%' }}>
             <Group justify="space-between" mb="xs">
-              <Text fw={500} size="lg">Cámaras Instaladas</Text>
+              <Text fw={500} size="lg">Cámaras por componente</Text>
               <Badge size="xl" variant="filled" color="violet">{totalCameras}</Badge>
             </Group>
             {sortedCameraTypes.length > 0 ? (

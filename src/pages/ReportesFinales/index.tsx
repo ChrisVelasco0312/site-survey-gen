@@ -21,6 +21,7 @@ import { useLocation } from 'preact-iso';
 import { useAuth } from '../../features/auth/AuthContext';
 import type { Report, ReportStatus } from '../../types/Report';
 import { getUserReports, getAllReports, saveReport } from '../../services/reportsService';
+import { formatReportDate } from '../../utils/reportDate';
 
 export function ReportesFinales() {
   const { user, userData, loading: authLoading } = useAuth();
@@ -54,12 +55,16 @@ export function ReportesFinales() {
 
   useEffect(() => {
     if (authLoading) return;
+    if (isAdmin) {
+      location.route('/');
+      return;
+    }
     if (user) {
       fetchReports();
     } else {
       setLoading(false);
     }
-  }, [user, userData, authLoading]);
+  }, [user, userData, authLoading, isAdmin]);
 
   const handleDuplicate = async (report: Report) => {
     if (!effectiveUid) return;
@@ -182,7 +187,7 @@ export function ReportesFinales() {
           </Group>
 
           <Text size="sm" c="dimmed" mb="xs">
-            {[report.date, report.address?.municipio, report.address?.distrito].filter(Boolean).join(' · ')}
+            {[formatReportDate(report.date, report.created_at), report.address?.municipio, report.address?.distrito].filter(Boolean).join(' · ')}
           </Text>
           {report.address?.full_address && (
             <Text size="xs" c="dimmed" mb="xs">{report.address.full_address}</Text>
@@ -221,7 +226,7 @@ export function ReportesFinales() {
         <Table.Tbody>
           {filtered.map((report) => (
             <Table.Tr key={report.id}>
-              <Table.Td>{report.date}</Table.Td>
+              <Table.Td>{formatReportDate(report.date, report.created_at)}</Table.Td>
               <Table.Td>
                 <Text size="sm" fw={500}>{report.address?.site_name || 'Sin punto'}</Text>
                 {(report.address?.municipio || report.address?.distrito) && (

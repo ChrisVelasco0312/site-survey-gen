@@ -248,7 +248,7 @@ export function ReportEdit() {
     const pdfUrl = await uploadGeneratedPdf(report.id, signedPdfBytes);
     await createGeneratedReport(report.id, pdfUrl, userData.uid);
     await updateReportStatus(report, 'generado');
-    location.route('/reportes-finales');
+    location.route('/');
   };
 
   /** Called by PdfPreviewPanel after saving signature images to Storage. */

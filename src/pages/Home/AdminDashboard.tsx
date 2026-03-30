@@ -18,6 +18,7 @@ import { Report } from "../../types/Report";
 import { IconEye, IconRefresh } from "@tabler/icons-react";
 import { useLocation } from "preact-iso";
 import { getAllReports } from "../../services/reportsService";
+import { formatReportDate } from "../../utils/reportDate";
 
 export function AdminDashboard() {
   const [reports, setReports] = useState<Report[]>([]);
@@ -81,7 +82,7 @@ export function AdminDashboard() {
           </Group>
 
           <Text size="sm" c="dimmed" mb="xs">
-            {report.date || new Date(report.created_at).toLocaleDateString()} •{" "}
+            {formatReportDate(report.date, report.created_at)} •{" "}
             {report.group === 'all' ? 'Administrador' : report.group === 'grupo_a' ? 'Grupo 1' : 'Grupo 2'}
           </Text>
 
@@ -137,8 +138,7 @@ export function AdminDashboard() {
           {filtered.map((report) => (
             <Table.Tr key={report.id}>
               <Table.Td>
-                {report.date ||
-                  new Date(report.created_at).toLocaleDateString()}
+                {formatReportDate(report.date, report.created_at)}
               </Table.Td>
               <Table.Td>
                 <Text size="sm" fw={500}>
@@ -196,6 +196,8 @@ export function AdminDashboard() {
           <Tabs.List mb="md">
             <Tabs.Tab value="en_campo">En Campo</Tabs.Tab>
             <Tabs.Tab value="en_revision">En Revisión</Tabs.Tab>
+            <Tabs.Tab value="listo_para_generar">Listos para Generar</Tabs.Tab>
+            <Tabs.Tab value="generado">Generados</Tabs.Tab>
           </Tabs.List>
 
           <Tabs.Panel value="en_campo">
@@ -204,6 +206,14 @@ export function AdminDashboard() {
 
           <Tabs.Panel value="en_revision">
             {renderContent(["en_revision"])}
+          </Tabs.Panel>
+
+          <Tabs.Panel value="listo_para_generar">
+            {renderContent(["listo_para_generar"])}
+          </Tabs.Panel>
+
+          <Tabs.Panel value="generado">
+            {renderContent(["generado"])}
           </Tabs.Panel>
         </Tabs>
       )}
