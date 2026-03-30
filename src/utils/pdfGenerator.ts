@@ -248,14 +248,14 @@ export function buildPdfInputs(report: Report): Record<string, string> {
       ? `${report.infrastructure_details.service_entrance.height} mts`
       : "",
     input_pa_material:
-      report.infrastructure_details?.service_entrance?.material ?? "",
+      report.infrastructure_details?.service_entrance?.material || "--",
 
     // ─── Infrastructure: Camera Point ────────────────────────
     input_pc_tub: report.infrastructure_details?.camera_point?.pipe_type ?? "",
     input_pc_alt: report.infrastructure_details?.camera_point?.height
       ? `${report.infrastructure_details.camera_point.height} mts`
       : "",
-    input_pc_mat: report.infrastructure_details?.camera_point?.material ?? "",
+    input_pc_mat: report.infrastructure_details?.camera_point?.material || "--",
 
     // ─── Observations ────────────────────────────────────────
     input_observations: `Este punto de cámara pertenece a:  ${report.owner_name || "—"}\n\n\nOBSERVACIONES GENERALES:\n\n${report.final_observations ?? ""}`,
