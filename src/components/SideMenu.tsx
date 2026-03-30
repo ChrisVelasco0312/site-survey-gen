@@ -79,9 +79,9 @@ export function SideMenu({ children }: SideMenuProps) {
     const items = [];
     
     if (userData?.role === 'admin' || userData?.role === 'superadmin' || userData?.role === 'read_only') {
-      items.push({ label: 'Dashboard', path: '/', icon: IconLayoutDashboard });
+      items.push({ label: 'Dashboard de reportes', path: '/', icon: IconLayoutDashboard });
       items.push({ label: 'Resumen de Sitios', path: '/resumen-sitios', icon: IconReportAnalytics });
-      items.push({ label: 'Sitios', path: '/admin/sitios', icon: IconMapPin });
+      items.push({ label: 'Admin de Sitios', path: '/admin/sitios', icon: IconMapPin });
     }
 
     if (userData?.role !== 'read_only') {
