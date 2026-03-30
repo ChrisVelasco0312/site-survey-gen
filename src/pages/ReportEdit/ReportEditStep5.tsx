@@ -254,10 +254,10 @@ export function ReportEditStep5({ report, setReport, readOnly }: ReportEditStep5
               />
               <NativeSelect
                 label="Material:"
-                data={['Concreto', 'Fibra']}
-                value={se.material || 'Concreto'}
+                data={['Concreto', 'Fibra', '']}
+                value={se.material ?? ''}
                 onChange={(e) => setReport(setInfrastructureDetails(report, {
-                  service_entrance: { ...se, material: e.currentTarget.value || 'Concreto' },
+                  service_entrance: { ...se, material: e.currentTarget.value },
                 }))}
               />
             </Stack>
@@ -279,10 +279,10 @@ export function ReportEditStep5({ report, setReport, readOnly }: ReportEditStep5
               />
               <NativeSelect
                 label="Material:"
-                data={['Concreto', 'Fibra', 'Metal']}
-                value={cp.material || 'Concreto'}
+                data={['Concreto', 'Fibra', 'Metal', '']}
+                value={cp.material ?? ''}
                 onChange={(e) => setReport(setInfrastructureDetails(report, {
-                  camera_point: { ...cp, material: e.currentTarget.value || 'Concreto' },
+                  camera_point: { ...cp, material: e.currentTarget.value },
                 }))}
               />
             </Stack>
