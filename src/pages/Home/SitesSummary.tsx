@@ -860,7 +860,7 @@ export function SitesSummary() {
                       <Table.Th>Nombre del Sitio</Table.Th>
                       <Table.Th>Distrito</Table.Th>
                       <Table.Th>Municipio</Table.Th>
-                      <Table.Th>Tipo</Table.Th>
+                      <Table.Th>Componente</Table.Th>
                       <Table.Th>Cámaras</Table.Th>
                     </Table.Tr>
                   </Table.Thead>
@@ -880,7 +880,7 @@ export function SitesSummary() {
                           <Text size="sm">{row.municipio}</Text>
                         </Table.Td>
                         <Table.Td>
-                          <Badge size="sm" variant="light" styles={noTruncateBadgeStyles}>{SITE_TYPE_LABELS[row.siteType] || row.siteType}</Badge>
+                          <Badge size="sm" variant="light" styles={noTruncateBadgeStyles}>{DISTRICT_BREAKDOWN_LABELS[row.siteType] || row.siteType}</Badge>
                         </Table.Td>
                         <Table.Td>
                           <Group gap={6} wrap="wrap">
