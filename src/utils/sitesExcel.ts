@@ -8,6 +8,9 @@ const HEADERS = [
   'municipio',
   'name',
   'address',
+  'address_changed',
+  'old_address',
+  'address_change_reason',
   'gms',
   'latitude',
   'longitude',
@@ -53,6 +56,9 @@ export interface ParsedSiteRow {
   municipio: string;
   name: string;
   address: string;
+  address_changed: boolean;
+  old_address: string;
+  address_change_reason: string;
   latitude: number;
   longitude: number;
   cameras_count: number;
@@ -80,6 +86,9 @@ function siteToRow(site: SiteRecord): Record<string, unknown> {
     municipio: site.municipio,
     name: site.name,
     address: site.address,
+    address_changed: site.address_changed ? 'si' : 'no',
+    old_address: site.old_address ?? '',
+    address_change_reason: site.address_change_reason ?? '',
     gms: lat != null && lon != null ? formatToGMS(lat, lon) : '',
     latitude: lat ?? '',
     longitude: lon ?? '',
@@ -91,7 +100,7 @@ function siteToRow(site: SiteRecord): Record<string, unknown> {
 export function downloadTemplate(): void {
   const wb = XLSX.utils.book_new();
   const ws = XLSX.utils.aoa_to_sheet([HEADERS as unknown as string[]]);
-  ws['!cols'] = [15, 15, 20, 20, 25, 35, 28, 14, 14, 14, 30].map((w) => ({ wch: w }));
+  ws['!cols'] = [15, 15, 20, 20, 25, 35, 18, 30, 35, 28, 14, 14, 14, 30].map((w) => ({ wch: w }));
   XLSX.utils.book_append_sheet(wb, ws, 'Sitios');
   XLSX.writeFile(wb, 'plantilla_sitios.xlsx');
 }
@@ -100,7 +109,7 @@ export function exportSitesToExcel(sites: SiteRecord[], filename = 'sitios.xlsx'
   const rows = sites.map(siteToRow);
   const wb = XLSX.utils.book_new();
   const ws = XLSX.utils.json_to_sheet(rows, { header: [...HEADERS] });
-  ws['!cols'] = [15, 15, 20, 20, 25, 35, 28, 14, 14, 14, 30].map((w) => ({ wch: w }));
+  ws['!cols'] = [15, 15, 20, 20, 25, 35, 18, 30, 35, 28, 14, 14, 14, 30].map((w) => ({ wch: w }));
   XLSX.utils.book_append_sheet(wb, ws, 'Sitios');
   XLSX.writeFile(wb, filename);
 }
@@ -149,6 +158,15 @@ export function parseExcelFile(file: File): Promise<ParseResult> {
           const address = String(raw['address'] ?? '').trim();
           if (!address) reasons.push('address vacío');
 
+          const rawAddressChanged = String(raw['address_changed'] ?? '').trim().toLowerCase();
+          const addressChanged = rawAddressChanged === 'si' || rawAddressChanged === 'sí' || rawAddressChanged === 'yes' || rawAddressChanged === '1' || rawAddressChanged === 'true';
+          const oldAddress = String(raw['old_address'] ?? '').trim();
+          const addressChangeReason = String(raw['address_change_reason'] ?? '').trim();
+
+          if (addressChanged && !oldAddress) {
+            reasons.push('old_address vacío (requerido cuando address_changed es "si")');
+          }
+
           // --- Location resolution: GMS takes priority ---
           let latitude: number | null = null;
           let longitude: number | null = null;
@@ -196,6 +214,9 @@ export function parseExcelFile(file: File): Promise<ParseResult> {
             municipio,
             name,
             address,
+            address_changed: addressChanged,
+            old_address: oldAddress,
+            address_change_reason: addressChangeReason,
             latitude: latitude!,
             longitude: longitude!,
             cameras_count: Math.max(0, Math.floor(Number(raw['cameras_count'] ?? 0)) || 0),
@@ -249,7 +270,10 @@ export function buildUpsertPlan(
         existing.cameras_count !== row.cameras_count ||
         existing.description !== row.description ||
         (existing.location?.latitude ?? null) !== row.latitude ||
-        (existing.location?.longitude ?? null) !== row.longitude;
+        (existing.location?.longitude ?? null) !== row.longitude ||
+        (existing.address_changed ?? false) !== row.address_changed ||
+        (existing.old_address ?? '') !== row.old_address ||
+        (existing.address_change_reason ?? '') !== row.address_change_reason;
 
       if (hasChanges) {
         toUpdate.push({ id: existing.id, data: row });
@@ -270,6 +294,9 @@ export function parsedRowToSitePayload(row: ParsedSiteRow): Omit<SiteRecord, 'id
     municipio: row.municipio,
     name: row.name,
     address: row.address,
+    address_changed: row.address_changed,
+    old_address: row.old_address,
+    address_change_reason: row.address_change_reason,
     location: { latitude: row.latitude, longitude: row.longitude },
     cameras_count: row.cameras_count,
     description: row.description,

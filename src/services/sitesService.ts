@@ -24,6 +24,9 @@ function mapFirestoreDocToSiteRecord(
         : null,
     cameras_count: typeof data.cameras_count === 'number' ? data.cameras_count : 0,
     description: (data.description as string) ?? '',
+    address_changed: (data.address_changed as boolean) ?? false,
+    old_address: (data.old_address as string) ?? '',
+    address_change_reason: (data.address_change_reason as string) ?? '',
   };
 }
 

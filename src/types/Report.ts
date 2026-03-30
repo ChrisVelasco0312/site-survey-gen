@@ -27,6 +27,9 @@ export interface SiteRecord {
   location?: { latitude: number; longitude: number } | null;
   cameras_count: number;
   description: string;
+  address_changed?: boolean;
+  old_address?: string;
+  address_change_reason?: string;
 }
 
 export interface AddressData {

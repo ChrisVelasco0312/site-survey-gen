@@ -28,6 +28,9 @@ const EMPTY_FORM: Omit<SiteRecord, 'id'> = {
   municipio: '',
   name: '',
   address: '',
+  address_changed: false,
+  old_address: '',
+  address_change_reason: '',
   location: null,
   cameras_count: 0,
   description: '',
@@ -449,6 +452,40 @@ export function SitesAdmin() {
           onChange={(e) => updateField('address', (e.target as HTMLInputElement).value)}
           required
         />
+        {editingId && (
+          <>
+            <Checkbox
+              label="¿Cambió dirección?"
+              checked={form.address_changed ?? false}
+              onChange={(e) => {
+                const checked = (e.target as HTMLInputElement).checked;
+                updateField('address_changed', checked);
+                if (!checked) {
+                  updateField('old_address', '');
+                  updateField('address_change_reason', '');
+                }
+              }}
+            />
+            {form.address_changed && (
+              <>
+                <TextInput
+                  label="Dirección antigua"
+                  placeholder="Dirección original antes del cambio"
+                  value={form.old_address ?? ''}
+                  onChange={(e) => updateField('old_address', (e.target as HTMLInputElement).value)}
+                />
+                <Textarea
+                  label="Razón del cambio"
+                  placeholder="Describa por qué cambió la dirección"
+                  value={form.address_change_reason ?? ''}
+                  onChange={(e) => updateField('address_change_reason', (e.target as HTMLTextAreaElement).value)}
+                  autosize
+                  minRows={3}
+                />
+              </>
+            )}
+          </>
+        )}
         <TextInput
           label="Coordenadas GMS"
           placeholder="3°48'44.5&quot;N 76°37'18.25&quot;W"
@@ -569,6 +606,21 @@ export function SitesAdmin() {
             <Text size="sm" c="dimmed">Dirección</Text>
             <Text>{viewingSite.address}</Text>
           </div>
+
+          {viewingSite.address_changed && (
+            <>
+              <div>
+                <Text size="sm" c="dimmed">Dirección antigua</Text>
+                <Text>{viewingSite.old_address}</Text>
+              </div>
+              {viewingSite.address_change_reason && (
+                <div>
+                  <Text size="sm" c="dimmed">Razón del cambio</Text>
+                  <Text>{viewingSite.address_change_reason}</Text>
+                </div>
+              )}
+            </>
+          )}
           
           <div>
             <Text size="sm" c="dimmed">Coordenadas</Text>
