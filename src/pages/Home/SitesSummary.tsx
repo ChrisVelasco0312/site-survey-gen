@@ -15,6 +15,12 @@ const SITE_TYPE_LABELS: Record<string, string> = {
   ptz: 'PTZ',
 };
 
+const DISTRICT_BREAKDOWN_LABELS: Record<string, string> = {
+  ptz: 'Componente 1',
+  lpr: 'Componente 2',
+  cotejo_facial: 'Componente 3',
+};
+
 type CameraFieldKey = keyof Pick<HardwareInventory, 'cameras_multisensor' | 'cameras_ptz' | 'cameras_fixed' | 'cameras_facial' | 'cameras_lpr'>;
 type ComponentKey = 'componente_1' | 'componente_2' | 'componente_3';
 
@@ -85,6 +91,7 @@ export function SitesSummary() {
     updatedAt: number | null;
     description: string;
     hasReport: boolean;
+    cameras: { label: string; count: number }[];
   };
   const [modalOpened, setModalOpened] = useState(false);
   const [modalTitle, setModalTitle] = useState('');
@@ -178,6 +185,19 @@ export function SitesSummary() {
         updatedAt: report ? report.updated_at : null,
         description: site.description,
         hasReport: !!report,
+        cameras: (() => {
+          if (!report?.hardware) return [];
+          const fields = CAMERA_FIELDS_BY_SITE_TYPE[siteType];
+          if (!fields) return [];
+          const details: { label: string; count: number }[] = [];
+          for (let f = 0; f < fields.length; f++) {
+            const value = report.hardware[fields[f].key] || 0;
+            if (value > 0) {
+              details.push({ label: fields[f].label, count: value });
+            }
+          }
+          return details;
+        })(),
       });
     }
     result.sort((a, b) => a.siteCode.localeCompare(b.siteCode));
@@ -400,6 +420,35 @@ export function SitesSummary() {
   };
 
   const statusList: ExtendedStatus[] = ['sin_iniciar', 'en_campo', 'en_revision', 'listo_para_generar', 'generado'];
+  const noTruncateBadgeStyles = {
+    root: {
+      maxWidth: 'none',
+      width: 'fit-content',
+      flex: '0 0 auto',
+    },
+    label: {
+      overflow: 'visible',
+      textOverflow: 'clip',
+      whiteSpace: 'nowrap',
+      maxWidth: 'none',
+    },
+  };
+  const wrapBadgeStyles = {
+    root: {
+      maxWidth: 'none',
+      width: 'fit-content',
+      flex: '0 0 auto',
+      height: 'auto',
+      minHeight: 'var(--badge-height)',
+    },
+    label: {
+      overflow: 'visible',
+      textOverflow: 'clip',
+      whiteSpace: 'nowrap',
+      maxWidth: 'none',
+      lineHeight: 1.2,
+    },
+  };
   const metricColumns: Array<{ key: 'total' | ExtendedStatus; label: string }> = [
     { key: 'total', label: 'Total' },
     { key: 'sin_iniciar', label: 'Sin Iniciar' },
@@ -478,7 +527,7 @@ export function SitesSummary() {
             'Tipo de Sitio',
             district,
             municipality,
-            SITE_TYPE_LABELS[siteType] || siteType,
+            DISTRICT_BREAKDOWN_LABELS[siteType] || siteType,
             ...getMetricValues(stStats),
           ]);
         }
@@ -659,7 +708,7 @@ export function SitesSummary() {
                     </Text>
                     <Group gap={6}>
                       {component.cameras.map((cam) => (
-                        <Badge key={`${componentKey}-${cam.label}`} size="sm" variant="light" color="violet">
+                        <Badge key={`${componentKey}-${cam.label}`} size="sm" variant="light" color="violet" styles={wrapBadgeStyles}>
                           {cam.label}: {cam.count} / {cam.limit}
                         </Badge>
                       ))}
@@ -767,7 +816,7 @@ export function SitesSummary() {
                       rows.push(
                         <Table.Tr key={`st-${district}-${municipality}-${siteType}`}>
                           <Table.Td style={{ paddingLeft: '4rem' }}>
-                            <Text size="sm" c="dimmed">{SITE_TYPE_LABELS[siteType] || siteType}</Text>
+                            <Text size="sm" c="dimmed">{DISTRICT_BREAKDOWN_LABELS[siteType] || siteType}</Text>
                           </Table.Td>
                           {visibleMetricColumns.map((metric) => (
                             <Table.Td key={`st-${district}-${municipality}-${siteType}-${metric.key}`}>
@@ -777,7 +826,7 @@ export function SitesSummary() {
                           <Table.Td>
                             <Tooltip label="Ver sitios" withArrow>
                               <ActionIcon variant="subtle" size="sm" onClick={() => openSitesModal(
-                                `${district} › ${municipality} › ${SITE_TYPE_LABELS[siteType] || siteType}`,
+                                `${district} › ${municipality} › ${DISTRICT_BREAKDOWN_LABELS[siteType] || siteType}`,
                                 district, municipality, siteType,
                               )}>
                                 <IconEye size={16} />
@@ -831,12 +880,12 @@ export function SitesSummary() {
                           <Text size="sm">{row.municipio}</Text>
                         </Table.Td>
                         <Table.Td>
-                          <Badge size="sm" variant="light">{SITE_TYPE_LABELS[row.siteType] || row.siteType}</Badge>
+                          <Badge size="sm" variant="light" styles={noTruncateBadgeStyles}>{SITE_TYPE_LABELS[row.siteType] || row.siteType}</Badge>
                         </Table.Td>
                         <Table.Td>
                           <Group gap={6} wrap="wrap">
                             {row.cameras.map((cam) => (
-                              <Badge key={cam.label} size="sm" variant="light" color="violet">
+                              <Badge key={cam.label} size="sm" variant="light" color="violet" styles={wrapBadgeStyles}>
                                 {cam.label}: {cam.count}
                               </Badge>
                             ))}
@@ -869,7 +918,7 @@ export function SitesSummary() {
                 <Table.Th>Tipo</Table.Th>
                 <Table.Th>Estado</Table.Th>
                 <Table.Th>Últ. Actualización</Table.Th>
-                <Table.Th ta="center">Cámaras</Table.Th>
+                <Table.Th>Cámaras</Table.Th>
               </Table.Tr>
             </Table.Thead>
             <Table.Tbody>
@@ -887,18 +936,28 @@ export function SitesSummary() {
                     <Text size="xs" c="dimmed" lineClamp={1}>{s.address}</Text>
                   </Table.Td>
                   <Table.Td>
-                    <Badge size="sm" variant="light">{SITE_TYPE_LABELS[s.siteType] || s.siteType}</Badge>
+                    <Badge size="sm" variant="light" styles={noTruncateBadgeStyles}>{DISTRICT_BREAKDOWN_LABELS[s.siteType] || s.siteType}</Badge>
                   </Table.Td>
                   <Table.Td>
-                    <Badge size="sm" color={statusColors[s.status]} variant="filled">{statusLabels[s.status]}</Badge>
+                    <Badge size="sm" color={statusColors[s.status]} variant="filled" styles={noTruncateBadgeStyles}>{statusLabels[s.status]}</Badge>
                   </Table.Td>
                   <Table.Td>
                     <Text size="xs" c="dimmed">
                       {s.updatedAt ? new Date(s.updatedAt).toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
                     </Text>
                   </Table.Td>
-                  <Table.Td ta="center">
-                    <Text size="sm" fw={500}>{s.camerasCount}</Text>
+                  <Table.Td>
+                    {s.cameras.length > 0 ? (
+                      <Group gap={6} wrap="wrap">
+                        {s.cameras.map((cam) => (
+                          <Badge key={`${s.siteCode}-${cam.label}`} size="sm" variant="light" color="violet" styles={wrapBadgeStyles}>
+                            {cam.label}: {cam.count}
+                          </Badge>
+                        ))}
+                      </Group>
+                    ) : (
+                      <Text size="xs" c="dimmed">—</Text>
+                    )}
                   </Table.Td>
                 </Table.Tr>
               ))}
