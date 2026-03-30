@@ -195,8 +195,19 @@ export function SitesSummary() {
       cameras: { label: string; count: number }[];
     };
     const cameraInventory: CameraInventoryRow[] = [];
-    let totalCameras = 0;
-    const camerasByType = new Map<string, number>();
+    const cameraTypesByComponent = {
+      componente_1: [
+        { label: 'Multisensor', count: 0 },
+        { label: 'PTZ', count: 0 },
+        { label: 'Fijas', count: 0 },
+      ],
+      componente_2: [
+        { label: 'LPR', count: 0 },
+      ],
+      componente_3: [
+        { label: 'Facial', count: 0 },
+      ],
+    };
 
     const getOrCreate = <V,>(map: Map<string, V>, key: string, factory: () => V): V => {
       let v = map.get(key);
@@ -240,6 +251,16 @@ export function SitesSummary() {
       stStats[status]++;
 
       if (report?.hardware) {
+        if (siteType === 'ptz') {
+          cameraTypesByComponent.componente_1[0].count += report.hardware.cameras_multisensor || 0;
+          cameraTypesByComponent.componente_1[1].count += report.hardware.cameras_ptz || 0;
+          cameraTypesByComponent.componente_1[2].count += report.hardware.cameras_fixed || 0;
+        } else if (siteType === 'lpr') {
+          cameraTypesByComponent.componente_2[0].count += report.hardware.cameras_lpr || 0;
+        } else if (siteType === 'cotejo_facial') {
+          cameraTypesByComponent.componente_3[0].count += report.hardware.cameras_facial || 0;
+        }
+
         const fields = CAMERA_FIELDS_BY_SITE_TYPE[siteType];
         if (fields) {
           const cameras: { label: string; count: number }[] = [];
@@ -247,8 +268,6 @@ export function SitesSummary() {
             const val = report.hardware[fields[f].key] || 0;
             if (val > 0) {
               cameras.push({ label: fields[f].label, count: val });
-              totalCameras += val;
-              camerasByType.set(fields[f].label, (camerasByType.get(fields[f].label) || 0) + val);
             }
           }
           if (cameras.length > 0) {
@@ -292,11 +311,7 @@ export function SitesSummary() {
       || a.siteCode.localeCompare(b.siteCode),
     );
 
-    const sortedCameraTypes = Array.from(camerasByType.entries())
-      .sort((a, b) => b[1] - a[1])
-      .map(([label, count]) => ({ label, count }));
-
-    return { globalStats, sortedDistricts, cameraInventory, totalCameras, sortedCameraTypes };
+    return { globalStats, sortedDistricts, cameraInventory, cameraTypesByComponent };
   }, [sites, latestReportBySite, filterDistrito, filterMunicipio, filterSiteType]);
 
   if (loading) {
@@ -308,7 +323,7 @@ export function SitesSummary() {
     );
   }
 
-  const { globalStats, sortedDistricts, cameraInventory, totalCameras, sortedCameraTypes } = stats;
+  const { globalStats, sortedDistricts, cameraInventory, cameraTypesByComponent } = stats;
 
   const renderStatusCount = (count: number, total: number) => {
     if (total === 0) return '-';
@@ -585,16 +600,42 @@ export function SitesSummary() {
           <Card shadow="sm" padding="lg" radius="md" withBorder style={{ height: '100%' }}>
             <Group justify="space-between" mb="xs">
               <Text fw={500} size="lg">Cámaras por componente</Text>
-              <Badge size="xl" variant="filled" color="violet">{totalCameras}</Badge>
             </Group>
-            {sortedCameraTypes.length > 0 ? (
-              <Group gap={6} mt="xs">
-                {sortedCameraTypes.map((cam) => (
-                  <Badge key={cam.label} size="sm" variant="light" color="violet">
-                    {cam.label}: {cam.count}
-                  </Badge>
-                ))}
-              </Group>
+            {(cameraTypesByComponent.componente_1.some((cam) => cam.count > 0)
+              || cameraTypesByComponent.componente_2.some((cam) => cam.count > 0)
+              || cameraTypesByComponent.componente_3.some((cam) => cam.count > 0)) ? (
+              <Stack gap="sm" mt="xs">
+                <div>
+                  <Text size="sm" fw={600} c="dimmed" mb={4}>Componente 1</Text>
+                  <Group gap={6}>
+                    {cameraTypesByComponent.componente_1.map((cam) => (
+                      <Badge key={`comp1-${cam.label}`} size="sm" variant="light" color="violet">
+                        {cam.label}: {cam.count}
+                      </Badge>
+                    ))}
+                  </Group>
+                </div>
+                <div>
+                  <Text size="sm" fw={600} c="dimmed" mb={4}>Componente 2</Text>
+                  <Group gap={6}>
+                    {cameraTypesByComponent.componente_2.map((cam) => (
+                      <Badge key={`comp2-${cam.label}`} size="sm" variant="light" color="violet">
+                        {cam.label}: {cam.count}
+                      </Badge>
+                    ))}
+                  </Group>
+                </div>
+                <div>
+                  <Text size="sm" fw={600} c="dimmed" mb={4}>Componente 3</Text>
+                  <Group gap={6}>
+                    {cameraTypesByComponent.componente_3.map((cam) => (
+                      <Badge key={`comp3-${cam.label}`} size="sm" variant="light" color="violet">
+                        {cam.label}: {cam.count}
+                      </Badge>
+                    ))}
+                  </Group>
+                </div>
+              </Stack>
             ) : (
               <Text size="sm" c="dimmed">Sin datos de hardware reportados.</Text>
             )}
