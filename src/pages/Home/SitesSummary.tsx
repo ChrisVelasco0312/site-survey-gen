@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo } from 'preact/hooks';
+import { useLocation } from 'preact-iso';
 import { Title, Card, Grid, Text, Group, RingProgress, Table, Loader, Badge, ScrollArea, Select, Button, Collapse, Stack, MultiSelect, Tabs, Modal, Tooltip, ActionIcon } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { IconFilter, IconX, IconCamera, IconFileSpreadsheet, IconTable, IconMapPin, IconEye } from '@tabler/icons-react';
@@ -68,6 +69,7 @@ const CAMERA_FIELDS_BY_SITE_TYPE: Record<string, { key: CameraFieldKey; label: s
 type SummaryCounts = Record<ExtendedStatus, number> & { total: number };
 
 export function SitesSummary() {
+  const location = useLocation();
   const [reports, setReports] = useState<Report[]>([]);
   const [sites, setSites] = useState<SiteRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -239,6 +241,7 @@ export function SitesSummary() {
       distrito: string;
       municipio: string;
       siteType: string;
+      reportId: string;
       cameras: { label: string; count: number }[];
     };
     const cameraInventory: CameraInventoryRow[] = [];
@@ -346,6 +349,7 @@ export function SitesSummary() {
               distrito: district,
               municipio: municipality,
               siteType,
+              reportId: report.id,
               cameras,
             });
           }
@@ -868,7 +872,7 @@ export function SitesSummary() {
                   </Table.Thead>
                   <Table.Tbody>
                     {cameraInventory.map((row) => (
-                      <Table.Tr key={row.siteCode}>
+                      <Table.Tr key={row.siteCode} style={{ cursor: 'pointer' }} onDblClick={() => location.route(`/reporte/${row.reportId}`)}>
                         <Table.Td>
                           <Text size="sm" fw={600}>{row.siteCode}</Text>
                         </Table.Td>
