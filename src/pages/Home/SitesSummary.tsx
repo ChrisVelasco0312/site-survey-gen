@@ -413,23 +413,27 @@ export function SitesSummary() {
     return Array.from(labels).sort().map((l) => ({ value: l, label: l }));
   }, [cameraInventory]);
 
+  const effectiveCamComponente = filterSiteType
+    ? DISTRICT_BREAKDOWN_LABELS[filterSiteType] || filterSiteType
+    : camComponente;
+
   const filteredCameraInventory = useMemo(() => {
     const needle = camSearch.trim().toLowerCase();
     return cameraInventory.filter((row) => {
       if (needle && !row.siteCode.toLowerCase().includes(needle) && !row.siteName.toLowerCase().includes(needle)) return false;
-      if (camComponente) {
+      if (effectiveCamComponente) {
         const componenteLabel = DISTRICT_BREAKDOWN_LABELS[row.siteType] || row.siteType;
-        if (componenteLabel !== camComponente) return false;
+        if (componenteLabel !== effectiveCamComponente) return false;
       }
       if (camCameraType && !row.cameras.some((c) => c.label === camCameraType)) return false;
       return true;
     });
-  }, [cameraInventory, camSearch, camComponente, camCameraType]);
+  }, [cameraInventory, camSearch, effectiveCamComponente, camCameraType]);
 
   const camTotalPages = Math.max(1, Math.ceil(filteredCameraInventory.length / CAM_PAGE_SIZE));
   const paginatedCameraInventory = filteredCameraInventory.slice((camPage - 1) * CAM_PAGE_SIZE, camPage * CAM_PAGE_SIZE);
 
-  useEffect(() => { setCamPage(1); }, [camSearch, camComponente, camCameraType]);
+  useEffect(() => { setCamPage(1); }, [camSearch, effectiveCamComponente, camCameraType]);
 
   const renderStatusCount = (count: number, total: number) => {
     if (total === 0) return '-';
@@ -509,7 +513,7 @@ export function SitesSummary() {
     const filtersText = [
       `Distrito: ${filterDistrito || 'Todos'}`,
       `Municipio: ${filterMunicipio || 'Todos'}`,
-      `Tipo de sitio: ${filterSiteType ? (SITE_TYPE_LABELS[filterSiteType] || filterSiteType) : 'Todos'}`,
+      `Componente: ${filterSiteType ? (DISTRICT_BREAKDOWN_LABELS[filterSiteType] || filterSiteType) : 'Todos'}`,
     ].join(' | ');
 
     const overviewRows: (string | number)[][] = [
@@ -685,12 +689,12 @@ export function SitesSummary() {
             </Grid.Col>
             <Grid.Col span={{ base: 12, md: 4, lg: 4 }}>
               <Select
-                label="Tipo de Sitio"
+                label="Componente"
                 placeholder="Todos"
                 data={[
-                  { value: 'lpr', label: 'LPR' },
-                  { value: 'cotejo_facial', label: 'Cotejo Facial' },
-                  { value: 'ptz', label: 'PTZ' },
+                  { value: 'ptz', label: 'Componente 1' },
+                  { value: 'lpr', label: 'Componente 2' },
+                  { value: 'cotejo_facial', label: 'Componente 3' },
                 ]}
                 value={filterSiteType}
                 onChange={setFilterSiteType}
@@ -900,14 +904,15 @@ export function SitesSummary() {
                 <Select
                   placeholder="Componente"
                   size="xs"
-                  clearable
+                  clearable={!filterSiteType}
                   data={[
                     { value: 'Componente 1', label: 'Componente 1' },
                     { value: 'Componente 2', label: 'Componente 2' },
                     { value: 'Componente 3', label: 'Componente 3' },
                   ]}
-                  value={camComponente}
-                  onChange={setCamComponente}
+                  value={effectiveCamComponente}
+                  onChange={filterSiteType ? undefined : setCamComponente}
+                  disabled={!!filterSiteType}
                   style={{ flex: '0 0 160px' }}
                 />
                 <Select
@@ -972,7 +977,7 @@ export function SitesSummary() {
               </ScrollArea>
               {camTotalPages > 1 && (
                 <Group justify="center" mt="sm">
-                  <Pagination size="sm" value={camPage} onChange={setCamPage} total={camTotalPages} />
+                  <Pagination size="sm" value={camPage} onChange={setCamPage} total={camTotalPages} siblings={1} boundaries={1} />
                 </Group>
               )}
             </>
