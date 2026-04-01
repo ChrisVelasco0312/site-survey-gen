@@ -38,6 +38,7 @@ const COMPONENT_CAMERA_LIMITS: Record<ComponentKey, { title: string; siteLimit: 
     siteLimit: 29,
     cameras: [
       { label: 'LPR', key: 'cameras_lpr', limit: 54 },
+      { label: 'PTZ', key: 'cameras_ptz', limit: 29 },
     ],
   },
   componente_3: {
@@ -324,6 +325,7 @@ export function SitesSummary() {
           cameraTypesByComponent.componente_1.cameras[1].count += report.hardware.cameras_fixed || 0;
         } else if (siteType === 'lpr') {
           cameraTypesByComponent.componente_2.cameras[0].count += report.hardware.cameras_lpr || 0;
+          cameraTypesByComponent.componente_2.cameras[1].count += report.hardware.cameras_ptz || 0;
         } else if (siteType === 'cotejo_facial') {
           cameraTypesByComponent.componente_3.cameras[0].count += report.hardware.cameras_facial || 0;
         }
