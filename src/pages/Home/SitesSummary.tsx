@@ -1,8 +1,8 @@
 import { useEffect, useState, useMemo } from 'preact/hooks';
 import { useLocation } from 'preact-iso';
-import { Title, Card, Grid, Text, Group, RingProgress, Table, Loader, Badge, ScrollArea, Select, Button, Collapse, Stack, MultiSelect, Tabs, Modal, Tooltip, ActionIcon } from '@mantine/core';
+import { Title, Card, Grid, Text, Group, RingProgress, Table, Loader, Badge, ScrollArea, Select, Button, Collapse, Stack, MultiSelect, Tabs, Modal, Tooltip, ActionIcon, TextInput, Pagination } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
-import { IconFilter, IconX, IconCamera, IconFileSpreadsheet, IconTable, IconMapPin, IconEye } from '@tabler/icons-react';
+import { IconFilter, IconX, IconCamera, IconFileSpreadsheet, IconTable, IconMapPin, IconEye, IconSearch } from '@tabler/icons-react';
 import * as XLSX from 'xlsx';
 import type { SiteRecord, Report, ReportStatus, HardwareInventory } from '../../types/Report';
 import { getAllReports } from '../../services/reportsService';
@@ -80,6 +80,13 @@ export function SitesSummary() {
   const [filterMunicipio, setFilterMunicipio] = useState<string | null>(null);
   const [filterSiteType, setFilterSiteType] = useState<string | null>(null);
   const [hiddenColumns, setHiddenColumns] = useState<Array<'total' | ExtendedStatus>>([]);
+
+  // Cámaras por Sitio local filters
+  const [camSearch, setCamSearch] = useState('');
+  const [camComponente, setCamComponente] = useState<string | null>(null);
+  const [camCameraType, setCamCameraType] = useState<string | null>(null);
+  const [camPage, setCamPage] = useState(1);
+  const CAM_PAGE_SIZE = 10;
 
   // Detail modal
   type ModalSite = {
@@ -397,6 +404,32 @@ export function SitesSummary() {
   }
 
   const { globalStats, sortedDistricts, cameraInventory, cameraTypesByComponent } = stats;
+
+  const camCameraTypeOptions = useMemo(() => {
+    const labels = new Set<string>();
+    for (const row of cameraInventory) {
+      for (const cam of row.cameras) labels.add(cam.label);
+    }
+    return Array.from(labels).sort().map((l) => ({ value: l, label: l }));
+  }, [cameraInventory]);
+
+  const filteredCameraInventory = useMemo(() => {
+    const needle = camSearch.trim().toLowerCase();
+    return cameraInventory.filter((row) => {
+      if (needle && !row.siteCode.toLowerCase().includes(needle) && !row.siteName.toLowerCase().includes(needle)) return false;
+      if (camComponente) {
+        const componenteLabel = DISTRICT_BREAKDOWN_LABELS[row.siteType] || row.siteType;
+        if (componenteLabel !== camComponente) return false;
+      }
+      if (camCameraType && !row.cameras.some((c) => c.label === camCameraType)) return false;
+      return true;
+    });
+  }, [cameraInventory, camSearch, camComponente, camCameraType]);
+
+  const camTotalPages = Math.max(1, Math.ceil(filteredCameraInventory.length / CAM_PAGE_SIZE));
+  const paginatedCameraInventory = filteredCameraInventory.slice((camPage - 1) * CAM_PAGE_SIZE, camPage * CAM_PAGE_SIZE);
+
+  useEffect(() => { setCamPage(1); }, [camSearch, camComponente, camCameraType]);
 
   const renderStatusCount = (count: number, total: number) => {
     if (total === 0) return '-';
@@ -758,7 +791,7 @@ export function SitesSummary() {
             leftSection={<IconCamera size={16} />}
             rightSection={
               cameraInventory.length > 0
-                ? <Badge size="sm" variant="filled" color="violet" circle>{cameraInventory.length}</Badge>
+                ? <Badge size="sm" variant="filled" color="violet" circle>{filteredCameraInventory.length}</Badge>
                 : undefined
             }
           >
@@ -855,9 +888,44 @@ export function SitesSummary() {
             <Text c="dimmed" ta="center" py="xl">No hay datos de cámaras para los filtros seleccionados.</Text>
           ) : (
             <>
-              <Text size="sm" c="dimmed" mb="sm">
-                Cámaras reportadas en cada sitio (según su último reporte). Solo se muestran sitios con datos de hardware.
-              </Text>
+              <Group gap="sm" mb="sm" wrap="wrap" align="flex-end">
+                <TextInput
+                  placeholder="Buscar por código o nombre…"
+                  leftSection={<IconSearch size={16} />}
+                  size="xs"
+                  value={camSearch}
+                  onChange={(e) => setCamSearch((e.target as HTMLInputElement).value)}
+                  style={{ flex: '1 1 200px', maxWidth: 300 }}
+                />
+                <Select
+                  placeholder="Componente"
+                  size="xs"
+                  clearable
+                  data={[
+                    { value: 'Componente 1', label: 'Componente 1' },
+                    { value: 'Componente 2', label: 'Componente 2' },
+                    { value: 'Componente 3', label: 'Componente 3' },
+                  ]}
+                  value={camComponente}
+                  onChange={setCamComponente}
+                  style={{ flex: '0 0 160px' }}
+                />
+                <Select
+                  placeholder="Tipo de cámara"
+                  size="xs"
+                  clearable
+                  data={camCameraTypeOptions}
+                  value={camCameraType}
+                  onChange={setCamCameraType}
+                  style={{ flex: '0 0 160px' }}
+                />
+                {(camSearch || camComponente || camCameraType) && (
+                  <ActionIcon variant="subtle" color="gray" size="sm" onClick={() => { setCamSearch(''); setCamComponente(null); setCamCameraType(null); }}>
+                    <IconX size={14} />
+                  </ActionIcon>
+                )}
+                <Text size="xs" c="dimmed">{filteredCameraInventory.length} de {cameraInventory.length} sitios</Text>
+              </Group>
               <ScrollArea>
                 <Table highlightOnHover withTableBorder>
                   <Table.Thead>
@@ -871,7 +939,7 @@ export function SitesSummary() {
                     </Table.Tr>
                   </Table.Thead>
                   <Table.Tbody>
-                    {cameraInventory.map((row) => (
+                    {paginatedCameraInventory.map((row) => (
                       <Table.Tr key={row.siteCode} style={{ cursor: 'pointer' }} onDblClick={() => location.route(`/reporte/${row.reportId}`)}>
                         <Table.Td>
                           <Text size="sm" fw={600}>{row.siteCode}</Text>
@@ -902,6 +970,11 @@ export function SitesSummary() {
                   </Table.Tbody>
                 </Table>
               </ScrollArea>
+              {camTotalPages > 1 && (
+                <Group justify="center" mt="sm">
+                  <Pagination size="sm" value={camPage} onChange={setCamPage} total={camTotalPages} />
+                </Group>
+              )}
             </>
           )}
         </Tabs.Panel>
