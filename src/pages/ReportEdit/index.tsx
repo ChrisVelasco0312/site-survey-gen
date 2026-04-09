@@ -51,10 +51,12 @@ export function ReportEdit() {
 
   const isAdmin = userData?.role === 'admin' || userData?.role === 'superadmin';
 
+  const isProd = import.meta.env.VITE_FIREBASE_PROJECT_ID === 'gen-site-survey-prod';
+  const INTERVENTORIA_UID = '9gTHH2rFbdM9D0ps4A1Yz4HKNT72';
+
   const canUploadSignatures = (() => {
     if (!userData) return false;
     if (userData.role === 'superadmin') return true;
-    const isProd = import.meta.env.VITE_FIREBASE_PROJECT_ID === 'gen-site-survey-prod';
     if (isProd) {
       const allowedUids = [
         'hkgZVJPy11StlPNvBuJo98qJikd2', // cnarvaez@consorciovalleseguro.com
@@ -64,6 +66,16 @@ export function ReportEdit() {
     }
     return false;
   })();
+
+  const canInterventoriaSignature = (() => {
+    if (!userData) return false;
+    if (userData.role === 'superadmin') return true;
+    if (isProd) return userData.uid === INTERVENTORIA_UID;
+    return false;
+  })();
+
+  // The interventoría user cannot generate the final report
+  const isInterventoriaUser = isProd && userData?.uid === INTERVENTORIA_UID;
 
   const [report, setReport] = useState<Report | null>(null);
   const [loading, setLoading] = useState(!!id);
@@ -591,11 +603,12 @@ export function ReportEdit() {
                   onBack={() => setShowPreview(false)}
                   isAdmin={isAdmin}
                   isOnline={isOnline}
-                  onGenerate={handleGenerateFinal}
+                  onGenerate={isInterventoriaUser ? undefined : handleGenerateFinal}
                   generatedPdfUrl={generatedPdfUrl}
                   onSendToReview={handleSubmitForReview}
                   onApprove={handleApprove}
                   canUploadSignatures={canUploadSignatures}
+                  canInterventoriaSignature={canInterventoriaSignature}
                   onUpdateReport={handleUpdateReport}
                 />
               ) : (

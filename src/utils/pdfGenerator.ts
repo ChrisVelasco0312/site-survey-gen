@@ -5,7 +5,7 @@ import type { Report } from "../types/Report";
 import pdfLogoBase64 from "../../public/pdf_logo_base64.txt?raw";
 import { storageUrlToDataUrl } from "./reportImagesStorage";
 
-const TRANSPARENT_1PX =
+export const TRANSPARENT_1PX =
   "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=";
 
 function isDataUrl(value: string): boolean {
@@ -405,6 +405,9 @@ export function buildPdfInputs(report: Report): Record<string, string> {
   if (report.signature_img_coordinator_url) {
     inputs.sig_img_coord = report.signature_img_coordinator_url;
   }
+  if (report.signature_img_interventoria_url) {
+    inputs.sig_img_interventoria = report.signature_img_interventoria_url;
+  }
 
   // Static logo
   inputs.pdf_logo = pdfLogoBase64;
@@ -434,6 +437,7 @@ function extractDefaults(template: Template): Record<string, string> {
 export interface SignatureImages {
   directorProyectos?: string;
   coordinadorZona?: string;
+  interventoria?: string;
 }
 
 /**
@@ -452,11 +456,14 @@ export async function generateReportPdf(
   const defaults = extractDefaults(template);
   const inputs = { ...defaults, ...reportInputs };
 
-  if (signatureImages?.directorProyectos) {
+  if (signatureImages?.directorProyectos !== undefined) {
     inputs.sig_img_proj = signatureImages.directorProyectos;
   }
-  if (signatureImages?.coordinadorZona) {
+  if (signatureImages?.coordinadorZona !== undefined) {
     inputs.sig_img_coord = signatureImages.coordinadorZona;
+  }
+  if (signatureImages?.interventoria !== undefined) {
+    inputs.sig_img_interventoria = signatureImages.interventoria;
   }
 
   // pdfme needs real local image data. Persisted Storage URLs must be fetched,

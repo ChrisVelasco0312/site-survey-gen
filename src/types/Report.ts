@@ -206,6 +206,10 @@ export interface Report {
   // Signature images (Storage URLs)
   signature_img_director_url?: string;
   signature_img_coordinator_url?: string;
+  signature_img_interventoria_url?: string;
+
+  // Interventoría observation (stored in report only, never in PDF)
+  interventoria_observation?: string;
 
   // HU-20: Cotejo Facial
   cotejo_facial_survey?: CotejoFacialSurvey;

@@ -14,11 +14,12 @@ import {
   FileInput,
   Image,
   SimpleGrid,
+  Textarea,
 } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { IconDownload, IconRefresh, IconArrowLeft, IconFileExport, IconWifiOff, IconSend, IconCheck, IconUpload, IconSignature, IconTrash, IconDeviceFloppy } from '@tabler/icons-react';
 import type { Report } from '../../types/Report';
-import { generateReportPdf, type SignatureImages } from '../../utils/pdfGenerator';
+import { generateReportPdf, TRANSPARENT_1PX, type SignatureImages } from '../../utils/pdfGenerator';
 import { uploadSignatureImage, deleteSignatureImage } from '../../utils/reportImagesStorage';
 import { validateReportForReview } from '../../utils/reportValidation';
 
@@ -39,6 +40,8 @@ interface PdfPreviewPanelProps {
   onApprove?: () => Promise<void>;
   /** Whether the user can upload signature images directly */
   canUploadSignatures?: boolean;
+  /** Whether the current user is the interventoría user and can upload their own signature + observation */
+  canInterventoriaSignature?: boolean;
   /** Called after saving signature images to persist changes to the report */
   onUpdateReport?: (updated: Report) => void;
 }
@@ -53,6 +56,7 @@ export function PdfPreviewPanel({
   onSendToReview,
   onApprove,
   canUploadSignatures = false,
+  canInterventoriaSignature = false,
   onUpdateReport,
 }: PdfPreviewPanelProps) {
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
@@ -77,6 +81,17 @@ export function PdfPreviewPanel({
   const [sigDirty, setSigDirty] = useState(false);
   const [sigSaving, setSigSaving] = useState(false);
 
+  // Interventoría signature & observation
+  const [sigImgInterventoria, setSigImgInterventoria] = useState<string | null>(
+    report.signature_img_interventoria_url ?? null,
+  );
+  const [sigFileInterventoria, setSigFileInterventoria] = useState<File | null>(null);
+  const [interventoriaObs, setInterventoriaObs] = useState<string>(
+    report.interventoria_observation ?? '',
+  );
+  const [sigDirtyInterventoria, setSigDirtyInterventoria] = useState(false);
+  const [sigSavingInterventoria, setSigSavingInterventoria] = useState(false);
+
   const validation = validateReportForReview(report);
   const isGenerado = report.status === 'generado';
   const isListoParaGenerar = report.status === 'listo_para_generar';
@@ -89,6 +104,13 @@ export function PdfPreviewPanel({
     }
   }, [report.signature_img_director_url, report.signature_img_coordinator_url]);
 
+  useEffect(() => {
+    if (!sigDirtyInterventoria) {
+      setSigImgInterventoria(report.signature_img_interventoria_url ?? null);
+      setInterventoriaObs(report.interventoria_observation ?? '');
+    }
+  }, [report.signature_img_interventoria_url, report.interventoria_observation]);
+
   // --- Generado reports: use stored PDF URL ---
   useEffect(() => {
     if (isGenerado && generatedPdfUrl) {
@@ -98,10 +120,12 @@ export function PdfPreviewPanel({
   }, [isGenerado, generatedPdfUrl]);
 
   const buildSigImages = (): SignatureImages | undefined => {
-    if (!canUploadSignatures || !isListoParaGenerar) return undefined;
+    const hasSig = (canUploadSignatures && isListoParaGenerar) || canInterventoriaSignature;
+    if (!hasSig) return undefined;
     return {
-      directorProyectos: sigImgProj || undefined,
-      coordinadorZona: sigImgCoord || undefined,
+      directorProyectos: (canUploadSignatures && isListoParaGenerar) ? (sigImgProj || TRANSPARENT_1PX) : undefined,
+      coordinadorZona: (canUploadSignatures && isListoParaGenerar) ? (sigImgCoord || TRANSPARENT_1PX) : undefined,
+      interventoria: canInterventoriaSignature ? (sigImgInterventoria || TRANSPARENT_1PX) : undefined,
     };
   };
 
@@ -133,9 +157,14 @@ export function PdfPreviewPanel({
     let cancelled = false;
     setLoading(true);
 
-    const sigImages = (canUploadSignatures && isListoParaGenerar)
-      ? { directorProyectos: sigImgProj || undefined, coordinadorZona: sigImgCoord || undefined } as SignatureImages
-      : undefined;
+    const sigImages: SignatureImages | undefined =
+      (canUploadSignatures && isListoParaGenerar) || canInterventoriaSignature
+        ? {
+            directorProyectos: (canUploadSignatures && isListoParaGenerar) ? (sigImgProj || TRANSPARENT_1PX) : undefined,
+            coordinadorZona: (canUploadSignatures && isListoParaGenerar) ? (sigImgCoord || TRANSPARENT_1PX) : undefined,
+            interventoria: canInterventoriaSignature ? (sigImgInterventoria || TRANSPARENT_1PX) : undefined,
+          }
+        : undefined;
 
     const timer = setTimeout(async () => {
       setError(null);
@@ -160,7 +189,7 @@ export function PdfPreviewPanel({
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [report, isGenerado, sigImgProj, sigImgCoord]);
+  }, [report, isGenerado, sigImgProj, sigImgCoord, sigImgInterventoria]);
 
   // Cleanup blob URLs on unmount
   useEffect(() => {
@@ -219,6 +248,51 @@ export function PdfPreviewPanel({
       setSigFileCoord(null);
     }
     setSigDirty(true);
+  };
+
+  const handleInterventoriaImageUpload = (file: File | null) => {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      setSigImgInterventoria(reader.result as string);
+      setSigFileInterventoria(file);
+      setSigDirtyInterventoria(true);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleRemoveInterventoriaSignature = () => {
+    setSigImgInterventoria(null);
+    setSigFileInterventoria(null);
+    setSigDirtyInterventoria(true);
+  };
+
+  const handleSaveInterventoria = async () => {
+    if (!onUpdateReport) return;
+    setSigSavingInterventoria(true);
+    try {
+      const updated = { ...report };
+
+      if (sigFileInterventoria) {
+        const url = await uploadSignatureImage(report.id, 'interventoria', sigFileInterventoria);
+        updated.signature_img_interventoria_url = url;
+        setSigFileInterventoria(null);
+        setSigImgInterventoria(url);
+      } else if (!sigImgInterventoria && report.signature_img_interventoria_url) {
+        await deleteSignatureImage(report.id, 'interventoria');
+        updated.signature_img_interventoria_url = '';
+      }
+
+      updated.interventoria_observation = interventoriaObs;
+      updated.updated_at = Date.now();
+      onUpdateReport(updated);
+      setSigDirtyInterventoria(false);
+    } catch (e: any) {
+      console.error('Error saving interventoría data:', e);
+      setError(e?.message ?? 'Error al guardar la firma de interventoría');
+    } finally {
+      setSigSavingInterventoria(false);
+    }
   };
 
   const handleSaveSignatures = async () => {
@@ -535,6 +609,86 @@ export function PdfPreviewPanel({
                 Guardar firmas
               </Button>
             </Group>
+          </Stack>
+        </Alert>
+      )}
+
+      {/* Interventoría section — editable for canInterventoriaSignature users, read-only for everyone else */}
+      {!isGenerado && (canInterventoriaSignature || !!report.interventoria_observation) && (
+        <Alert color="indigo" variant="light" title="Firma Interventoría" icon={<IconSignature size={20} />}>
+          <Stack gap="sm" mt="xs">
+            {canInterventoriaSignature && (
+              <>
+                <Text size="sm">
+                  Suba la imagen de firma de interventoría. La observación solo quedará registrada en el reporte.
+                </Text>
+                <Stack gap="xs">
+                  <Text size="xs" fw={600}>Firma Interventoría</Text>
+                  {sigImgInterventoria ? (
+                    <Box pos="relative" maw={200}>
+                      <Image src={sigImgInterventoria} alt="Firma Interventoría" mah={80} fit="contain" />
+                      <ActionIcon
+                        color="red"
+                        variant="filled"
+                        size="sm"
+                        radius="xl"
+                        pos="absolute"
+                        top={4}
+                        right={4}
+                        onClick={handleRemoveInterventoriaSignature}
+                      >
+                        <IconTrash size={14} />
+                      </ActionIcon>
+                    </Box>
+                  ) : (
+                    <FileInput
+                      placeholder="Seleccionar imagen"
+                      accept="image/png,image/jpeg,image/webp"
+                      leftSection={<IconUpload size={16} />}
+                      onChange={handleInterventoriaImageUpload}
+                      size="xs"
+                      style={{ maxWidth: 260 }}
+                    />
+                  )}
+                </Stack>
+                <Textarea
+                  label={<Text size="xs" fw={600}>Observación Interventoría</Text>}
+                  placeholder="Escribe aquí la observación de interventoría…"
+                  value={interventoriaObs}
+                  onChange={(e) => {
+                    setInterventoriaObs(e.currentTarget.value);
+                    setSigDirtyInterventoria(true);
+                  }}
+                  autosize
+                  minRows={3}
+                  size="xs"
+                />
+                <Group justify="flex-end" gap="sm" mt="xs">
+                  {sigDirtyInterventoria && (
+                    <Text size="xs" c="orange" fw={500}>● Cambios sin guardar</Text>
+                  )}
+                  <Button
+                    size="xs"
+                    leftSection={<IconDeviceFloppy size={16} />}
+                    onClick={handleSaveInterventoria}
+                    loading={sigSavingInterventoria}
+                    disabled={!sigDirtyInterventoria}
+                  >
+                    Guardar interventoría
+                  </Button>
+                </Group>
+              </>
+            )}
+
+            {/* Read-only observation visible to all other users when a value exists */}
+            {!canInterventoriaSignature && report.interventoria_observation && (
+              <Stack gap="xs">
+                <Text size="xs" fw={600}>Observación Interventoría</Text>
+                <Text size="sm" style={{ whiteSpace: 'pre-wrap' }}>
+                  {report.interventoria_observation}
+                </Text>
+              </Stack>
+            )}
           </Stack>
         </Alert>
       )}

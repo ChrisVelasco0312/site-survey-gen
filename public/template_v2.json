@@ -1689,6 +1689,15 @@
         "fontName": "Roboto"
       },
       {
+        "type": "image",
+        "position": { "x": 140, "y": 264 },
+        "width": 60,
+        "height": 21,
+        "name": "sig_img_interventoria",
+        "content": "",
+        "fontName": "Roboto"
+      },
+      {
         "type": "line",
         "position": { "x": 75, "y": 286.5 },
         "width": 60,

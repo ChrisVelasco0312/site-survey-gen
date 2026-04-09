@@ -88,7 +88,7 @@ function removeUndefinedFields(obj: any): any {
   return obj;
 }
 
-export type SignatureType = 'director' | 'coordinator';
+export type SignatureType = 'director' | 'coordinator' | 'interventoria';
 
 /**
  * Upload a signature image file to Firebase Storage.
