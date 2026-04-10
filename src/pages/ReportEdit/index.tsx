@@ -52,7 +52,7 @@ export function ReportEdit() {
   const isAdmin = userData?.role === 'admin' || userData?.role === 'superadmin';
 
   const isProd = import.meta.env.VITE_FIREBASE_PROJECT_ID === 'gen-site-survey-prod';
-  const INTERVENTORIA_UID = '9gTHH2rFbdM9D0ps4A1Yz4HKNT72';
+  const INTERVENTORIA_UID = 'Axqd5IGsGBUlRTg9eJ0ZZwy5Wv62';
 
   const canUploadSignatures = (() => {
     if (!userData) return false;
