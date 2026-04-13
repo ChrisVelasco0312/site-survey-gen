@@ -1,7 +1,9 @@
 import { collection, doc, getDocs, addDoc, updateDoc, deleteDoc, GeoPoint } from 'firebase/firestore';
 import { db } from '../firebase-config';
 import type { SiteRecord } from '../types/Report';
-import { saveSitesToDB, saveDistritoMunicipioToDB, type DistritoMunicipioEntry } from '../utils/indexedDB';
+import { saveSitesToDB, saveDistritoMunicipioToDB, getAllSitesFromDB, setCacheTimestamp, isCacheStale, type DistritoMunicipioEntry } from '../utils/indexedDB';
+
+const SITES_CACHE_KEY = 'sites_list';
 
 const SITES_COLLECTION = 'sites';
 
@@ -41,7 +43,20 @@ export async function fetchSitesAndPersist(): Promise<SiteRecord[]> {
     sites.push(mapFirestoreDocToSiteRecord(doc.id, doc.data() as Record<string, unknown>));
   });
   await saveSitesToDB(sites);
+  await setCacheTimestamp(SITES_CACHE_KEY).catch(() => {});
   return sites;
+}
+
+/**
+ * Cache-first: returns IndexedDB sites if fresh, otherwise fetches from Firestore.
+ */
+export async function getSitesCached(maxAgeMs?: number): Promise<SiteRecord[]> {
+  const stale = await isCacheStale(SITES_CACHE_KEY, maxAgeMs);
+  if (!stale) {
+    const cached = await getAllSitesFromDB();
+    if (cached.length > 0) return cached;
+  }
+  return fetchSitesAndPersist();
 }
 
 export async function createSite(site: Omit<SiteRecord, 'id'>): Promise<string> {

@@ -6,7 +6,7 @@ import { IconFilter, IconX, IconCamera, IconFileSpreadsheet, IconTable, IconMapP
 import * as XLSX from 'xlsx';
 import type { SiteRecord, Report, ReportStatus, HardwareInventory } from '../../types/Report';
 import { getAllReports } from '../../services/reportsService';
-import { fetchSitesAndPersist } from '../../services/sitesService';
+import { getSitesCached } from '../../services/sitesService';
 
 type ExtendedStatus = ReportStatus | 'sin_iniciar';
 
@@ -111,7 +111,7 @@ export function SitesSummary() {
     let mounted = true;
     Promise.all([
       getAllReports(),
-      fetchSitesAndPersist()
+      getSitesCached(),
     ]).then(([reportsData, sitesData]) => {
       if (mounted) {
         setReports(reportsData);

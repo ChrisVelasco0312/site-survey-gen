@@ -44,7 +44,6 @@ export function ReportesFinales() {
         if (!effectiveUid) { setLoading(false); return; }
         data = await getUserReports(effectiveUid);
       }
-      // Only keep reports in the two relevant states
       setReports(data.filter(r => r.status === 'listo_para_generar' || r.status === 'generado'));
     } catch (error) {
       console.error('Error fetching reports:', error);

@@ -17,11 +17,15 @@ import {
   getAllReportsFromDB,
   addToSyncQueue,
   deleteReportFromDB,
+  setCacheTimestamp,
+  isCacheStale,
 } from '../utils/indexedDB';
 import {
   reportWithStorageUrls,
   reportWithBase64FromStorage,
 } from '../utils/reportImagesStorage';
+
+const REPORTS_CACHE_KEY = 'reports_list';
 
 /**
  * Save a report to IndexedDB only (local cache).
@@ -91,6 +95,7 @@ export async function getReport(id: string): Promise<Report | null> {
 
 /**
  * Get reports for a specific user. Firestore-primary with IndexedDB fallback.
+ * Does NOT download images — only metadata is returned for list views.
  */
 export async function getUserReports(userId: string): Promise<Report[]> {
   if (navigator.onLine) {
@@ -103,19 +108,16 @@ export async function getUserReports(userId: string): Promise<Report[]> {
       const snapshot = await getDocs(q);
       const reports: Report[] = [];
       snapshot.forEach((d) => reports.push(d.data() as Report));
-      // Cache each report with base64 images for IndexedDB
       for (const r of reports) {
-        reportWithBase64FromStorage(r)
-          .then((cached) => saveReportToDB(cached))
-          .catch(() => {});
+        saveReportToDB(r).catch(() => {});
       }
+      await setCacheTimestamp(REPORTS_CACHE_KEY).catch(() => {});
       return reports;
     } catch (error) {
       console.warn('Firestore query failed, falling back to IndexedDB:', error);
     }
   }
 
-  // Fallback: filter locally
   const all = await getAllReportsFromDB();
   return all
     .filter((r) => r.user_id === userId)
@@ -124,6 +126,7 @@ export async function getUserReports(userId: string): Promise<Report[]> {
 
 /**
  * Get all reports (admin view). Firestore-primary with IndexedDB fallback.
+ * Does NOT download images — only metadata is returned for list views.
  */
 export async function getAllReports(): Promise<Report[]> {
   if (navigator.onLine) {
@@ -135,12 +138,10 @@ export async function getAllReports(): Promise<Report[]> {
       const snapshot = await getDocs(q);
       const reports: Report[] = [];
       snapshot.forEach((d) => reports.push(d.data() as Report));
-      // Cache each report with base64 images for IndexedDB
       for (const r of reports) {
-        reportWithBase64FromStorage(r)
-          .then((cached) => saveReportToDB(cached))
-          .catch(() => {});
+        saveReportToDB(r).catch(() => {});
       }
+      await setCacheTimestamp(REPORTS_CACHE_KEY).catch(() => {});
       return reports;
     } catch (error) {
       console.warn('Firestore query failed, falling back to IndexedDB:', error);
@@ -149,6 +150,38 @@ export async function getAllReports(): Promise<Report[]> {
 
   const all = await getAllReportsFromDB();
   return all.sort((a, b) => b.updated_at - a.updated_at);
+}
+
+/**
+ * Cache-first variant: returns IndexedDB data if fresh (< maxAgeMs),
+ * otherwise fetches from Firestore. Use for dashboard/summary pages
+ * to avoid unnecessary Firestore reads on every navigation.
+ */
+export async function getAllReportsCached(maxAgeMs?: number): Promise<Report[]> {
+  const stale = await isCacheStale(REPORTS_CACHE_KEY, maxAgeMs);
+  if (!stale) {
+    const cached = await getAllReportsFromDB();
+    if (cached.length > 0) {
+      return cached.sort((a, b) => b.updated_at - a.updated_at);
+    }
+  }
+  return getAllReports();
+}
+
+/**
+ * Cache-first variant for user reports.
+ */
+export async function getUserReportsCached(userId: string, maxAgeMs?: number): Promise<Report[]> {
+  const stale = await isCacheStale(REPORTS_CACHE_KEY, maxAgeMs);
+  if (!stale) {
+    const cached = await getAllReportsFromDB();
+    if (cached.length > 0) {
+      return cached
+        .filter((r) => r.user_id === userId)
+        .sort((a, b) => b.updated_at - a.updated_at);
+    }
+  }
+  return getUserReports(userId);
 }
 
 /**

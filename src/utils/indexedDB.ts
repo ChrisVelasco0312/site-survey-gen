@@ -3,12 +3,13 @@ import { Report } from '../types/Report';
 import type { SiteRecord } from '../types/Report';
 
 const DB_NAME = 'site_survey_db';
-const DB_VERSION = 6;
+const DB_VERSION = 7;
 const USER_STORE_NAME = 'users';
 const REPORT_STORE_NAME = 'reports';
 const SYNC_QUEUE_STORE_NAME = 'sync_queue';
 const SITES_STORE_NAME = 'sites';
 const DISTRITO_MUNICIPIO_STORE_NAME = 'distrito_municipio';
+const CACHE_META_STORE_NAME = 'cache_meta';
 
 export interface SyncItem {
   id?: number;
@@ -36,6 +37,9 @@ function createStoresIfNeeded(db: IDBDatabase): void {
   }
   if (!db.objectStoreNames.contains(DISTRITO_MUNICIPIO_STORE_NAME)) {
     db.createObjectStore(DISTRITO_MUNICIPIO_STORE_NAME, { keyPath: 'distrito' });
+  }
+  if (!db.objectStoreNames.contains(CACHE_META_STORE_NAME)) {
+    db.createObjectStore(CACHE_META_STORE_NAME, { keyPath: 'key' });
   }
 }
 
@@ -314,4 +318,47 @@ export const getDistritoMunicipioFromDB = async (): Promise<DistritoMunicipioEnt
     request.onsuccess = () => resolve(request.result ?? []);
     request.onerror = () => reject(request.error);
   });
+};
+
+// Cache timestamp helpers
+interface CacheEntry {
+  key: string;
+  timestamp: number;
+}
+
+export const setCacheTimestamp = async (key: string): Promise<void> => {
+  const db = await initDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction([CACHE_META_STORE_NAME], 'readwrite');
+    const store = tx.objectStore(CACHE_META_STORE_NAME);
+    const request = store.put({ key, timestamp: Date.now() } satisfies CacheEntry);
+    request.onsuccess = () => resolve();
+    request.onerror = () => reject(request.error);
+  });
+};
+
+export const getCacheTimestamp = async (key: string): Promise<number | null> => {
+  const db = await initDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction([CACHE_META_STORE_NAME], 'readonly');
+    const store = tx.objectStore(CACHE_META_STORE_NAME);
+    const request = store.get(key);
+    request.onsuccess = () => {
+      const entry = request.result as CacheEntry | undefined;
+      resolve(entry?.timestamp ?? null);
+    };
+    request.onerror = () => reject(request.error);
+  });
+};
+
+const DEFAULT_STALE_MS = 5 * 60 * 1000; // 5 minutes
+
+export const isCacheStale = async (key: string, maxAgeMs = DEFAULT_STALE_MS): Promise<boolean> => {
+  try {
+    const ts = await getCacheTimestamp(key);
+    if (ts === null) return true;
+    return Date.now() - ts > maxAgeMs;
+  } catch {
+    return true;
+  }
 };
