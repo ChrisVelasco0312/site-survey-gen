@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'preact/hooks';
+import { useState, useEffect, useMemo } from 'preact/hooks';
 import { useAuth } from '../../features/auth/AuthContext';
 import { useLocation } from 'preact-iso';
 import { 
@@ -15,11 +15,16 @@ import {
   Badge,
   PasswordInput,
   ActionIcon,
-  Tooltip
+  Tooltip,
+  Text,
+  Pagination,
 } from '@mantine/core';
-import { IconPlus, IconRefresh } from '@tabler/icons-react';
+import { useDebouncedValue } from '@mantine/hooks';
+import { IconPlus, IconRefresh, IconSearch, IconX } from '@tabler/icons-react';
 import { UserProfile, UserRole, GroupAssignment } from '../../types/User';
 import { getUsers, createUser } from '../../services/userAdminService';
+
+const PAGE_SIZE = 10;
 
 export function UsersAdmin() {
   const { userData } = useAuth();
@@ -28,6 +33,13 @@ export function UsersAdmin() {
   const [loading, setLoading] = useState(true);
   const [modalOpened, setModalOpened] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+
+  const [search, setSearch] = useState('');
+  const [debouncedSearch] = useDebouncedValue(search, 250);
+  const [filterRole, setFilterRole] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+
+  useEffect(() => { setPage(1); }, [debouncedSearch, filterRole]);
 
   // Form state
   const [email, setEmail] = useState('');
@@ -104,6 +116,27 @@ export function UsersAdmin() {
     all: 'Todos',
   };
 
+  const filtered = useMemo(() => {
+    let result = users;
+
+    if (filterRole) {
+      result = result.filter((u) => u.role === filterRole);
+    }
+
+    if (debouncedSearch.trim()) {
+      const q = debouncedSearch.trim().toLowerCase();
+      result = result.filter((u) =>
+        u.full_name.toLowerCase().includes(q) ||
+        u.email.toLowerCase().includes(q)
+      );
+    }
+
+    return result;
+  }, [users, debouncedSearch, filterRole]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
   return (
     <Container size="xl" py="md">
       <Group justify="space-between" mb="lg">
@@ -118,7 +151,40 @@ export function UsersAdmin() {
         </Group>
       </Group>
 
+      <Group gap="sm" mb="md" wrap="wrap" align="flex-end">
+        <TextInput
+          placeholder="Buscar por nombre o email…"
+          leftSection={<IconSearch size={16} />}
+          value={search}
+          onChange={(e) => setSearch((e.target as HTMLInputElement).value)}
+          style={{ flex: '1 1 250px' }}
+          rightSection={search ? (
+            <ActionIcon variant="subtle" size="sm" onClick={() => setSearch('')}>
+              <IconX size={14} />
+            </ActionIcon>
+          ) : undefined}
+        />
+        <Select
+          placeholder="Rol"
+          data={[
+            { value: 'superadmin', label: 'Super Admin' },
+            { value: 'admin', label: 'Admin' },
+            { value: 'field_worker', label: 'Trabajador de Campo' },
+            { value: 'read_only', label: 'Solo Lectura' },
+          ]}
+          value={filterRole}
+          onChange={setFilterRole}
+          clearable
+          style={{ flex: '0 0 200px' }}
+        />
+      </Group>
+
       <Paper shadow="sm" radius="md" p="md" withBorder>
+        {!loading && filtered.length > 0 && (
+          <Text size="sm" c="dimmed" mb="xs">
+            Mostrando {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, filtered.length)} de {filtered.length}
+          </Text>
+        )}
         <Table striped highlightOnHover>
           <Table.Thead>
             <Table.Tr>
@@ -136,14 +202,14 @@ export function UsersAdmin() {
                   Cargando usuarios...
                 </Table.Td>
               </Table.Tr>
-            ) : users.length === 0 ? (
+            ) : filtered.length === 0 ? (
               <Table.Tr>
                 <Table.Td colSpan={5} style={{ textAlign: 'center' }}>
-                  No se encontraron usuarios
+                  {users.length === 0 ? 'No se encontraron usuarios' : 'Sin resultados para la búsqueda'}
                 </Table.Td>
               </Table.Tr>
             ) : (
-              users.map((user) => (
+              paged.map((user) => (
                 <Table.Tr key={user.uid}>
                   <Table.Td>{user.full_name}</Table.Td>
                   <Table.Td>{user.email}</Table.Td>
@@ -163,6 +229,11 @@ export function UsersAdmin() {
             )}
           </Table.Tbody>
         </Table>
+        {totalPages > 1 && (
+          <Group justify="center" mt="md">
+            <Pagination value={page} onChange={setPage} total={totalPages} siblings={1} boundaries={1} />
+          </Group>
+        )}
       </Paper>
 
       <Modal opened={modalOpened} onClose={() => setModalOpened(false)} title="Crear Nuevo Usuario" centered>

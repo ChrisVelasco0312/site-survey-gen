@@ -1,12 +1,14 @@
 import { useEffect, useState } from 'preact/hooks';
-import { Title, Tabs, Table, Badge, Button, Group, Text, Loader, Container, ActionIcon, Tooltip, Center, Card, Stack, Modal } from '@mantine/core';
-import { useMediaQuery } from '@mantine/hooks';
-import { IconEdit, IconEye, IconPlus, IconCopy, IconTrash } from '@tabler/icons-react';
+import { Title, Tabs, Table, Badge, Button, Group, Text, Loader, Container, ActionIcon, Tooltip, Center, Card, Stack, Modal, TextInput, Pagination } from '@mantine/core';
+import { useMediaQuery, useDebouncedValue } from '@mantine/hooks';
+import { IconEdit, IconEye, IconPlus, IconCopy, IconTrash, IconSearch, IconX } from '@tabler/icons-react';
 import { useLocation } from 'preact-iso';
 import { useAuth } from '../../features/auth/AuthContext';
 import { Report, ReportStatus, createInitialReport } from '../../types/Report';
 import { getUserReports, saveReport, deleteReport } from '../../services/reportsService';
 import { formatReportDate } from '../../utils/reportDate';
+
+const PAGE_SIZE = 10;
 
 export function MisReportes() {
   const { user, userData, loading: authLoading } = useAuth();
@@ -15,6 +17,12 @@ export function MisReportes() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<string | null>('en_campo');
   const isMobile = useMediaQuery('(max-width: 768px)');
+
+  const [search, setSearch] = useState('');
+  const [debouncedSearch] = useDebouncedValue(search, 250);
+  const [page, setPage] = useState(1);
+
+  useEffect(() => { setPage(1); }, [debouncedSearch, activeTab]);
 
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [reportToDelete, setReportToDelete] = useState<Report | null>(null);
@@ -182,82 +190,123 @@ export function MisReportes() {
     </Stack>
   );
 
+  const applyFilters = (filterStatus: string[]) => {
+    let result = reports.filter(r => filterStatus.includes(r.status));
+
+    if (debouncedSearch.trim()) {
+      const q = debouncedSearch.trim().toLowerCase();
+      result = result.filter((r) => {
+        const addr = r.address;
+        return (
+          (addr?.site_name ?? '').toLowerCase().includes(q) ||
+          (addr?.full_address ?? '').toLowerCase().includes(q) ||
+          (addr?.distrito ?? '').toLowerCase().includes(q) ||
+          (addr?.municipio ?? '').toLowerCase().includes(q) ||
+          (addr?.pm_number ?? '').toLowerCase().includes(q)
+        );
+      });
+    }
+
+    return result;
+  };
+
   const renderContent = (filterStatus: string[]) => {
-    const filtered = reports.filter(r => filterStatus.includes(r.status));
+    const filtered = applyFilters(filterStatus);
+    const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+    const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
     
     if (filtered.length === 0) {
       return <Text c="dimmed" ta="center" py="xl">No hay reportes en este estado.</Text>;
     }
 
     if (isMobile) {
-        return renderMobileList(filtered);
+      return (
+        <>
+          {renderMobileList(paged)}
+          {totalPages > 1 && (
+            <Group justify="center" mt="md">
+              <Pagination size="sm" value={page} onChange={setPage} total={totalPages} siblings={1} boundaries={1} />
+            </Group>
+          )}
+        </>
+      );
     }
 
     return (
-      <Table striped highlightOnHover verticalSpacing="md" horizontalSpacing="md">
-        <Table.Thead>
-          <Table.Tr>
-            <Table.Th>Fecha</Table.Th>
-            <Table.Th>Sitio / Dirección</Table.Th>
-            <Table.Th>Estado</Table.Th>
-            <Table.Th>Acciones</Table.Th>
-          </Table.Tr>
-        </Table.Thead>
-        <Table.Tbody>
-          {filtered.map((report) => (
-            <Table.Tr key={report.id}>
-              <Table.Td>{formatReportDate(report.date, report.created_at)}</Table.Td>
-              <Table.Td>
-                <Text size="sm" fw={500}>{report.address?.site_name || 'Sin punto'}</Text>
-                {(report.address?.municipio || report.address?.distrito) && (
-                  <Text size="xs" c="dimmed">
-                    {[report.address?.municipio, report.address?.distrito].filter(Boolean).join(' · ')}
-                  </Text>
-                )}
-                {report.address?.full_address && (
-                  <Text size="xs" c="dimmed">{report.address.full_address}</Text>
-                )}
-              </Table.Td>
-              <Table.Td>
-                <Badge color={getStatusColor(report.status)}>
-                  {report.status.replace(/_/g, ' ')}
-                </Badge>
-              </Table.Td>
-              <Table.Td>
-                <Group gap="xs">
-                  {report.status === 'en_campo' ? (
-                    <>
-                      <Tooltip label="Editar">
-                        <ActionIcon variant="light" color="blue" onClick={() => location.route(`/reporte/${report.id}`)}>
-                          <IconEdit size={16} />
-                        </ActionIcon>
-                      </Tooltip>
-                      <Tooltip label="Eliminar">
-                        <ActionIcon variant="light" color="red" onClick={() => confirmDelete(report)}>
-                          <IconTrash size={16} />
-                        </ActionIcon>
-                      </Tooltip>
-                    </>
-                  ) : (
-                    <>
+      <>
+        <Text size="sm" c="dimmed" mb="xs">
+          Mostrando {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, filtered.length)} de {filtered.length}
+        </Text>
+        <Table striped highlightOnHover verticalSpacing="md" horizontalSpacing="md">
+          <Table.Thead>
+            <Table.Tr>
+              <Table.Th>Fecha</Table.Th>
+              <Table.Th>Sitio / Dirección</Table.Th>
+              <Table.Th>Estado</Table.Th>
+              <Table.Th>Acciones</Table.Th>
+            </Table.Tr>
+          </Table.Thead>
+          <Table.Tbody>
+            {paged.map((report) => (
+              <Table.Tr key={report.id}>
+                <Table.Td>{formatReportDate(report.date, report.created_at)}</Table.Td>
+                <Table.Td>
+                  <Text size="sm" fw={500}>{report.address?.site_name || 'Sin punto'}</Text>
+                  {(report.address?.municipio || report.address?.distrito) && (
+                    <Text size="xs" c="dimmed">
+                      {[report.address?.municipio, report.address?.distrito].filter(Boolean).join(' · ')}
+                    </Text>
+                  )}
+                  {report.address?.full_address && (
+                    <Text size="xs" c="dimmed">{report.address.full_address}</Text>
+                  )}
+                </Table.Td>
+                <Table.Td>
+                  <Badge color={getStatusColor(report.status)}>
+                    {report.status.replace(/_/g, ' ')}
+                  </Badge>
+                </Table.Td>
+                <Table.Td>
+                  <Group gap="xs">
+                    {report.status === 'en_campo' ? (
+                      <>
+                        <Tooltip label="Editar">
+                          <ActionIcon variant="light" color="blue" onClick={() => location.route(`/reporte/${report.id}`)}>
+                            <IconEdit size={16} />
+                          </ActionIcon>
+                        </Tooltip>
+                        <Tooltip label="Eliminar">
+                          <ActionIcon variant="light" color="red" onClick={() => confirmDelete(report)}>
+                            <IconTrash size={16} />
+                          </ActionIcon>
+                        </Tooltip>
+                      </>
+                    ) : (
+                      <>
                         <Tooltip label="Ver detalles">
-                        <ActionIcon variant="subtle" color="gray" onClick={() => location.route(`/reporte/${report.id}`)}>
+                          <ActionIcon variant="subtle" color="gray" onClick={() => location.route(`/reporte/${report.id}`)}>
                             <IconEye size={16} />
-                        </ActionIcon>
+                          </ActionIcon>
                         </Tooltip>
                         <Tooltip label="Duplicar">
-                            <ActionIcon variant="subtle" color="grape" onClick={() => handleDuplicate(report)}>
-                                <IconCopy size={16} />
-                            </ActionIcon>
+                          <ActionIcon variant="subtle" color="grape" onClick={() => handleDuplicate(report)}>
+                            <IconCopy size={16} />
+                          </ActionIcon>
                         </Tooltip>
-                    </>
-                  )}
-                </Group>
-              </Table.Td>
-            </Table.Tr>
-          ))}
-        </Table.Tbody>
-      </Table>
+                      </>
+                    )}
+                  </Group>
+                </Table.Td>
+              </Table.Tr>
+            ))}
+          </Table.Tbody>
+        </Table>
+        {totalPages > 1 && (
+          <Group justify="center" mt="md">
+            <Pagination value={page} onChange={setPage} total={totalPages} siblings={1} boundaries={1} />
+          </Group>
+        )}
+      </>
     );
   };
 
@@ -273,6 +322,19 @@ export function MisReportes() {
           Nuevo Reporte
         </Button>
       </Group>
+
+      <TextInput
+        placeholder="Buscar por sitio, dirección, distrito, municipio…"
+        leftSection={<IconSearch size={16} />}
+        value={search}
+        onChange={(e) => setSearch((e.target as HTMLInputElement).value)}
+        mb="md"
+        rightSection={search ? (
+          <ActionIcon variant="subtle" size="sm" onClick={() => setSearch('')}>
+            <IconX size={14} />
+          </ActionIcon>
+        ) : undefined}
+      />
 
       <Tabs value={activeTab} onChange={setActiveTab}>
         <Tabs.List mb="md">

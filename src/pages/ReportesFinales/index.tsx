@@ -14,14 +14,18 @@ import {
   Center,
   Card,
   Stack,
+  TextInput,
+  Pagination,
 } from '@mantine/core';
-import { useMediaQuery } from '@mantine/hooks';
-import { IconEye, IconCopy, IconRefresh } from '@tabler/icons-react';
+import { useMediaQuery, useDebouncedValue } from '@mantine/hooks';
+import { IconEye, IconCopy, IconRefresh, IconSearch, IconX } from '@tabler/icons-react';
 import { useLocation } from 'preact-iso';
 import { useAuth } from '../../features/auth/AuthContext';
 import type { Report, ReportStatus } from '../../types/Report';
 import { getUserReports, getAllReports, saveReport } from '../../services/reportsService';
 import { formatReportDate } from '../../utils/reportDate';
+
+const PAGE_SIZE = 10;
 
 export function ReportesFinales() {
   const { user, userData, loading: authLoading } = useAuth();
@@ -30,6 +34,12 @@ export function ReportesFinales() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<string | null>('listo_para_generar');
   const isMobile = useMediaQuery('(max-width: 768px)');
+
+  const [search, setSearch] = useState('');
+  const [debouncedSearch] = useDebouncedValue(search, 250);
+  const [page, setPage] = useState(1);
+
+  useEffect(() => { setPage(1); }, [debouncedSearch, activeTab]);
 
   const isAdmin = userData?.role === 'admin' || userData?.role === 'superadmin';
   const effectiveUid = userData?.uid ?? user?.uid ?? null;
@@ -200,60 +210,101 @@ export function ReportesFinales() {
     </Stack>
   );
 
+  const applyFilters = (filterStatus: string[]) => {
+    let result = reports.filter(r => filterStatus.includes(r.status));
+
+    if (debouncedSearch.trim()) {
+      const q = debouncedSearch.trim().toLowerCase();
+      result = result.filter((r) => {
+        const addr = r.address;
+        return (
+          (addr?.site_name ?? '').toLowerCase().includes(q) ||
+          (addr?.full_address ?? '').toLowerCase().includes(q) ||
+          (addr?.distrito ?? '').toLowerCase().includes(q) ||
+          (addr?.municipio ?? '').toLowerCase().includes(q) ||
+          (addr?.pm_number ?? '').toLowerCase().includes(q)
+        );
+      });
+    }
+
+    return result;
+  };
+
   const renderContent = (filterStatus: string[]) => {
-    const filtered = reports.filter(r => filterStatus.includes(r.status));
+    const filtered = applyFilters(filterStatus);
+    const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+    const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
     if (filtered.length === 0) {
       return <Text c="dimmed" ta="center" py="xl">No hay reportes en este estado.</Text>;
     }
 
     if (isMobile) {
-      return renderMobileList(filtered);
+      return (
+        <>
+          {renderMobileList(paged)}
+          {totalPages > 1 && (
+            <Group justify="center" mt="md">
+              <Pagination size="sm" value={page} onChange={setPage} total={totalPages} siblings={1} boundaries={1} />
+            </Group>
+          )}
+        </>
+      );
     }
 
     return (
-      <Table striped highlightOnHover verticalSpacing="md" horizontalSpacing="md">
-        <Table.Thead>
-          <Table.Tr>
-            <Table.Th>Fecha</Table.Th>
-            <Table.Th>Sitio / Dirección</Table.Th>
-            {isAdmin && <Table.Th>Grupo</Table.Th>}
-            <Table.Th>Estado</Table.Th>
-            <Table.Th>Acciones</Table.Th>
-          </Table.Tr>
-        </Table.Thead>
-        <Table.Tbody>
-          {filtered.map((report) => (
-            <Table.Tr key={report.id}>
-              <Table.Td>{formatReportDate(report.date, report.created_at)}</Table.Td>
-              <Table.Td>
-                <Text size="sm" fw={500}>{report.address?.site_name || 'Sin punto'}</Text>
-                {(report.address?.municipio || report.address?.distrito) && (
-                  <Text size="xs" c="dimmed">
-                    {[report.address?.municipio, report.address?.distrito].filter(Boolean).join(' · ')}
-                  </Text>
-                )}
-                {report.address?.full_address && (
-                  <Text size="xs" c="dimmed">{report.address.full_address}</Text>
-                )}
-              </Table.Td>
-              {isAdmin && (
-                <Table.Td style={{ textTransform: 'capitalize' }}>
-                  {report.group === 'all' ? 'Administrador' : report.group === 'grupo_a' ? 'Grupo 1' : 'Grupo 2'}
-                </Table.Td>
-              )}
-              <Table.Td>
-                <Badge color={getStatusColor(report.status)}>
-                  {report.status.replace(/_/g, ' ')}
-                </Badge>
-              </Table.Td>
-              <Table.Td>
-                {renderActions(report)}
-              </Table.Td>
+      <>
+        <Text size="sm" c="dimmed" mb="xs">
+          Mostrando {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, filtered.length)} de {filtered.length}
+        </Text>
+        <Table striped highlightOnHover verticalSpacing="md" horizontalSpacing="md">
+          <Table.Thead>
+            <Table.Tr>
+              <Table.Th>Fecha</Table.Th>
+              <Table.Th>Sitio / Dirección</Table.Th>
+              {isAdmin && <Table.Th>Grupo</Table.Th>}
+              <Table.Th>Estado</Table.Th>
+              <Table.Th>Acciones</Table.Th>
             </Table.Tr>
-          ))}
-        </Table.Tbody>
-      </Table>
+          </Table.Thead>
+          <Table.Tbody>
+            {paged.map((report) => (
+              <Table.Tr key={report.id}>
+                <Table.Td>{formatReportDate(report.date, report.created_at)}</Table.Td>
+                <Table.Td>
+                  <Text size="sm" fw={500}>{report.address?.site_name || 'Sin punto'}</Text>
+                  {(report.address?.municipio || report.address?.distrito) && (
+                    <Text size="xs" c="dimmed">
+                      {[report.address?.municipio, report.address?.distrito].filter(Boolean).join(' · ')}
+                    </Text>
+                  )}
+                  {report.address?.full_address && (
+                    <Text size="xs" c="dimmed">{report.address.full_address}</Text>
+                  )}
+                </Table.Td>
+                {isAdmin && (
+                  <Table.Td style={{ textTransform: 'capitalize' }}>
+                    {report.group === 'all' ? 'Administrador' : report.group === 'grupo_a' ? 'Grupo 1' : 'Grupo 2'}
+                  </Table.Td>
+                )}
+                <Table.Td>
+                  <Badge color={getStatusColor(report.status)}>
+                    {report.status.replace(/_/g, ' ')}
+                  </Badge>
+                </Table.Td>
+                <Table.Td>
+                  {renderActions(report)}
+                </Table.Td>
+              </Table.Tr>
+            ))}
+          </Table.Tbody>
+        </Table>
+        {totalPages > 1 && (
+          <Group justify="center" mt="md">
+            <Pagination value={page} onChange={setPage} total={totalPages} siblings={1} boundaries={1} />
+          </Group>
+        )}
+      </>
     );
   };
 
@@ -269,6 +320,19 @@ export function ReportesFinales() {
           Actualizar
         </Button>
       </Group>
+
+      <TextInput
+        placeholder="Buscar por sitio, dirección, distrito, municipio…"
+        leftSection={<IconSearch size={16} />}
+        value={search}
+        onChange={(e) => setSearch((e.target as HTMLInputElement).value)}
+        mb="md"
+        rightSection={search ? (
+          <ActionIcon variant="subtle" size="sm" onClick={() => setSearch('')}>
+            <IconX size={14} />
+          </ActionIcon>
+        ) : undefined}
+      />
 
       <Tabs value={activeTab} onChange={setActiveTab}>
         <Tabs.List mb="md">

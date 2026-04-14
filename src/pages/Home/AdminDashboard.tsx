@@ -1,4 +1,4 @@
-import { useEffect, useState } from "preact/hooks";
+import { useEffect, useState, useMemo } from "preact/hooks";
 import {
   Title,
   Table,
@@ -12,13 +12,18 @@ import {
   Card,
   Stack,
   Tabs,
+  TextInput,
+  Select,
+  Pagination,
 } from "@mantine/core";
-import { useMediaQuery } from "@mantine/hooks";
+import { useMediaQuery, useDebouncedValue } from "@mantine/hooks";
 import { Report } from "../../types/Report";
-import { IconEye, IconRefresh } from "@tabler/icons-react";
+import { IconEye, IconRefresh, IconSearch, IconX } from "@tabler/icons-react";
 import { useLocation } from "preact-iso";
 import { getAllReports } from "../../services/reportsService";
 import { formatReportDate } from "../../utils/reportDate";
+
+const PAGE_SIZE = 10;
 
 export function AdminDashboard() {
   const [reports, setReports] = useState<Report[]>([]);
@@ -26,6 +31,13 @@ export function AdminDashboard() {
   const [activeTab, setActiveTab] = useState<string | null>("en_campo");
   const location = useLocation();
   const isMobile = useMediaQuery("(max-width: 768px)");
+
+  const [search, setSearch] = useState("");
+  const [debouncedSearch] = useDebouncedValue(search, 250);
+  const [filterGroup, setFilterGroup] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+
+  useEffect(() => { setPage(1); }, [debouncedSearch, filterGroup, activeTab]);
 
   const fetchReports = async () => {
     setLoading(true);
@@ -102,8 +114,34 @@ export function AdminDashboard() {
     </Stack>
   );
 
+  const applyFilters = (filterStatus: string[]) => {
+    let result = reports.filter((r) => filterStatus.includes(r.status));
+
+    if (filterGroup) {
+      result = result.filter((r) => r.group === filterGroup);
+    }
+
+    if (debouncedSearch.trim()) {
+      const q = debouncedSearch.trim().toLowerCase();
+      result = result.filter((r) => {
+        const addr = r.address;
+        return (
+          (addr?.site_name ?? "").toLowerCase().includes(q) ||
+          (addr?.full_address ?? "").toLowerCase().includes(q) ||
+          (addr?.distrito ?? "").toLowerCase().includes(q) ||
+          (addr?.municipio ?? "").toLowerCase().includes(q) ||
+          (addr?.pm_number ?? "").toLowerCase().includes(q)
+        );
+      });
+    }
+
+    return result;
+  };
+
   const renderContent = (filterStatus: string[]) => {
-    const filtered = reports.filter((r) => filterStatus.includes(r.status));
+    const filtered = applyFilters(filterStatus);
+    const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+    const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
     if (filtered.length === 0) {
       return (
@@ -114,65 +152,84 @@ export function AdminDashboard() {
     }
 
     if (isMobile) {
-      return renderMobileList(filtered);
+      return (
+        <>
+          {renderMobileList(paged)}
+          {totalPages > 1 && (
+            <Group justify="center" mt="md">
+              <Pagination size="sm" value={page} onChange={setPage} total={totalPages} siblings={1} boundaries={1} />
+            </Group>
+          )}
+        </>
+      );
     }
 
     return (
-      <Table
-        striped
-        highlightOnHover
-        withTableBorder
-        verticalSpacing="md"
-        horizontalSpacing="md"
-      >
-        <Table.Thead>
-          <Table.Tr>
-            <Table.Th>Fecha</Table.Th>
-            <Table.Th>Dirección</Table.Th>
-            <Table.Th>Grupo</Table.Th>
-            <Table.Th>Estado</Table.Th>
-            <Table.Th>Acciones</Table.Th>
-          </Table.Tr>
-        </Table.Thead>
-        <Table.Tbody>
-          {filtered.map((report) => (
-            <Table.Tr key={report.id}>
-              <Table.Td>
-                {formatReportDate(report.date, report.created_at)}
-              </Table.Td>
-              <Table.Td>
-                <Text size="sm" fw={500}>
-                  {[report.address?.distrito, report.address?.municipio]
-                    .filter(Boolean)
-                    .join(" - ")}
-                </Text>
-                <Text size="xs" c="dimmed">
-                  {report.address?.site_name
-                    ? report.address?.site_name +
-                    " - " +
-                    report.address?.full_address
-                    : "Sin dirección"}
-                </Text>
-              </Table.Td>
-              <Table.Td style={{ textTransform: "capitalize" }}>
-                {report.group === 'all' ? 'Administrador' : report.group === 'grupo_a' ? 'Grupo 1' : 'Grupo 2'}
-              </Table.Td>
-              <Table.Td>{getStatusBadge(report.status)}</Table.Td>
-              <Table.Td>
-                <Tooltip label="Ver detalles">
-                  <ActionIcon
-                    variant="subtle"
-                    color="blue"
-                    onClick={() => location.route(`/reporte/${report.id}`)}
-                  >
-                    <IconEye size={16} />
-                  </ActionIcon>
-                </Tooltip>
-              </Table.Td>
+      <>
+        <Text size="sm" c="dimmed" mb="xs">
+          Mostrando {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, filtered.length)} de {filtered.length}
+        </Text>
+        <Table
+          striped
+          highlightOnHover
+          withTableBorder
+          verticalSpacing="md"
+          horizontalSpacing="md"
+        >
+          <Table.Thead>
+            <Table.Tr>
+              <Table.Th>Fecha</Table.Th>
+              <Table.Th>Dirección</Table.Th>
+              <Table.Th>Grupo</Table.Th>
+              <Table.Th>Estado</Table.Th>
+              <Table.Th>Acciones</Table.Th>
             </Table.Tr>
-          ))}
-        </Table.Tbody>
-      </Table>
+          </Table.Thead>
+          <Table.Tbody>
+            {paged.map((report) => (
+              <Table.Tr key={report.id}>
+                <Table.Td>
+                  {formatReportDate(report.date, report.created_at)}
+                </Table.Td>
+                <Table.Td>
+                  <Text size="sm" fw={500}>
+                    {[report.address?.distrito, report.address?.municipio]
+                      .filter(Boolean)
+                      .join(" - ")}
+                  </Text>
+                  <Text size="xs" c="dimmed">
+                    {report.address?.site_name
+                      ? report.address?.site_name +
+                      " - " +
+                      report.address?.full_address
+                      : "Sin dirección"}
+                  </Text>
+                </Table.Td>
+                <Table.Td style={{ textTransform: "capitalize" }}>
+                  {report.group === 'all' ? 'Administrador' : report.group === 'grupo_a' ? 'Grupo 1' : 'Grupo 2'}
+                </Table.Td>
+                <Table.Td>{getStatusBadge(report.status)}</Table.Td>
+                <Table.Td>
+                  <Tooltip label="Ver detalles">
+                    <ActionIcon
+                      variant="subtle"
+                      color="blue"
+                      onClick={() => location.route(`/reporte/${report.id}`)}
+                    >
+                      <IconEye size={16} />
+                    </ActionIcon>
+                  </Tooltip>
+                </Table.Td>
+              </Table.Tr>
+            ))}
+          </Table.Tbody>
+        </Table>
+        {totalPages > 1 && (
+          <Group justify="center" mt="md">
+            <Pagination value={page} onChange={setPage} total={totalPages} siblings={1} boundaries={1} />
+          </Group>
+        )}
+      </>
     );
   };
 
@@ -192,6 +249,33 @@ export function AdminDashboard() {
       {loading ? (
         <Loader />
       ) : (
+        <>
+        <Group gap="sm" mb="md" wrap="wrap" align="flex-end">
+          <TextInput
+            placeholder="Buscar por sitio, dirección, distrito, municipio…"
+            leftSection={<IconSearch size={16} />}
+            value={search}
+            onChange={(e) => setSearch((e.target as HTMLInputElement).value)}
+            style={{ flex: "1 1 250px" }}
+            rightSection={search ? (
+              <ActionIcon variant="subtle" size="sm" onClick={() => setSearch("")}>
+                <IconX size={14} />
+              </ActionIcon>
+            ) : undefined}
+          />
+          <Select
+            placeholder="Grupo"
+            data={[
+              { value: "all", label: "Administrador" },
+              { value: "grupo_a", label: "Grupo 1" },
+              { value: "grupo_b", label: "Grupo 2" },
+            ]}
+            value={filterGroup}
+            onChange={setFilterGroup}
+            clearable
+            style={{ flex: "0 0 160px" }}
+          />
+        </Group>
         <Tabs value={activeTab} onChange={setActiveTab} keepMounted={false}>
           <Tabs.List mb="md">
             <Tabs.Tab value="en_campo">En Campo</Tabs.Tab>
@@ -216,6 +300,7 @@ export function AdminDashboard() {
             {renderContent(["generado"])}
           </Tabs.Panel>
         </Tabs>
+        </>
       )}
     </div>
   );
