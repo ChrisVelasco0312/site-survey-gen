@@ -32,6 +32,7 @@ import { ReportEditStep6 } from './ReportEditStep6';
 import { ReportEditCotejoFacial } from './ReportEditCotejoFacial';
 import { ReportEditLpr } from './ReportEditLpr';
 import { PdfPreviewPanel } from './PdfPreviewPanel';
+import { ALLOWED_SIGNATURE_UPLOAD_UIDS, INTERVENTORIA_UIDS } from '../../constants/reportEditAccess';
 import './ReportEdit.css';
 
 const BASE_STEP_LABELS = [
@@ -52,20 +53,12 @@ export function ReportEdit() {
   const isAdmin = userData?.role === 'admin' || userData?.role === 'superadmin';
 
   const isProd = import.meta.env.VITE_FIREBASE_PROJECT_ID === 'gen-site-survey-prod';
-  const INTERVENTORIA_UID = [
-    'Axqd5IGsGBUlRTg9eJ0ZZwy5Wv62',
-    'tTWMEeDlHSgUU7UrVKmNPYrcb1g2'
-  ];
 
   const canUploadSignatures = (() => {
     if (!userData) return false;
     if (userData.role === 'superadmin') return true;
     if (isProd) {
-      const allowedUids = [
-        'hkgZVJPy11StlPNvBuJo98qJikd2', // cnarvaez@consorciovalleseguro.com
-        '6izFTtDZ3NZaFhBHAJjE2mx7zvh1', // amarrugo@consorciovalleseguro.com
-      ];
-      return allowedUids.includes(userData.uid);
+      return ALLOWED_SIGNATURE_UPLOAD_UIDS.includes(userData.uid);
     }
     return false;
   })();
@@ -73,12 +66,12 @@ export function ReportEdit() {
   const canInterventoriaSignature = (() => {
     if (!userData) return false;
     if (userData.role === 'superadmin') return true;
-    if (isProd) return INTERVENTORIA_UID.includes(userData?.uid);
+    if (isProd) return INTERVENTORIA_UIDS.includes(userData?.uid);
     return false;
   })();
 
   // The interventoría user cannot generate the final report
-  const isInterventoriaUser = isProd && INTERVENTORIA_UID.includes(userData?.uid);
+  const isInterventoriaUser = isProd && INTERVENTORIA_UIDS.includes(userData?.uid);
 
   const [report, setReport] = useState<Report | null>(null);
   const [loading, setLoading] = useState(!!id);
