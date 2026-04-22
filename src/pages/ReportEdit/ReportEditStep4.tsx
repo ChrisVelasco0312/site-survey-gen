@@ -179,6 +179,7 @@ export function ReportEditStep4({ report, setReport, readOnly }: ReportEditStep4
                 <img
                   src={report[field]}
                   alt={label}
+                  loading="lazy"
                   style={{ width: '100%', height: 'auto', display: 'block' }}
                 />
               </Box>
@@ -235,6 +236,7 @@ export function ReportEditStep4({ report, setReport, readOnly }: ReportEditStep4
                   <img
                     src={report[field]}
                     alt={label}
+                    loading="lazy"
                     style={{ width: '100%', height: 'auto', display: 'block' }}
                   />
                 </Box>

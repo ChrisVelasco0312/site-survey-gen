@@ -67,6 +67,9 @@ export async function saveReport(report: Report): Promise<void> {
 
 /**
  * Get a single report. Tries Firestore first, falls back to IndexedDB.
+ * Uses IndexedDB as a read-through cache: if the Firestore document hasn't
+ * changed since the last fetch, the cached copy (with base64 images) is
+ * returned directly, avoiding expensive Firebase Storage reads.
  */
 export async function getReport(id: string): Promise<Report | null> {
   if (navigator.onLine) {
@@ -74,9 +77,14 @@ export async function getReport(id: string): Promise<Report | null> {
       const reportRef = doc(db, 'reports', id);
       const snap = await getDoc(reportRef);
       if (snap.exists()) {
-        const report = snap.data() as Report;
-        // Cache for IndexedDB with base64 (fetch images from Storage)
-        const reportForCache = await reportWithBase64FromStorage(report);
+        const firestoreReport = snap.data() as Report;
+        const cachedReport = await getReportFromDB(id).catch(() => null);
+
+        if (cachedReport && cachedReport.updated_at >= firestoreReport.updated_at) {
+          return cachedReport;
+        }
+
+        const reportForCache = await reportWithBase64FromStorage(firestoreReport, cachedReport);
         await saveReportToDB(reportForCache).catch(() => {});
         return reportForCache;
       }
@@ -85,7 +93,6 @@ export async function getReport(id: string): Promise<Report | null> {
     }
   }
 
-  // Fallback to IndexedDB
   return getReportFromDB(id);
 }
 

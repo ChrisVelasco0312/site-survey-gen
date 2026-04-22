@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'preact/hooks';
+import { useState, useEffect, useRef, useMemo } from 'preact/hooks';
 import {
   ActionIcon,
   Box,
@@ -19,7 +19,7 @@ import {
 import { useDisclosure } from '@mantine/hooks';
 import { IconDownload, IconRefresh, IconArrowLeft, IconFileExport, IconWifiOff, IconSend, IconCheck, IconUpload, IconSignature, IconTrash, IconDeviceFloppy } from '@tabler/icons-react';
 import type { Report } from '../../types/Report';
-import { generateReportPdf, TRANSPARENT_1PX, type SignatureImages } from '../../utils/pdfGenerator';
+import { generateReportPdf, buildPdfInputs, TRANSPARENT_1PX, type SignatureImages } from '../../utils/pdfGenerator';
 import { uploadSignatureImage, deleteSignatureImage } from '../../utils/reportImagesStorage';
 import { validateReportForReview } from '../../utils/reportValidation';
 
@@ -119,6 +119,13 @@ export function PdfPreviewPanel({
     }
   }, [isGenerado, generatedPdfUrl]);
 
+  // Stable fingerprint of PDF-relevant fields only; avoids regenerating
+  // the PDF preview when unrelated report fields change.
+  const pdfInputsKey = useMemo(
+    () => JSON.stringify(buildPdfInputs(report)),
+    [report],
+  );
+
   const buildSigImages = (): SignatureImages | undefined => {
     const hasSig = (canUploadSignatures && isListoParaGenerar) || canInterventoriaSignature;
     if (!hasSig) return undefined;
@@ -149,8 +156,13 @@ export function PdfPreviewPanel({
     }
   }
 
+  const reportRef = useRef(report);
+  reportRef.current = report;
+
   // Generate on mount (debounced) for non-generado reports;
-  // also regenerates when signature images change
+  // also regenerates when signature images change.
+  // Uses pdfInputsKey instead of the full report object so unrelated
+  // field changes (e.g. text edits) don't trigger expensive PDF rebuilds.
   useEffect(() => {
     if (isGenerado) return;
 
@@ -169,7 +181,7 @@ export function PdfPreviewPanel({
     const timer = setTimeout(async () => {
       setError(null);
       try {
-        const pdf = await generateReportPdf(report, sigImages);
+        const pdf = await generateReportPdf(reportRef.current, sigImages);
         if (cancelled) return;
         const blob = new Blob([pdf.buffer as ArrayBuffer], { type: 'application/pdf' });
         const url = URL.createObjectURL(blob);
@@ -189,7 +201,7 @@ export function PdfPreviewPanel({
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [report, isGenerado, sigImgProj, sigImgCoord, sigImgInterventoria]);
+  }, [pdfInputsKey, isGenerado, sigImgProj, sigImgCoord, sigImgInterventoria]);
 
   // Cleanup blob URLs on unmount
   useEffect(() => {

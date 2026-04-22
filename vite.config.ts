@@ -47,10 +47,20 @@ export default defineConfig({
 						urlPattern: /^https:\/\/firestore\.googleapis\.com\/.*/i,
 						handler: 'NetworkOnly',
 					},
-					{
-						urlPattern: /^https:\/\/firebasestorage\.googleapis\.com\/.*/i,
-						handler: 'NetworkOnly',
+				{
+					urlPattern: /^https:\/\/firebasestorage\.googleapis\.com\/.*/i,
+					handler: 'CacheFirst',
+					options: {
+						cacheName: 'firebase-storage-images',
+						expiration: {
+							maxEntries: 200,
+							maxAgeSeconds: 30 * 24 * 60 * 60,
+						},
+						cacheableResponse: {
+							statuses: [0, 200],
+						},
 					},
+				},
 					{
 						urlPattern: /^https:\/\/identitytoolkit\.googleapis\.com\/.*/i,
 						handler: 'NetworkOnly',

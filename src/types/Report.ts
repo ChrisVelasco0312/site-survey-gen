@@ -211,6 +211,10 @@ export interface Report {
   // Interventoría observation (stored in report only, never in PDF)
   interventoria_observation?: string;
 
+  // Metadata: maps image field -> original Storage URL that produced the cached base64.
+  // Used by reportWithBase64FromStorage to skip re-fetching unchanged images.
+  _image_source_urls?: Record<string, string>;
+
   // HU-20: Cotejo Facial
   cotejo_facial_survey?: CotejoFacialSurvey;
   lpr_survey?: LprSurvey;
