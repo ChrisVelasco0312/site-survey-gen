@@ -1,7 +1,9 @@
-import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
+import { ref, uploadBytes, getDownloadURL, deleteObject, getBlob } from 'firebase/storage';
 import type { UploadMetadata } from 'firebase/storage';
 import { storage } from '../firebase-config';
 import type { Report } from '../types/Report';
+import { storageRefFromUrlOrPath } from './firebaseStorageRef';
+import { invalidateResolvedStorageUrlCache } from '../hooks/useStorageUrl';
 
 /** Report fields that may hold image data (base64 data URL or Storage URL). */
 export const REPORT_IMAGE_FIELDS = [
@@ -20,6 +22,7 @@ const imageCache = new Map<string, string>();
 
 export function invalidateImageCache(url: string) {
   imageCache.delete(url);
+  invalidateResolvedStorageUrlCache(url);
 }
 
 export type ReportImageField = (typeof REPORT_IMAGE_FIELDS)[number];
@@ -89,18 +92,54 @@ export async function storageUrlToDataUrl(url: string): Promise<string> {
   const cached = imageCache.get(url);
   if (cached) return cached;
 
-  let fetchUrl = url;
-  if (!url.startsWith('http')) {
-    fetchUrl = await getDownloadURL(ref(storage, url));
+  let blob: Blob;
+  try {
+    if (!url.startsWith('http') || url.includes('firebasestorage.googleapis.com') || url.startsWith('gs://')) {
+      blob = await getBlob(storageRefFromUrlOrPath(url));
+    } else {
+      const response = await fetch(url, { mode: 'cors', cache: 'no-cache' });
+      if (!response.ok) throw new Error(`Fetch failed: ${response.status}`);
+      blob = await response.blob();
+    }
+  } catch (error) {
+    console.warn(`getBlob failed for ${url}, falling back to fresh download URL:`, error);
+    let fetchUrl = url;
+    if (!url.startsWith('http') || url.includes('firebasestorage.googleapis.com') || url.startsWith('gs://')) {
+      fetchUrl = await getDownloadURL(storageRefFromUrlOrPath(url));
+    }
+    const response = await fetch(fetchUrl, { mode: 'cors', cache: 'no-cache' });
+    if (!response.ok) throw new Error(`Storage fetch failed: ${response.status}`);
+    blob = await response.blob();
   }
 
-  const response = await fetch(fetchUrl);
-  if (!response.ok) throw new Error(`Storage fetch failed: ${response.status}`);
-  const blob = await response.blob();
   const dataUrl = await blobToDataUrl(blob);
-
   imageCache.set(url, dataUrl);
   return dataUrl;
+}
+
+/**
+ * When IndexedDB cache is newer or equal to Firestore, we still must re-hydrate if:
+ * - Any image field is still a bare http(s) URL (last hydration failed), or
+ * - Firestore image URLs drifted from what we tracked in _image_source_urls.
+ */
+export function shouldSkipImageRehydration(cached: Report | null, remote: Report): boolean {
+  if (!cached) return false;
+  if (cached.updated_at < remote.updated_at) return false;
+
+  for (const field of REPORT_IMAGE_FIELDS) {
+    const val = cached[field];
+    if (typeof val === 'string' && val.startsWith('http')) return false;
+  }
+
+  for (const field of REPORT_IMAGE_FIELDS) {
+    const r = remote[field];
+    if (!r || typeof r !== 'string') continue;
+    if (r.startsWith('data:')) continue;
+    const tracked = cached._image_source_urls?.[field];
+    if (tracked !== r) return false;
+  }
+
+  return true;
 }
 
 /**

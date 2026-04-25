@@ -15,6 +15,8 @@ import imageCompression from 'browser-image-compression';
 import type { Report } from '../../types/Report';
 import { Shape } from '../../types/Shape';
 import { ImageEditor } from '../../components/ImageEditor/ImageEditor';
+import { StorageImage } from '../../components/StorageImage/StorageImage';
+import { resolveStorageUrl } from '../../hooks/useStorageUrl';
 
 /* ── Compression options ──────────────────────────────────── */
 
@@ -120,18 +122,28 @@ export function ReportEditStep4({ report, setReport, readOnly }: ReportEditStep4
     setReport(newReport as Report);
   };
 
-  const openEditor = (field: PhotoField) => {
+  const openEditor = async (field: PhotoField) => {
     const originalField = field.replace('_url', '_original_url');
-    // Prefer original unedited image if available
     const originalSrc = (report as any)[originalField];
-    const src = originalSrc || report[field];
+    let src = originalSrc || report[field];
     if (!src) return;
+
+    if (!src.startsWith('data:') && !src.startsWith('blob:')) {
+      try {
+        src = await resolveStorageUrl(src);
+      } catch {
+        /* keep raw */
+      }
+    }
 
     const img = new Image();
     img.onload = () => {
       setEditorImageMeta({ width: img.width, height: img.height });
       setEditingField(field);
       setEditorOpen(true);
+    };
+    img.onerror = () => {
+      setError('No se pudo cargar la imagen para editar. Intente de nuevo o vuelva a cargar la foto.');
     };
     img.src = src;
   };
@@ -176,7 +188,7 @@ export function ReportEditStep4({ report, setReport, readOnly }: ReportEditStep4
                   overflow: 'hidden',
                 }}
               >
-                <img
+                <StorageImage
                   src={report[field]}
                   alt={label}
                   loading="lazy"
@@ -233,12 +245,12 @@ export function ReportEditStep4({ report, setReport, readOnly }: ReportEditStep4
                     overflow: 'hidden',
                   }}
                 >
-                  <img
-                    src={report[field]}
-                    alt={label}
-                    loading="lazy"
-                    style={{ width: '100%', height: 'auto', display: 'block' }}
-                  />
+                <StorageImage
+                  src={report[field]}
+                  alt={label}
+                  loading="lazy"
+                  style={{ width: '100%', height: 'auto', display: 'block' }}
+                />
                 </Box>
                 <Group gap="xs">
                   <FileInput

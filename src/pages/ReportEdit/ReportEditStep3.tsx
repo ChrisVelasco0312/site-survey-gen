@@ -24,6 +24,7 @@ import { IconExternalLink, IconWifiOff, IconPlus, IconTrash, IconMapPin, IconDev
 import type { Report, MapPinData } from '../../types/Report';
 import { useConnectivity } from '../../hooks/useConnectivity';
 import { drawLegend, LEGEND_WIDTH, LEGEND_HEIGHT } from '../../utils/mapLegend';
+import { StorageImage } from '../../components/StorageImage/StorageImage';
 
 /* ── Constants ─────────────────────────────────────────────── */
 
@@ -752,7 +753,7 @@ export function ReportEditStep3({ report, setReport, readOnly }: ReportEditStep3
           <Text size="sm" fw={500} c="dimmed" mb="sm">Diagrama del sitio editado</Text>
           {hasEditedMap ? (
             <Box style={{ maxWidth: 400, border: '1px solid var(--mantine-color-default-border)', borderRadius: 'var(--mantine-radius-sm)', overflow: 'hidden' }}>
-              <img src={report.edited_map_image_url} alt="Diagrama del sitio" loading="lazy" style={{ width: '100%', height: 'auto', display: 'block' }} />
+              <StorageImage src={report.edited_map_image_url} alt="Diagrama del sitio" loading="lazy" style={{ width: '100%', height: 'auto', display: 'block' }} />
             </Box>
           ) : (
             <Text size="sm" c="dimmed">—</Text>
@@ -1122,7 +1123,7 @@ export function ReportEditStep3({ report, setReport, readOnly }: ReportEditStep3
 
         {hasEditedMap && (
           <Box style={{ maxWidth: 500, border: '1px solid var(--mantine-color-default-border)', borderRadius: 'var(--mantine-radius-sm)', overflow: 'hidden' }}>
-            <img src={report.edited_map_image_url} alt="Mapa guardado" loading="lazy" style={{ width: '100%', height: 'auto', display: 'block' }} />
+            <StorageImage src={report.edited_map_image_url} alt="Mapa guardado" loading="lazy" style={{ width: '100%', height: 'auto', display: 'block' }} />
           </Box>
         )}
       </Stack>

@@ -21,6 +21,7 @@ import {
 import {
   reportWithStorageUrls,
   reportWithBase64FromStorage,
+  shouldSkipImageRehydration,
 } from '../utils/reportImagesStorage';
 
 /**
@@ -80,7 +81,7 @@ export async function getReport(id: string): Promise<Report | null> {
         const firestoreReport = snap.data() as Report;
         const cachedReport = await getReportFromDB(id).catch(() => null);
 
-        if (cachedReport && cachedReport.updated_at >= firestoreReport.updated_at) {
+        if (shouldSkipImageRehydration(cachedReport, firestoreReport)) {
           return cachedReport;
         }
 

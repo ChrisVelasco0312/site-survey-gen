@@ -29,6 +29,8 @@ import {
   IconMinus,
 } from '@tabler/icons-react';
 import { Tool, Shape, RectShape, CircleShape, PencilShape, LineShape } from '../../types/Shape';
+import { StorageImage } from '../StorageImage/StorageImage';
+import { resolveStorageUrl } from '../../hooks/useStorageUrl';
 
 /* ── Helpers ── */
 
@@ -214,15 +216,48 @@ export function ImageEditor({
   // Load base image if provided
   const [isImageLoaded, setIsImageLoaded] = useState(false);
   useEffect(() => {
-    if (baseImage) {
-        const img = new Image();
-        img.crossOrigin = 'anonymous';
-        img.onload = () => {
-            internalBaseRef.current = img;
-            setIsImageLoaded(true);
-        };
-        img.src = baseImage;
+    if (!baseImage) {
+      internalBaseRef.current = null;
+      setIsImageLoaded(false);
+      return;
     }
+
+    let cancelled = false;
+    setIsImageLoaded(false);
+
+    const finish = (img: HTMLImageElement) => {
+      if (cancelled) return;
+      internalBaseRef.current = img;
+      setIsImageLoaded(true);
+    };
+
+    const tryLoad = (src: string, withCors: boolean) => {
+      const img = new Image();
+      if (withCors) img.crossOrigin = 'anonymous';
+      img.onload = () => finish(img);
+      img.onerror = () => {
+        if (withCors) tryLoad(src, false);
+        else if (!cancelled) setIsImageLoaded(false);
+      };
+      img.src = src;
+    };
+
+    (async () => {
+      let src = baseImage;
+      if (!src.startsWith('data:') && !src.startsWith('blob:')) {
+        try {
+          src = await resolveStorageUrl(src);
+        } catch {
+          /* use original */
+        }
+      }
+      if (cancelled) return;
+      tryLoad(src, true);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [baseImage]);
 
   /* ── Logic ── */
@@ -1116,7 +1151,7 @@ export function ImageEditor({
         <Box style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}>
             {children}
             {baseImage && !children && (
-                <img src={baseImage} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                <StorageImage src={baseImage} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
             )}
         </Box>
 

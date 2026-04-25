@@ -22,6 +22,7 @@ import type { Report } from '../../types/Report';
 import { generateReportPdf, buildPdfInputs, TRANSPARENT_1PX, type SignatureImages } from '../../utils/pdfGenerator';
 import { uploadSignatureImage, deleteSignatureImage } from '../../utils/reportImagesStorage';
 import { validateReportForReview } from '../../utils/reportValidation';
+import { MantineStorageImage } from '../../components/StorageImage/StorageImage';
 
 interface PdfPreviewPanelProps {
   report: Report;
@@ -554,7 +555,7 @@ export function PdfPreviewPanel({
                 <Text size="xs" fw={600}>Firma Director de Proyectos</Text>
                 {sigImgProj ? (
                   <Box pos="relative">
-                    <Image src={sigImgProj} alt="Firma Director" mah={80} fit="contain" />
+                    <MantineStorageImage src={sigImgProj} alt="Firma Director" mah={80} fit="contain" />
                     <ActionIcon
                       color="red"
                       variant="filled"
@@ -582,7 +583,7 @@ export function PdfPreviewPanel({
                 <Text size="xs" fw={600}>Firma Coordinador de zona</Text>
                 {sigImgCoord ? (
                   <Box pos="relative">
-                    <Image src={sigImgCoord} alt="Firma Coordinador" mah={80} fit="contain" />
+                    <MantineStorageImage src={sigImgCoord} alt="Firma Coordinador" mah={80} fit="contain" />
                     <ActionIcon
                       color="red"
                       variant="filled"
@@ -638,7 +639,7 @@ export function PdfPreviewPanel({
                   <Text size="xs" fw={600}>Firma Interventoría</Text>
                   {sigImgInterventoria ? (
                     <Box pos="relative" maw={200}>
-                      <Image src={sigImgInterventoria} alt="Firma Interventoría" mah={80} fit="contain" />
+                      <MantineStorageImage src={sigImgInterventoria} alt="Firma Interventoría" mah={80} fit="contain" />
                       <ActionIcon
                         color="red"
                         variant="filled"
