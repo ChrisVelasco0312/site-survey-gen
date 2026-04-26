@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from "preact/hooks";
+import { useEffect, useState } from "preact/hooks";
 import {
   Title,
   Table,
@@ -35,9 +35,10 @@ export function AdminDashboard() {
   const [search, setSearch] = useState("");
   const [debouncedSearch] = useDebouncedValue(search, 250);
   const [filterGroup, setFilterGroup] = useState<string | null>(null);
+  const [signatureFilter, setSignatureFilter] = useState<string | null>(null);
   const [page, setPage] = useState(1);
 
-  useEffect(() => { setPage(1); }, [debouncedSearch, filterGroup, activeTab]);
+  useEffect(() => { setPage(1); }, [debouncedSearch, filterGroup, signatureFilter, activeTab]);
 
   const fetchReports = async () => {
     setLoading(true);
@@ -70,6 +71,50 @@ export function AdminDashboard() {
       {status?.replace(/_/g, " ")}
     </Badge>
   );
+
+  const hasSignature = (signatureUrl?: string) => Boolean(signatureUrl?.trim());
+
+  const getSignatureCompletionCount = (report: Report) => (
+    [
+      report.signature_img_director_url,
+      report.signature_img_coordinator_url,
+      report.signature_img_interventoria_url,
+    ].filter((url) => hasSignature(url)).length
+  );
+
+  const renderSignatureChecks = (report: Report) => {
+    const signatureStates = [
+      { label: "Dir", ok: hasSignature(report.signature_img_director_url) },
+      { label: "Coord", ok: hasSignature(report.signature_img_coordinator_url) },
+      { label: "Interv", ok: hasSignature(report.signature_img_interventoria_url) },
+    ];
+    const completed = signatureStates.filter((item) => item.ok).length;
+
+    return (
+      <Stack gap={2}>
+        <Badge
+          size="sm"
+          variant="light"
+          color={completed === 3 ? "green" : completed > 0 ? "yellow" : "red"}
+          w="fit-content"
+        >
+          {completed}/3
+        </Badge>
+        <Group gap={4}>
+          {signatureStates.map((item) => (
+            <Badge
+              key={item.label}
+              size="xs"
+              variant="light"
+              color={item.ok ? "green" : "red"}
+            >
+              {item.label} {item.ok ? "✔" : "✖"}
+            </Badge>
+          ))}
+        </Group>
+      </Stack>
+    );
+  };
 
   const renderMobileList = (filtered: Report[]) => (
     <Stack>
@@ -135,10 +180,18 @@ export function AdminDashboard() {
       });
     }
 
+    if (filterStatus.includes("listo_para_generar") && signatureFilter) {
+      result = result.filter((r) => {
+        const isComplete = getSignatureCompletionCount(r) === 3;
+        return signatureFilter === "complete" ? isComplete : !isComplete;
+      });
+    }
+
     return result;
   };
 
   const renderContent = (filterStatus: string[]) => {
+    const showSignaturesColumn = filterStatus.includes("listo_para_generar");
     const filtered = applyFilters(filterStatus);
     const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
     const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
@@ -182,6 +235,7 @@ export function AdminDashboard() {
               <Table.Th>Dirección</Table.Th>
               <Table.Th>Grupo</Table.Th>
               <Table.Th>Estado</Table.Th>
+              {showSignaturesColumn && <Table.Th>Firmas</Table.Th>}
               <Table.Th>Acciones</Table.Th>
             </Table.Tr>
           </Table.Thead>
@@ -209,6 +263,9 @@ export function AdminDashboard() {
                   {report.group === 'all' ? 'Administrador' : report.group === 'grupo_a' ? 'Grupo 1' : 'Grupo 2'}
                 </Table.Td>
                 <Table.Td>{getStatusBadge(report.status)}</Table.Td>
+                {showSignaturesColumn && (
+                  <Table.Td>{renderSignatureChecks(report)}</Table.Td>
+                )}
                 <Table.Td>
                   <Tooltip label="Ver detalles">
                     <ActionIcon
@@ -275,6 +332,19 @@ export function AdminDashboard() {
             clearable
             style={{ flex: "0 0 160px" }}
           />
+          {activeTab === "listo_para_generar" && (
+            <Select
+              placeholder="Firmas"
+              data={[
+                { value: "complete", label: "Completas (3/3)" },
+                { value: "incomplete", label: "Incompletas (<3/3)" },
+              ]}
+              value={signatureFilter}
+              onChange={setSignatureFilter}
+              clearable
+              style={{ flex: "0 0 190px" }}
+            />
+          )}
         </Group>
         <Tabs value={activeTab} onChange={setActiveTab} keepMounted={false}>
           <Tabs.List mb="md">
