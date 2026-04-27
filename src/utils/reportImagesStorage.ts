@@ -1,8 +1,8 @@
-import { ref, uploadBytes, getDownloadURL, deleteObject, getBlob } from 'firebase/storage';
+import { ref, uploadBytes, getDownloadURL, deleteObject, getBlob, getMetadata } from 'firebase/storage';
 import type { UploadMetadata } from 'firebase/storage';
 import { storage } from '../firebase-config';
 import type { Report } from '../types/Report';
-import { storageRefFromUrlOrPath } from './firebaseStorageRef';
+import { parseFirebaseStorageHttpUrl, storageRefFromUrlOrPath } from './firebaseStorageRef';
 import { invalidateResolvedStorageUrlCache } from '../hooks/useStorageUrl';
 
 /** Report fields that may hold image data (base64 data URL or Storage URL). */
@@ -18,10 +18,7 @@ export const REPORT_IMAGE_FIELDS = [
   'signature_img_interventoria_url',
 ] as const;
 
-const imageCache = new Map<string, string>();
-
 export function invalidateImageCache(url: string) {
-  imageCache.delete(url);
   invalidateResolvedStorageUrlCache(url);
 }
 
@@ -48,7 +45,7 @@ function getExtensionFromDataUrl(dataUrl: string): string {
 }
 
 const STORAGE_UPLOAD_METADATA: UploadMetadata = {
-  cacheControl: 'public, max-age=31536000, immutable',
+  cacheControl: 'no-cache, no-store, max-age=0, must-revalidate',
 };
 
 /**
@@ -60,15 +57,16 @@ export async function uploadReportImage(
   reportId: string,
   field: ReportImageField,
   dataUrl: string,
+  versionTag?: number,
 ): Promise<string> {
   const ext = getExtensionFromDataUrl(dataUrl);
-  const path = `reports/${reportId}/${field}.${ext}`;
+  const path = `reports/${reportId}/${field}_${versionTag ?? Date.now()}.${ext}`;
   const storageRef = ref(storage, path);
   const blob = await dataUrlToBlob(dataUrl);
   await uploadBytes(storageRef, blob, STORAGE_UPLOAD_METADATA);
   const downloadUrl = await getDownloadURL(storageRef);
   invalidateImageCache(path);
-  imageCache.set(path, dataUrl);
+  invalidateImageCache(downloadUrl);
   return downloadUrl;
 }
 
@@ -89,31 +87,33 @@ function blobToDataUrl(blob: Blob): Promise<string> {
  * Results are cached in-memory to avoid repeated fetches within a session.
  */
 export async function storageUrlToDataUrl(url: string): Promise<string> {
-  const cached = imageCache.get(url);
-  if (cached) return cached;
-
   let blob: Blob;
+  const isFirebaseSource =
+    !url.startsWith('http') ||
+    url.startsWith('gs://') ||
+    parseFirebaseStorageHttpUrl(url) !== null;
   try {
-    if (!url.startsWith('http') || url.includes('firebasestorage.googleapis.com') || url.startsWith('gs://')) {
+    if (isFirebaseSource) {
       blob = await getBlob(storageRefFromUrlOrPath(url));
     } else {
-      const response = await fetch(url, { mode: 'cors', cache: 'no-cache' });
+      const response = await fetch(url, { mode: 'cors', cache: 'no-store' });
       if (!response.ok) throw new Error(`Fetch failed: ${response.status}`);
       blob = await response.blob();
     }
   } catch (error) {
-    console.warn(`getBlob failed for ${url}, falling back to fresh download URL:`, error);
-    let fetchUrl = url;
-    if (!url.startsWith('http') || url.includes('firebasestorage.googleapis.com') || url.startsWith('gs://')) {
-      fetchUrl = await getDownloadURL(storageRefFromUrlOrPath(url));
+    if (!isStorageNotFoundError(error)) {
+      console.warn(`getBlob failed for ${url}, falling back to fresh download URL:`, error);
     }
-    const response = await fetch(fetchUrl, { mode: 'cors', cache: 'no-cache' });
+    if (!isFirebaseSource) {
+      throw error;
+    }
+    const fetchUrl = await getDownloadURL(storageRefFromUrlOrPath(url));
+    const response = await fetch(fetchUrl, { mode: 'cors', cache: 'no-store' });
     if (!response.ok) throw new Error(`Storage fetch failed: ${response.status}`);
     blob = await response.blob();
   }
 
   const dataUrl = await blobToDataUrl(blob);
-  imageCache.set(url, dataUrl);
   return dataUrl;
 }
 
@@ -164,6 +164,19 @@ function removeUndefinedFields(obj: any): any {
 
 export type SignatureType = 'director' | 'coordinator' | 'interventoria';
 
+function isStorageNotFoundError(error: any): boolean {
+  if (!error) return false;
+  const code = error.code;
+  const message = String(error.message ?? '');
+  return (
+    code === 'storage/object-not-found' ||
+    code === 404 ||
+    error.status === 404 ||
+    message.includes('Not Found') ||
+    message.includes('object-not-found')
+  );
+}
+
 /**
  * Upload a signature image file to Firebase Storage.
  * Path: reports/{reportId}/signature_{type}
@@ -177,8 +190,10 @@ export async function uploadSignatureImage(
   const path = `reports/${reportId}/signature_${type}`;
   const storageRef = ref(storage, path);
   await uploadBytes(storageRef, file, STORAGE_UPLOAD_METADATA);
+  const downloadUrl = await getDownloadURL(storageRef);
   invalidateImageCache(path);
-  return getDownloadURL(storageRef);
+  invalidateImageCache(downloadUrl);
+  return downloadUrl;
 }
 
 /**
@@ -195,7 +210,54 @@ export async function deleteSignatureImage(
   try {
     await deleteObject(storageRef);
   } catch (e: any) {
-    if (e?.code !== 'storage/object-not-found') throw e;
+    if (!isStorageNotFoundError(e)) throw e;
+  }
+}
+
+async function deleteStorageObjectByUrl(urlOrPath: string): Promise<void> {
+  if (!urlOrPath || isDataUrl(urlOrPath)) return;
+  const storageRef = storageRefFromUrlOrPath(urlOrPath);
+  try {
+    await getMetadata(storageRef);
+  } catch (e: any) {
+    if (isStorageNotFoundError(e)) return;
+    throw e;
+  }
+
+  try {
+    await deleteObject(storageRef);
+  } catch (e: any) {
+    if (!isStorageNotFoundError(e)) throw e;
+  }
+}
+
+function toStorageUrl(value?: string): string | null {
+  if (!value || typeof value !== 'string' || isDataUrl(value)) return null;
+  return value;
+}
+
+export function getStaleReportImageUrls(
+  previousReport: Report | null | undefined,
+  nextReport: Report,
+): string[] {
+  if (!previousReport) return [];
+  const stale = new Set<string>();
+
+  for (const field of REPORT_IMAGE_FIELDS) {
+    const prevUrl = toStorageUrl(previousReport[field]);
+    if (!prevUrl) continue;
+    const nextUrl = toStorageUrl(nextReport[field]);
+    if (prevUrl !== nextUrl) {
+      stale.add(prevUrl);
+    }
+  }
+
+  return [...stale];
+}
+
+export async function deleteReportImageUrls(urls: string[]): Promise<void> {
+  for (const url of urls) {
+    await deleteStorageObjectByUrl(url);
   }
 }
 
@@ -204,16 +266,24 @@ export async function deleteSignatureImage(
  * uploaded to Firebase Storage and replaced by their download URLs.
  * Use this before saving the report to Firestore.
  */
-export async function reportWithStorageUrls(report: Report): Promise<Report> {
+export async function reportWithStorageUrls(
+  report: Report,
+  _previousReport?: Report | null,
+): Promise<Report> {
   const out = { ...report };
 
   delete out._image_source_urls;
 
   for (const field of REPORT_IMAGE_FIELDS) {
     const value = out[field];
-    if (value && isDataUrl(value)) {
-      out[field] = await uploadReportImage(report.id, field, value);
+    if (!value) {
+      continue;
     }
+    if (!isDataUrl(value)) {
+      continue;
+    }
+
+    out[field] = await uploadReportImage(report.id, field, value, report.updated_at);
   }
 
   return removeUndefinedFields(out) as Report;
@@ -225,11 +295,13 @@ export async function reportWithStorageUrls(report: Report): Promise<Report> {
  * to IndexedDB so the app can show images offline.
  *
  * When a `cachedReport` is provided, fields whose Storage URL hasn't changed
- * reuse the cached base64 value instead of re-fetching from Storage.
+ * reuse the cached base64 value only when cache and remote refer to the same
+ * report version (`updated_at`) and the source is not an HTTP download URL,
+ * to avoid stale images when Storage objects are overwritten in-place.
  */
 export async function reportWithBase64FromStorage(
   report: Report,
-  cachedReport?: Report | null,
+  _cachedReport?: Report | null,
 ): Promise<Report> {
   const out = { ...report };
 
@@ -238,18 +310,13 @@ export async function reportWithBase64FromStorage(
       const value = out[field];
       if (!value || isDataUrl(value)) return;
 
-      if (cachedReport) {
-        const cachedValue = cachedReport[field];
-        const cachedUrl = cachedReport._image_source_urls?.[field];
-        if (cachedValue && isDataUrl(cachedValue) && cachedUrl === value) {
-          out[field] = cachedValue;
-          return;
-        }
-      }
-
       try {
         out[field] = await storageUrlToDataUrl(value);
       } catch (e) {
+        if (isStorageNotFoundError(e)) {
+          out[field] = '';
+          return;
+        }
         console.warn(`Failed to fetch report image ${field}:`, e);
       }
     }),

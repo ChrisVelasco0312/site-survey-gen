@@ -49,12 +49,13 @@ export default defineConfig({
 					},
 				{
 					urlPattern: /^https:\/\/firebasestorage\.googleapis\.com\/.*/i,
-					handler: 'CacheFirst',
+					handler: 'NetworkFirst',
 					options: {
-						cacheName: 'firebase-storage-images',
+						cacheName: 'firebase-storage-images-v2',
+						networkTimeoutSeconds: 8,
 						expiration: {
 							maxEntries: 200,
-							maxAgeSeconds: 30 * 24 * 60 * 60,
+							maxAgeSeconds: 7 * 24 * 60 * 60,
 						},
 						cacheableResponse: {
 							statuses: [0, 200],

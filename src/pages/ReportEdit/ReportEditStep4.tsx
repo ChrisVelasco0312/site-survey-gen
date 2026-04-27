@@ -1,4 +1,4 @@
-import { useState } from 'preact/hooks';
+import { useEffect, useRef, useState } from 'preact/hooks';
 import {
   Stack,
   Text,
@@ -10,7 +10,7 @@ import {
   Loader,
   Modal,
 } from '@mantine/core';
-import { IconPhoto, IconTrash, IconEdit } from '@tabler/icons-react';
+import { IconPhoto, IconTrash, IconEdit, IconCheck, IconAlertCircle } from '@tabler/icons-react';
 import imageCompression from 'browser-image-compression';
 import type { Report } from '../../types/Report';
 import { Shape } from '../../types/Shape';
@@ -33,9 +33,11 @@ interface ReportEditStep4Props {
   report: Report;
   setReport: (report: Report) => void;
   readOnly?: boolean;
+  saveState?: 'idle' | 'pending' | 'saving' | 'saved' | 'error';
 }
 
 type PhotoField = 'camera_view_photo_url' | 'service_entrance_photo_url';
+type FieldAction = 'upload' | 'delete';
 
 interface PhotoSectionConfig {
   field: PhotoField;
@@ -70,12 +72,31 @@ async function compressAndEncode(file: File): Promise<string> {
 
 /* ── Component ────────────────────────────────────────────── */
 
-export function ReportEditStep4({ report, setReport, readOnly }: ReportEditStep4Props) {
+export function ReportEditStep4({ report, setReport, readOnly, saveState = 'idle' }: ReportEditStep4Props) {
   const [compressing, setCompressing] = useState<PhotoField | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [editingField, setEditingField] = useState<PhotoField | null>(null);
   const [editorOpen, setEditorOpen] = useState(false);
   const [editorImageMeta, setEditorImageMeta] = useState<{ width: number; height: number } | null>(null);
+  const [pendingSaveByField, setPendingSaveByField] = useState<Partial<Record<PhotoField, boolean>>>({});
+  const [pendingActionByField, setPendingActionByField] = useState<Partial<Record<PhotoField, FieldAction>>>({});
+  const clearPendingTimer = useRef<ReturnType<typeof setTimeout>>();
+
+  const markFieldPending = (field: PhotoField, action: FieldAction) => {
+    setPendingSaveByField((prev) => ({ ...prev, [field]: true }));
+    setPendingActionByField((prev) => ({ ...prev, [field]: action }));
+  };
+
+  useEffect(() => {
+    clearTimeout(clearPendingTimer.current);
+    if (saveState === 'saved') {
+      clearPendingTimer.current = setTimeout(() => {
+        setPendingSaveByField({});
+        setPendingActionByField({});
+      }, 1200);
+    }
+    return () => clearTimeout(clearPendingTimer.current);
+  }, [saveState]);
 
   const handleFileChange = async (field: PhotoField, file: File | null) => {
     setError(null);
@@ -84,6 +105,7 @@ export function ReportEditStep4({ report, setReport, readOnly }: ReportEditStep4
     const shapesField = field.replace('_url', '_shapes');
 
     if (!file) {
+      markFieldPending(field, 'delete');
       const newReport = { ...report, updated_at: Date.now() };
       delete (newReport as any)[field];
       delete (newReport as any)[originalField];
@@ -95,6 +117,7 @@ export function ReportEditStep4({ report, setReport, readOnly }: ReportEditStep4
     try {
       setCompressing(field);
       const dataUrl = await compressAndEncode(file);
+      markFieldPending(field, 'upload');
       setReport({ 
         ...report, 
         [field]: dataUrl, 
@@ -112,6 +135,7 @@ export function ReportEditStep4({ report, setReport, readOnly }: ReportEditStep4
   };
 
   const clearPhoto = (field: PhotoField) => {
+    markFieldPending(field, 'delete');
     const originalField = field.replace('_url', '_original_url');
     const shapesField = field.replace('_url', '_shapes');
 
@@ -158,7 +182,9 @@ export function ReportEditStep4({ report, setReport, readOnly }: ReportEditStep4
       const originalUrl = (currentReport as any)[originalField];
       if (!originalUrl && currentReport[editingField]) {
          (currentReport as any)[originalField] = currentReport[editingField];
-      }
+       }
+
+      markFieldPending(editingField, 'upload');
 
       setReport({ 
         ...currentReport, 
@@ -220,6 +246,31 @@ export function ReportEditStep4({ report, setReport, readOnly }: ReportEditStep4
       {PHOTO_SECTIONS.map(({ field, label, placeholder }) => {
         const hasPhoto = Boolean(report[field]?.trim());
         const isCompressing = compressing === field;
+        const showFieldSaveStatus = Boolean(pendingSaveByField[field]);
+        const fieldAction = pendingActionByField[field] ?? 'upload';
+        const fieldStatusLabel =
+          saveState === 'pending'
+            ? (fieldAction === 'delete' ? 'Procesando eliminación…' : 'Procesando imagen…')
+            : saveState === 'saving'
+              ? (fieldAction === 'delete' ? 'Eliminando imagen…' : 'Subiendo imagen…')
+              : saveState === 'saved'
+                ? (fieldAction === 'delete' ? 'Imagen eliminada' : 'Imagen guardada')
+                : saveState === 'error'
+                  ? (fieldAction === 'delete' ? 'Error al eliminar imagen' : 'Error al guardar imagen')
+                  : null;
+        const fieldStatusColor =
+          saveState === 'error'
+            ? 'red'
+            : saveState === 'saved'
+              ? 'teal'
+              : saveState === 'saving'
+                ? 'blue'
+                : 'yellow';
+        const statusIcon = saveState === 'saved'
+              ? <IconCheck size={16} />
+              : saveState === 'error'
+                ? <IconAlertCircle size={16} />
+                : null;
 
         return (
           <Stack key={field} gap="sm">
@@ -243,6 +294,7 @@ export function ReportEditStep4({ report, setReport, readOnly }: ReportEditStep4
                     border: '1px solid var(--mantine-color-default-border)',
                     borderRadius: 'var(--mantine-radius-sm)',
                     overflow: 'hidden',
+                    position: 'relative',
                   }}
                 >
                 <StorageImage
@@ -251,6 +303,48 @@ export function ReportEditStep4({ report, setReport, readOnly }: ReportEditStep4
                   loading="lazy"
                   style={{ width: '100%', height: 'auto', display: 'block' }}
                 />
+                {showFieldSaveStatus && fieldStatusLabel && (
+                  <Box
+                    style={{
+                      position: 'absolute',
+                      inset: 0,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      pointerEvents: 'none',
+                      background: 'rgba(0,0,0,0.45)',
+                      backdropFilter: 'blur(1.5px)',
+                    }}
+                  >
+                    <Box
+                      style={{
+                        margin: 12,
+                        padding: '10px 14px',
+                        borderRadius: 12,
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 8,
+                        color: 'white',
+                        fontSize: 13,
+                        fontWeight: 700,
+                        background:
+                          fieldStatusColor === 'red'
+                            ? 'rgba(224,49,49,0.96)'
+                            : fieldStatusColor === 'teal'
+                              ? 'rgba(12,166,120,0.96)'
+                              : fieldStatusColor === 'blue'
+                                ? 'rgba(25,113,194,0.96)'
+                                : 'rgba(245,159,0,0.96)',
+                        boxShadow: '0 8px 20px rgba(0,0,0,0.35)',
+                      }}
+                    >
+                      {saveState === 'saving' || saveState === 'pending'
+                        ? <Loader size={16} color="white" />
+                        : statusIcon}
+                      <span>{fieldStatusLabel}</span>
+                    </Box>
+                  </Box>
+                )}
                 </Box>
                 <Group gap="xs">
                   <FileInput
@@ -282,12 +376,19 @@ export function ReportEditStep4({ report, setReport, readOnly }: ReportEditStep4
                 </Group>
               </Stack>
             ) : (
-              <FileInput
-                accept="image/*"
-                placeholder={placeholder}
-                onChange={(f) => handleFileChange(field, f)}
-                disabled={isCompressing}
-              />
+              <Stack gap={4}>
+                <FileInput
+                  accept="image/*"
+                  placeholder={placeholder}
+                  onChange={(f) => handleFileChange(field, f)}
+                  disabled={isCompressing}
+                />
+                {showFieldSaveStatus && fieldStatusLabel && (
+                  <Text size="xs" fw={500} c={fieldStatusColor}>
+                    {fieldStatusLabel}
+                  </Text>
+                )}
+              </Stack>
             )}
           </Stack>
         );

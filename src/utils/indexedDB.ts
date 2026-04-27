@@ -228,11 +228,29 @@ export const addToSyncQueue = async (item: SyncItem): Promise<void> => {
   return new Promise((resolve, reject) => {
     const transaction = db.transaction([SYNC_QUEUE_STORE_NAME], 'readwrite');
     const store = transaction.objectStore(SYNC_QUEUE_STORE_NAME);
-    const { id, ...itemWithoutId } = item;
-    const request = store.add(itemWithoutId);
+    const readRequest = store.getAll();
 
-    request.onsuccess = () => resolve();
-    request.onerror = (event) => reject(event);
+    readRequest.onsuccess = () => {
+      const existingItems = (readRequest.result as SyncItem[]) ?? [];
+      const isDeleteAction = item.action === 'delete';
+
+      for (const existing of existingItems) {
+        if (existing.id === undefined || existing.reportId !== item.reportId) continue;
+        const shouldDeleteExisting = isDeleteAction
+          ? true
+          : existing.action === 'create' || existing.action === 'update';
+        if (shouldDeleteExisting) {
+          store.delete(existing.id);
+        }
+      }
+
+      const { id, ...itemWithoutId } = item;
+      const addRequest = store.add(itemWithoutId);
+      addRequest.onsuccess = () => resolve();
+      addRequest.onerror = (event) => reject(event);
+    };
+
+    readRequest.onerror = (event) => reject(event);
   });
 };
 
@@ -261,6 +279,60 @@ export const clearSyncQueueItem = async (id: number): Promise<void> => {
         request.onsuccess = () => resolve();
         request.onerror = (event) => reject(event);
     });
+};
+
+export const clearSyncQueueForReport = async (
+  reportId: string,
+  actions?: SyncItem['action'][],
+): Promise<void> => {
+  const db = await initDB();
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction([SYNC_QUEUE_STORE_NAME], 'readwrite');
+    const store = transaction.objectStore(SYNC_QUEUE_STORE_NAME);
+    const request = store.getAll();
+
+    request.onsuccess = () => {
+      const items = (request.result as SyncItem[]) ?? [];
+      for (const item of items) {
+        if (item.id === undefined) continue;
+        if (item.reportId !== reportId) continue;
+        if (actions && !actions.includes(item.action)) continue;
+        store.delete(item.id);
+      }
+      resolve();
+    };
+
+    request.onerror = (event) => reject(event);
+  });
+};
+
+export const getLatestSyncUpdateForReport = async (
+  reportId: string,
+): Promise<SyncItem | null> => {
+  const db = await initDB();
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction([SYNC_QUEUE_STORE_NAME], 'readonly');
+    const store = transaction.objectStore(SYNC_QUEUE_STORE_NAME);
+    const request = store.getAll();
+
+    request.onsuccess = () => {
+      const items = ((request.result as SyncItem[]) ?? [])
+        .filter((item) => item.reportId === reportId && (item.action === 'create' || item.action === 'update') && item.data);
+      if (items.length === 0) {
+        resolve(null);
+        return;
+      }
+
+      items.sort((a, b) => {
+        const aTs = a.data?.updated_at ?? a.timestamp ?? 0;
+        const bTs = b.data?.updated_at ?? b.timestamp ?? 0;
+        return bTs - aTs;
+      });
+      resolve(items[0] ?? null);
+    };
+
+    request.onerror = (event) => reject(event);
+  });
 };
 
 // Sites (catalog for address selector – offline first)

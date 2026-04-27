@@ -16,7 +16,7 @@ import {
   ThemeIcon,
   Divider,
 } from '@mantine/core';
-import { IconDeviceFloppy, IconCheck, IconChevronDown, IconEye, IconLock, IconLockOpen } from '@tabler/icons-react';
+import { IconDeviceFloppy, IconCheck, IconChevronDown, IconEye, IconLock, IconLockOpen, IconCloudUpload, IconClockHour4 } from '@tabler/icons-react';
 import { useMediaQuery, useDisclosure } from '@mantine/hooks';
 import type { Report } from '../../types/Report';
 import { useAuth } from '../../features/auth/AuthContext';
@@ -78,7 +78,7 @@ export function ReportEdit() {
   const [error, setError] = useState<string | null>(null);
   const [activeStep, setActiveStep] = useState(0);
   const [saving, setSaving] = useState(false);
-  const [saveMsg, setSaveMsg] = useState<string | null>(null);
+  const [syncState, setSyncState] = useState<'idle' | 'pending' | 'saving' | 'saved' | 'error'>('idle');
   const [stepperOpened, { open: openStepper, close: closeStepper }] = useDisclosure(false);
   const [showPreview, setShowPreview] = useState(false);
   const [adminEditOverride, setAdminEditOverride] = useState(false);
@@ -139,11 +139,23 @@ export function ReportEdit() {
   const isInitialLoad = useRef(true);
   const localSaveTimer = useRef<ReturnType<typeof setTimeout>>();
   const firestoreSaveTimer = useRef<ReturnType<typeof setTimeout>>();
+  const syncStateTimer = useRef<ReturnType<typeof setTimeout>>();
   const reportRef = useRef<Report | null>(null);
+
+  const setTransientSyncState = (
+    state: 'saved' | 'error',
+    timeoutMs: number,
+  ) => {
+    clearTimeout(syncStateTimer.current);
+    setSyncState(state);
+    syncStateTimer.current = setTimeout(() => setSyncState('idle'), timeoutMs);
+  };
 
   /** Wraps setReport so edits are tracked as dirty. */
   const updateReport: typeof setReport = (value) => {
     isDirty.current = true;
+    clearTimeout(syncStateTimer.current);
+    setSyncState('pending');
     setReport(value);
   };
 
@@ -169,9 +181,14 @@ export function ReportEdit() {
     firestoreSaveTimer.current = setTimeout(() => {
       if (isDirty.current) {
         isDirty.current = false;
-        saveReport(report).catch((e) =>
-          console.error('Error al guardar reporte:', e)
-        );
+        clearTimeout(syncStateTimer.current);
+        setSyncState('saving');
+        saveReport(report)
+          .then(() => setTransientSyncState('saved', 2500))
+          .catch((e) => {
+            console.error('Error al guardar reporte:', e);
+            setTransientSyncState('error', 5000);
+          });
       }
     }, 5000);
 
@@ -186,6 +203,7 @@ export function ReportEdit() {
     return () => {
       clearTimeout(localSaveTimer.current);
       clearTimeout(firestoreSaveTimer.current);
+      clearTimeout(syncStateTimer.current);
       if (isDirty.current && reportRef.current) {
         saveReport(reportRef.current).catch(() => {});
       }
@@ -198,41 +216,63 @@ export function ReportEdit() {
     clearTimeout(firestoreSaveTimer.current);
     if (isDirty.current) {
       isDirty.current = false;
-      saveReport(r).catch((e) =>
-        console.error('Error al guardar reporte:', e)
-      );
+      clearTimeout(syncStateTimer.current);
+      setSyncState('saving');
+      saveReport(r)
+        .then(() => setTransientSyncState('saved', 2500))
+        .catch((e) => {
+          console.error('Error al guardar reporte:', e);
+          setTransientSyncState('error', 5000);
+        });
     }
   };
 
   const handleSave = async () => {
-    if (!report) return;
+    if (!report || saving || syncState === 'saving') return;
     clearTimeout(localSaveTimer.current);
     clearTimeout(firestoreSaveTimer.current);
     isDirty.current = false;
     setSaving(true);
-    setSaveMsg(null);
+    clearTimeout(syncStateTimer.current);
+    setSyncState('saving');
     try {
       await saveReport(report);
-      setSaveMsg('Guardado correctamente');
-      setTimeout(() => setSaveMsg(null), 3000);
+      setTransientSyncState('saved', 3000);
     } catch (e) {
-      setSaveMsg('Error al guardar');
-      setTimeout(() => setSaveMsg(null), 5000);
+      setTransientSyncState('error', 5000);
     } finally {
       setSaving(false);
     }
   };
 
   const nextStep = () => {
-    if (report) flushSave(report);
+    if (saving || syncState === 'saving') return;
+    if (isDirty.current && report) {
+      flushSave(report);
+      return;
+    }
     setActiveStep((c) => (c < stepLabels.length - 1 ? c + 1 : c));
   };
   const prevStep = () => {
-    if (report) flushSave(report);
+    if (saving || syncState === 'saving') return;
+    if (isDirty.current && report) {
+      flushSave(report);
+      return;
+    }
     setActiveStep((c) => (c > 0 ? c - 1 : c));
   };
 
+  const openPreview = () => {
+    if (saving || syncState === 'saving') return;
+    if (isDirty.current && report) {
+      flushSave(report);
+      return;
+    }
+    setShowPreview(true);
+  };
+
   const handleSubmitForReview = async () => {
+    if (saving || syncState === 'saving') return;
     if (!report || report.status !== 'en_campo') return;
     if (!confirm('¿Está seguro de enviar este reporte a revisión? Ya no podrá editarlo.')) return;
 
@@ -242,6 +282,7 @@ export function ReportEdit() {
   };
 
   const handleApprove = async () => {
+    if (saving || syncState === 'saving') return;
     if (!report || report.status !== 'en_revision') return;
     if (!confirm('¿Marcar este reporte como listo para generar?')) return;
 
@@ -251,6 +292,7 @@ export function ReportEdit() {
   };
 
   const handleGenerateFinal = async (signedPdfBytes: Uint8Array) => {
+    if (saving || syncState === 'saving') return;
     if (!report || report.status !== 'listo_para_generar' || !isAdmin || !userData) return;
 
     const pdfUrl = await uploadGeneratedPdf(report.id, signedPdfBytes);
@@ -262,10 +304,15 @@ export function ReportEdit() {
   /** Called by PdfPreviewPanel after saving signature images to Storage. */
   const handleUpdateReport = (updated: Report) => {
     isDirty.current = true;
+    clearTimeout(syncStateTimer.current);
+    setSyncState('saving');
     setReport(updated);
-    saveReport(updated).catch((e) =>
-      console.error('Error al guardar reporte:', e),
-    );
+    saveReport(updated)
+      .then(() => setTransientSyncState('saved', 2500))
+      .catch((e) => {
+        console.error('Error al guardar reporte:', e);
+        setTransientSyncState('error', 5000);
+      });
   };
 
   // Admin can edit en_campo, en_revision, and listo_para_generar (with explicit toggle); workers can only edit en_campo
@@ -277,6 +324,7 @@ export function ReportEdit() {
   const showAdminEditToggle = isAdmin && report?.status === 'listo_para_generar' && userData?.role !== 'read_only';
 
   const isMobile = useMediaQuery('(max-width: 48em)');
+  const isSaveInProgress = saving || syncState === 'saving';
 
   if (!id) {
     return (
@@ -313,7 +361,11 @@ export function ReportEdit() {
   }
 
   const handleStepClick = (step: number) => {
-    if (report) flushSave(report);
+    if (isSaveInProgress) return;
+    if (isDirty.current && report) {
+      flushSave(report);
+      return;
+    }
     setActiveStep(step);
     setShowPreview(false);
   };
@@ -378,7 +430,7 @@ export function ReportEdit() {
         case 1: return <ReportEditStep2 {...props} />;
         case 2: return <ReportEditCotejoFacial {...props} />;
         case 3: return <ReportEditStep3 {...props} />;
-        case 4: return <ReportEditStep4 {...props} />;
+        case 4: return <ReportEditStep4 {...props} saveState={syncState} />;
         case 5: return <ReportEditStep5 {...props} />;
         case 6: return <ReportEditStep6 {...props} />;
         default: return null;
@@ -389,7 +441,7 @@ export function ReportEdit() {
         case 1: return <ReportEditStep2 {...props} />;
         case 2: return <ReportEditLpr {...props} />;
         case 3: return <ReportEditStep3 {...props} />;
-        case 4: return <ReportEditStep4 {...props} />;
+        case 4: return <ReportEditStep4 {...props} saveState={syncState} />;
         case 5: return <ReportEditStep5 {...props} />;
         case 6: return <ReportEditStep6 {...props} />;
         default: return null;
@@ -399,7 +451,7 @@ export function ReportEdit() {
         case 0: return <ReportEditStep1 {...props} />;
         case 1: return <ReportEditStep2 {...props} />;
         case 2: return <ReportEditStep3 {...props} />;
-        case 3: return <ReportEditStep4 {...props} />;
+        case 3: return <ReportEditStep4 {...props} saveState={syncState} />;
         case 4: return <ReportEditStep5 {...props} />;
         case 5: return <ReportEditStep6 {...props} />;
         default: return null;
@@ -422,7 +474,8 @@ export function ReportEdit() {
             {renderStepper(handleStepClickMobile)}
             <Divider my="lg" />
             <UnstyledButton
-              onClick={() => { setShowPreview(true); closeStepper(); }}
+              onClick={() => { openPreview(); closeStepper(); }}
+              disabled={isSaveInProgress}
               className={`stepper-item${showPreview ? ' active' : ''}`}
             >
               <div className="stepper-indicator-col">
@@ -459,7 +512,8 @@ export function ReportEdit() {
             {renderStepper(handleStepClick)}
             <Divider my="lg" />
             <UnstyledButton
-              onClick={() => setShowPreview(true)}
+              onClick={openPreview}
+              disabled={isSaveInProgress}
               className={`stepper-item${showPreview ? ' active' : ''}`}
             >
               <div className="stepper-indicator-col">
@@ -507,6 +561,7 @@ export function ReportEdit() {
                           size="xl"
                           radius="xl"
                           onClick={() => setAdminEditOverride((v) => !v)}
+                          disabled={isSaveInProgress}
                         >
                           {adminEditOverride ? <IconLockOpen size={22} /> : <IconLock size={22} />}
                         </ActionIcon>
@@ -520,7 +575,8 @@ export function ReportEdit() {
                           size="xl"
                           radius="xl"
                           onClick={handleSave}
-                          loading={saving}
+                          loading={saving || syncState === 'saving'}
+                          disabled={isSaveInProgress}
                         >
                           <IconDeviceFloppy size={22} />
                         </ActionIcon>
@@ -540,7 +596,7 @@ export function ReportEdit() {
                     <Title order={3}>Vista previa PDF</Title>
                   </Box>
                 ) : (
-                  <UnstyledButton onClick={openStepper} className="step-title-btn">
+                  <UnstyledButton onClick={openStepper} className="step-title-btn" disabled={isSaveInProgress}>
                     <Group gap="xs" align="center" wrap="nowrap">
                       <ThemeIcon size={36} radius="xl" variant="light" color="blue">
                         <Text size="xs" fw={700}>{activeStep + 1}</Text>
@@ -571,6 +627,7 @@ export function ReportEdit() {
                         leftSection={adminEditOverride ? <IconLockOpen size={18} /> : <IconLock size={18} />}
                         onClick={() => setAdminEditOverride((v) => !v)}
                         size="sm"
+                        disabled={isSaveInProgress}
                       >
                         {adminEditOverride ? 'Deshabilitar edición' : 'Habilitar edición'}
                       </Button>
@@ -583,7 +640,8 @@ export function ReportEdit() {
                           size="xl"
                           radius="xl"
                           onClick={handleSave}
-                          loading={saving}
+                          loading={saving || syncState === 'saving'}
+                          disabled={isSaveInProgress}
                         >
                           <IconDeviceFloppy size={22} />
                         </ActionIcon>
@@ -596,7 +654,7 @@ export function ReportEdit() {
               {showPreview ? (
                 <PdfPreviewPanel
                   report={report}
-                  onBack={() => setShowPreview(false)}
+                  onBack={() => { if (!isSaveInProgress) setShowPreview(false); }}
                   isAdmin={isAdmin}
                   isOnline={isOnline}
                   onGenerate={isInterventoriaUser ? undefined : handleGenerateFinal}
@@ -616,19 +674,41 @@ export function ReportEdit() {
 
                   {/* Navigation */}
                   <Group justify="space-between">
-                    <Button variant="default" onClick={prevStep} disabled={activeStep === 0}>
+                    <Button variant="default" onClick={prevStep} disabled={activeStep === 0 || isSaveInProgress}>
                       ← Anterior
                     </Button>
                     <Button
-                      onClick={activeStep === stepLabels.length - 1 ? () => setShowPreview(true) : nextStep}
+                      onClick={activeStep === stepLabels.length - 1 ? openPreview : nextStep}
+                      disabled={isSaveInProgress}
                     >
                       {activeStep === stepLabels.length - 1 ? 'Ver PDF →' : 'Siguiente →'}
                     </Button>
                   </Group>
 
-                  {saveMsg && (
-                    <Alert color={saveMsg.includes('Error') ? 'red' : 'green'} variant="light">
-                      {saveMsg}
+                  {syncState !== 'idle' && (
+                    <Alert
+                      color={
+                        syncState === 'error'
+                          ? 'red'
+                          : syncState === 'saved'
+                            ? 'green'
+                            : syncState === 'pending'
+                              ? 'yellow'
+                              : 'blue'
+                      }
+                      variant="light"
+                      icon={
+                        syncState === 'pending'
+                          ? <IconClockHour4 size={16} />
+                          : syncState === 'saving'
+                            ? <IconCloudUpload size={16} />
+                            : undefined
+                      }
+                    >
+                      {syncState === 'pending' && 'Cambios pendientes por guardar'}
+                      {syncState === 'saving' && (isOnline ? 'Subiendo y guardando cambios…' : 'Guardando cambios localmente…')}
+                      {syncState === 'saved' && 'Cambios guardados'}
+                      {syncState === 'error' && 'Error al guardar cambios'}
                     </Alert>
                   )}
                 </>

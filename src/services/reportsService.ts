@@ -16,12 +16,15 @@ import {
   getReportFromDB,
   getAllReportsFromDB,
   addToSyncQueue,
+  clearSyncQueueForReport,
+  getLatestSyncUpdateForReport,
   deleteReportFromDB,
 } from '../utils/indexedDB';
 import {
+  deleteReportImageUrls,
+  getStaleReportImageUrls,
   reportWithStorageUrls,
   reportWithBase64FromStorage,
-  shouldSkipImageRehydration,
 } from '../utils/reportImagesStorage';
 
 /**
@@ -44,9 +47,14 @@ export async function saveReport(report: Report): Promise<void> {
 
   if (navigator.onLine) {
     try {
-      const reportForFirestore = await reportWithStorageUrls(report);
       const reportRef = doc(db, 'reports', report.id);
-      await setDoc(reportRef, reportForFirestore, { merge: true });
+      const remoteSnap = await getDoc(reportRef);
+      const previousReport = remoteSnap.exists() ? (remoteSnap.data() as Report) : null;
+      const reportForFirestore = await reportWithStorageUrls(report, previousReport);
+      const staleUrls = getStaleReportImageUrls(previousReport, reportForFirestore);
+      await setDoc(reportRef, reportForFirestore);
+      await deleteReportImageUrls(staleUrls);
+      await clearSyncQueueForReport(report.id, ['create', 'update']).catch(() => {});
     } catch (error) {
       console.error('Firestore save failed, queuing for sync:', error);
       await addToSyncQueue({
@@ -68,9 +76,7 @@ export async function saveReport(report: Report): Promise<void> {
 
 /**
  * Get a single report. Tries Firestore first, falls back to IndexedDB.
- * Uses IndexedDB as a read-through cache: if the Firestore document hasn't
- * changed since the last fetch, the cached copy (with base64 images) is
- * returned directly, avoiding expensive Firebase Storage reads.
+ * Firestore is the source of truth when online. IndexedDB is updated as cache.
  */
 export async function getReport(id: string): Promise<Report | null> {
   if (navigator.onLine) {
@@ -79,13 +85,20 @@ export async function getReport(id: string): Promise<Report | null> {
       const snap = await getDoc(reportRef);
       if (snap.exists()) {
         const firestoreReport = snap.data() as Report;
-        const cachedReport = await getReportFromDB(id).catch(() => null);
+        const [cachedReport, queuedUpdate] = await Promise.all([
+          getReportFromDB(id).catch(() => null),
+          getLatestSyncUpdateForReport(id).catch(() => null),
+        ]);
+        const queuedReport = queuedUpdate?.data ?? null;
+        const newestLocal = [cachedReport, queuedReport]
+          .filter((r): r is Report => Boolean(r))
+          .sort((a, b) => b.updated_at - a.updated_at)[0] ?? null;
 
-        if (shouldSkipImageRehydration(cachedReport, firestoreReport)) {
-          return cachedReport;
+        if (newestLocal && newestLocal.updated_at > firestoreReport.updated_at) {
+          return newestLocal;
         }
 
-        const reportForCache = await reportWithBase64FromStorage(firestoreReport, cachedReport);
+        const reportForCache = await reportWithBase64FromStorage(firestoreReport);
         await saveReportToDB(reportForCache).catch(() => {});
         return reportForCache;
       }

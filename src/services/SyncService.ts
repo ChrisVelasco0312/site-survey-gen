@@ -1,7 +1,8 @@
-import { doc, setDoc, deleteDoc } from 'firebase/firestore';
+import { doc, setDoc, deleteDoc, getDoc } from 'firebase/firestore';
 import { db } from '../firebase-config';
 import { getSyncQueue, clearSyncQueueItem, SyncItem } from '../utils/indexedDB';
-import { reportWithStorageUrls } from '../utils/reportImagesStorage';
+import { deleteReportImageUrls, getStaleReportImageUrls, reportWithStorageUrls } from '../utils/reportImagesStorage';
+import type { Report } from '../types/Report';
 
 class SyncService {
   private isSyncing: boolean = false;
@@ -81,9 +82,19 @@ class SyncService {
         if (!item.data) {
           throw new Error('Missing data for create/update operation');
         }
+        const remoteSnap = await getDoc(reportRef);
+        const previousReport = remoteSnap.exists() ? (remoteSnap.data() as Report) : null;
+        if (remoteSnap.exists()) {
+          const remote = previousReport as Partial<Report>;
+          if (typeof remote.updated_at === 'number' && remote.updated_at > item.data.updated_at) {
+            return;
+          }
+        }
         // Upload base64 images to Storage and get report with storage URLs for Firestore
-        const reportForFirestore = await reportWithStorageUrls(item.data);
-        await setDoc(reportRef, reportForFirestore, { merge: true });
+        const reportForFirestore = await reportWithStorageUrls(item.data, previousReport);
+        const staleUrls = getStaleReportImageUrls(previousReport, reportForFirestore);
+        await setDoc(reportRef, reportForFirestore);
+        await deleteReportImageUrls(staleUrls);
         break;
 
       case 'delete':
