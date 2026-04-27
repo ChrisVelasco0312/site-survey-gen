@@ -45,6 +45,8 @@ interface PdfPreviewPanelProps {
   canInterventoriaSignature?: boolean;
   /** Called after saving signature images to persist changes to the report */
   onUpdateReport?: (updated: Report) => void;
+  /** Global status transition lock from ReportEdit */
+  statusActionInProgress?: boolean;
 }
 
 export function PdfPreviewPanel({
@@ -59,6 +61,7 @@ export function PdfPreviewPanel({
   canUploadSignatures = false,
   canInterventoriaSignature = false,
   onUpdateReport,
+  statusActionInProgress = false,
 }: PdfPreviewPanelProps) {
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -365,6 +368,7 @@ export function PdfPreviewPanel({
   };
 
   const handleConfirmGenerate = async () => {
+    if (statusActionInProgress) return;
     if (!onGenerate || !signedPdfBytes) return;
     setGenerating(true);
     try {
@@ -441,6 +445,7 @@ export function PdfPreviewPanel({
           leftSection={<IconArrowLeft size={16} />}
           onClick={onBack}
           size="sm"
+          disabled={statusActionInProgress}
         >
           {isGenerado ? 'Volver' : 'Volver a editar'}
         </Button>
@@ -454,13 +459,14 @@ export function PdfPreviewPanel({
                 onClick={doGenerate}
                 loading={loading}
                 size="sm"
+                disabled={statusActionInProgress}
               >
                 Regenerar
               </Button>
               <Button
                 leftSection={<IconDownload size={16} />}
                 onClick={handleDownload}
-                disabled={!pdfUrl || loading}
+                disabled={!pdfUrl || loading || statusActionInProgress}
                 size="sm"
               >
                 Descargar PDF
@@ -473,7 +479,7 @@ export function PdfPreviewPanel({
             <Button
               leftSection={<IconDownload size={16} />}
               onClick={handleDownload}
-              disabled={!pdfUrl}
+              disabled={!pdfUrl || statusActionInProgress}
               size="sm"
             >
               Descargar PDF
@@ -486,7 +492,7 @@ export function PdfPreviewPanel({
               color="teal"
               leftSection={<IconFileExport size={16} />}
               onClick={openConfirm}
-              disabled={!signedPdfBytes || loading}
+              disabled={!signedPdfBytes || loading || statusActionInProgress}
               size="sm"
             >
               Generar Reporte Final
@@ -512,7 +518,7 @@ export function PdfPreviewPanel({
                   color="orange"
                   leftSection={<IconSend size={16} />}
                   onClick={onSendToReview}
-                  disabled={loading || !validation.isValid}
+                  disabled={loading || !validation.isValid || statusActionInProgress}
                   size="sm"
                   style={{ pointerEvents: validation.isValid ? 'auto' : 'none' }}
                 >
@@ -528,7 +534,7 @@ export function PdfPreviewPanel({
               color="teal"
               leftSection={<IconCheck size={16} />}
               onClick={onApprove}
-              disabled={loading}
+              disabled={loading || statusActionInProgress}
               size="sm"
             >
               Marcar como Listo para generar

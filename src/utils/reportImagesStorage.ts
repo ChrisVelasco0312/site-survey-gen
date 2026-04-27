@@ -57,10 +57,10 @@ export async function uploadReportImage(
   reportId: string,
   field: ReportImageField,
   dataUrl: string,
-  versionTag?: number,
+  _versionTag?: number,
 ): Promise<string> {
   const ext = getExtensionFromDataUrl(dataUrl);
-  const path = `reports/${reportId}/${field}_${versionTag ?? Date.now()}.${ext}`;
+  const path = `reports/${reportId}/${field}.${ext}`;
   const storageRef = ref(storage, path);
   const blob = await dataUrlToBlob(dataUrl);
   await uploadBytes(storageRef, blob, STORAGE_UPLOAD_METADATA);
@@ -236,6 +236,12 @@ function toStorageUrl(value?: string): string | null {
   return value;
 }
 
+function getStorageObjectKey(urlOrPath: string): string {
+  const parsed = parseFirebaseStorageHttpUrl(urlOrPath);
+  if (parsed) return `${parsed.bucket}/${parsed.fullPath}`;
+  return urlOrPath.trim();
+}
+
 export function getStaleReportImageUrls(
   previousReport: Report | null | undefined,
   nextReport: Report,
@@ -247,7 +253,9 @@ export function getStaleReportImageUrls(
     const prevUrl = toStorageUrl(previousReport[field]);
     if (!prevUrl) continue;
     const nextUrl = toStorageUrl(nextReport[field]);
-    if (prevUrl !== nextUrl) {
+    const prevKey = getStorageObjectKey(prevUrl);
+    const nextKey = nextUrl ? getStorageObjectKey(nextUrl) : null;
+    if (prevKey !== nextKey) {
       stale.add(prevUrl);
     }
   }

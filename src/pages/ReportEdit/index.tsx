@@ -15,6 +15,8 @@ import {
   UnstyledButton,
   ThemeIcon,
   Divider,
+  Modal,
+  Loader,
 } from '@mantine/core';
 import { IconDeviceFloppy, IconCheck, IconChevronDown, IconEye, IconLock, IconLockOpen, IconCloudUpload, IconClockHour4 } from '@tabler/icons-react';
 import { useMediaQuery, useDisclosure } from '@mantine/hooks';
@@ -83,6 +85,14 @@ export function ReportEdit() {
   const [showPreview, setShowPreview] = useState(false);
   const [adminEditOverride, setAdminEditOverride] = useState(false);
   const [generatedPdfUrl, setGeneratedPdfUrl] = useState<string | null>(null);
+  const [statusProcess, setStatusProcess] = useState<{
+    phase: 'idle' | 'processing' | 'success' | 'error';
+    message: string;
+    redirectTo?: string;
+  }>({
+    phase: 'idle',
+    message: '',
+  });
   const isOnline = useConnectivity();
 
   const isCotejoFacial = report?.address?.site_type === 'cotejo_facial';
@@ -272,33 +282,81 @@ export function ReportEdit() {
   };
 
   const handleSubmitForReview = async () => {
-    if (saving || syncState === 'saving') return;
+    if (saving || syncState === 'saving' || statusProcess.phase === 'processing') return;
     if (!report || report.status !== 'en_campo') return;
-    if (!confirm('¿Está seguro de enviar este reporte a revisión? Ya no podrá editarlo.')) return;
-
-    const updated = await updateReportStatus(report, 'en_revision');
-    setReport(updated);
-    location.route(isAdmin ? '/' : '/mis-reportes');
+    setStatusProcess({
+      phase: 'processing',
+      message: 'Enviando el reporte a revisión. Por favor espere…',
+    });
+    try {
+      const updated = await updateReportStatus(report, 'en_revision');
+      setReport(updated);
+      setStatusProcess({
+        phase: 'success',
+        message: 'El reporte fue enviado a revisión correctamente.',
+        redirectTo: isAdmin ? '/' : '/mis-reportes',
+      });
+    } catch (e: any) {
+      setStatusProcess({
+        phase: 'error',
+        message: e?.message ?? 'No fue posible enviar el reporte a revisión. Intente nuevamente.',
+      });
+    }
   };
 
   const handleApprove = async () => {
-    if (saving || syncState === 'saving') return;
+    if (saving || syncState === 'saving' || statusProcess.phase === 'processing') return;
     if (!report || report.status !== 'en_revision') return;
-    if (!confirm('¿Marcar este reporte como listo para generar?')) return;
-
-    const updated = await updateReportStatus(report, 'listo_para_generar');
-    setReport(updated);
-    location.route('/');
+    setStatusProcess({
+      phase: 'processing',
+      message: 'Actualizando el estado del reporte a listo para generar. Por favor espere…',
+    });
+    try {
+      const updated = await updateReportStatus(report, 'listo_para_generar');
+      setReport(updated);
+      setStatusProcess({
+        phase: 'success',
+        message: 'El reporte quedó marcado como listo para generar.',
+        redirectTo: '/',
+      });
+    } catch (e: any) {
+      setStatusProcess({
+        phase: 'error',
+        message: e?.message ?? 'No fue posible actualizar el estado del reporte. Intente nuevamente.',
+      });
+    }
   };
 
   const handleGenerateFinal = async (signedPdfBytes: Uint8Array) => {
-    if (saving || syncState === 'saving') return;
+    if (saving || syncState === 'saving' || statusProcess.phase === 'processing') return;
     if (!report || report.status !== 'listo_para_generar' || !isAdmin || !userData) return;
-
-    const pdfUrl = await uploadGeneratedPdf(report.id, signedPdfBytes);
-    await createGeneratedReport(report.id, pdfUrl, userData.uid);
-    await updateReportStatus(report, 'generado');
-    location.route('/');
+    try {
+      setStatusProcess({
+        phase: 'processing',
+        message: 'Subiendo el PDF firmado. Por favor espere…',
+      });
+      const pdfUrl = await uploadGeneratedPdf(report.id, signedPdfBytes);
+      setStatusProcess({
+        phase: 'processing',
+        message: 'Registrando el reporte final generado…',
+      });
+      await createGeneratedReport(report.id, pdfUrl, userData.uid);
+      setStatusProcess({
+        phase: 'processing',
+        message: 'Actualizando el estado del reporte a generado…',
+      });
+      await updateReportStatus(report, 'generado');
+      setStatusProcess({
+        phase: 'success',
+        message: 'El reporte final se generó correctamente.',
+        redirectTo: '/',
+      });
+    } catch (e: any) {
+      setStatusProcess({
+        phase: 'error',
+        message: e?.message ?? 'No fue posible generar el reporte final. Intente nuevamente.',
+      });
+    }
   };
 
   /** Called by PdfPreviewPanel after saving signature images to Storage. */
@@ -325,6 +383,8 @@ export function ReportEdit() {
 
   const isMobile = useMediaQuery('(max-width: 48em)');
   const isSaveInProgress = saving || syncState === 'saving';
+  const isStatusProcessRunning = statusProcess.phase === 'processing';
+  const isInteractionBlocked = isSaveInProgress || isStatusProcessRunning;
 
   if (!id) {
     return (
@@ -361,7 +421,7 @@ export function ReportEdit() {
   }
 
   const handleStepClick = (step: number) => {
-    if (isSaveInProgress) return;
+    if (isInteractionBlocked) return;
     if (isDirty.current && report) {
       flushSave(report);
       return;
@@ -475,7 +535,7 @@ export function ReportEdit() {
             <Divider my="lg" />
             <UnstyledButton
               onClick={() => { openPreview(); closeStepper(); }}
-              disabled={isSaveInProgress}
+              disabled={isInteractionBlocked}
               className={`stepper-item${showPreview ? ' active' : ''}`}
             >
               <div className="stepper-indicator-col">
@@ -513,7 +573,7 @@ export function ReportEdit() {
             <Divider my="lg" />
             <UnstyledButton
               onClick={openPreview}
-              disabled={isSaveInProgress}
+              disabled={isInteractionBlocked}
               className={`stepper-item${showPreview ? ' active' : ''}`}
             >
               <div className="stepper-indicator-col">
@@ -561,7 +621,7 @@ export function ReportEdit() {
                           size="xl"
                           radius="xl"
                           onClick={() => setAdminEditOverride((v) => !v)}
-                          disabled={isSaveInProgress}
+                          disabled={isInteractionBlocked}
                         >
                           {adminEditOverride ? <IconLockOpen size={22} /> : <IconLock size={22} />}
                         </ActionIcon>
@@ -576,7 +636,7 @@ export function ReportEdit() {
                           radius="xl"
                           onClick={handleSave}
                           loading={saving || syncState === 'saving'}
-                          disabled={isSaveInProgress}
+                          disabled={isInteractionBlocked}
                         >
                           <IconDeviceFloppy size={22} />
                         </ActionIcon>
@@ -596,7 +656,7 @@ export function ReportEdit() {
                     <Title order={3}>Vista previa PDF</Title>
                   </Box>
                 ) : (
-                  <UnstyledButton onClick={openStepper} className="step-title-btn" disabled={isSaveInProgress}>
+                  <UnstyledButton onClick={openStepper} className="step-title-btn" disabled={isInteractionBlocked}>
                     <Group gap="xs" align="center" wrap="nowrap">
                       <ThemeIcon size={36} radius="xl" variant="light" color="blue">
                         <Text size="xs" fw={700}>{activeStep + 1}</Text>
@@ -627,7 +687,7 @@ export function ReportEdit() {
                         leftSection={adminEditOverride ? <IconLockOpen size={18} /> : <IconLock size={18} />}
                         onClick={() => setAdminEditOverride((v) => !v)}
                         size="sm"
-                        disabled={isSaveInProgress}
+                        disabled={isInteractionBlocked}
                       >
                         {adminEditOverride ? 'Deshabilitar edición' : 'Habilitar edición'}
                       </Button>
@@ -641,7 +701,7 @@ export function ReportEdit() {
                           radius="xl"
                           onClick={handleSave}
                           loading={saving || syncState === 'saving'}
-                          disabled={isSaveInProgress}
+                          disabled={isInteractionBlocked}
                         >
                           <IconDeviceFloppy size={22} />
                         </ActionIcon>
@@ -654,7 +714,7 @@ export function ReportEdit() {
               {showPreview ? (
                 <PdfPreviewPanel
                   report={report}
-                  onBack={() => { if (!isSaveInProgress) setShowPreview(false); }}
+                  onBack={() => { if (!isInteractionBlocked) setShowPreview(false); }}
                   isAdmin={isAdmin}
                   isOnline={isOnline}
                   onGenerate={isInterventoriaUser ? undefined : handleGenerateFinal}
@@ -664,6 +724,7 @@ export function ReportEdit() {
                   canUploadSignatures={canUploadSignatures}
                   canInterventoriaSignature={canInterventoriaSignature}
                   onUpdateReport={handleUpdateReport}
+                  statusActionInProgress={isStatusProcessRunning}
                 />
               ) : (
                 <>
@@ -674,12 +735,12 @@ export function ReportEdit() {
 
                   {/* Navigation */}
                   <Group justify="space-between">
-                    <Button variant="default" onClick={prevStep} disabled={activeStep === 0 || isSaveInProgress}>
+                    <Button variant="default" onClick={prevStep} disabled={activeStep === 0 || isInteractionBlocked}>
                       ← Anterior
                     </Button>
                     <Button
                       onClick={activeStep === stepLabels.length - 1 ? openPreview : nextStep}
-                      disabled={isSaveInProgress}
+                      disabled={isInteractionBlocked}
                     >
                       {activeStep === stepLabels.length - 1 ? 'Ver PDF →' : 'Siguiente →'}
                     </Button>
@@ -717,6 +778,62 @@ export function ReportEdit() {
           </Container>
         </div>
       </div>
+      <Modal
+        opened={statusProcess.phase !== 'idle'}
+        onClose={() => {
+          if (statusProcess.phase === 'error' || statusProcess.phase === 'success') {
+            setStatusProcess({ phase: 'idle', message: '' });
+          }
+        }}
+        closeOnEscape={statusProcess.phase === 'error' || statusProcess.phase === 'success'}
+        closeOnClickOutside={false}
+        withCloseButton={statusProcess.phase === 'error' || statusProcess.phase === 'success'}
+        centered
+        title={
+          <Text fw={700}>
+            {statusProcess.phase === 'processing' && 'Procesando cambio de estado'}
+            {statusProcess.phase === 'success' && 'Cambio de estado completado'}
+            {statusProcess.phase === 'error' && 'Error al cambiar estado'}
+          </Text>
+        }
+      >
+        <Stack gap="md">
+          {statusProcess.phase === 'processing' ? (
+            <Group gap="sm" wrap="nowrap">
+              <Loader size="sm" />
+              <Text size="sm">{statusProcess.message}</Text>
+            </Group>
+          ) : statusProcess.phase === 'error' ? (
+            <>
+              <Alert color="red" variant="light">
+                {statusProcess.message}
+              </Alert>
+              <Group justify="flex-end">
+                <Button onClick={() => setStatusProcess({ phase: 'idle', message: '' })}>
+                  Entendido
+                </Button>
+              </Group>
+            </>
+          ) : (
+            <>
+              <Alert color="green" variant="light">
+                {statusProcess.message}
+              </Alert>
+              <Group justify="flex-end">
+                <Button
+                  onClick={() => {
+                    const redirectTo = statusProcess.redirectTo;
+                    setStatusProcess({ phase: 'idle', message: '' });
+                    if (redirectTo) location.route(redirectTo);
+                  }}
+                >
+                  Continuar
+                </Button>
+              </Group>
+            </>
+          )}
+        </Stack>
+      </Modal>
     </>
   );
 }
