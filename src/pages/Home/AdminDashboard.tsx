@@ -18,12 +18,24 @@ import {
 } from "@mantine/core";
 import { useMediaQuery, useDebouncedValue } from "@mantine/hooks";
 import { Report } from "../../types/Report";
-import { IconEye, IconRefresh, IconSearch, IconX } from "@tabler/icons-react";
+import { IconEye, IconFileSpreadsheet, IconRefresh, IconSearch, IconX } from "@tabler/icons-react";
 import { useLocation } from "preact-iso";
+import * as XLSX from "xlsx";
 import { getAllReports } from "../../services/reportsService";
 import { formatReportDate } from "../../utils/reportDate";
 
 const PAGE_SIZE = 10;
+const STATUS_LABELS: Record<string, string> = {
+  en_campo: "En campo",
+  en_revision: "En revisión",
+  listo_para_generar: "Listos para generar",
+  generado: "Generados",
+};
+const GROUP_LABELS: Record<string, string> = {
+  all: "Administrador",
+  grupo_a: "Grupo 1",
+  grupo_b: "Grupo 2",
+};
 
 export function AdminDashboard() {
   const [reports, setReports] = useState<Report[]>([]);
@@ -76,6 +88,8 @@ export function AdminDashboard() {
   const hasSignature = (signatureUrl?: string) => Boolean(signatureUrl?.trim());
   const hasInterventoriaComment = (report: Report) =>
     Boolean(report.interventoria_observation?.trim());
+  const formatDateTime = (timestamp: number) =>
+    new Date(timestamp).toLocaleString("es-CO");
 
   const getSignatureCompletionCount = (report: Report) => (
     [
@@ -204,6 +218,66 @@ export function AdminDashboard() {
     return result;
   };
 
+  const getActiveStatusFilter = (): string[] => {
+    if (!activeTab) {
+      return [];
+    }
+
+    if (activeTab === "en_campo" || activeTab === "en_revision" || activeTab === "listo_para_generar" || activeTab === "generado") {
+      return [activeTab];
+    }
+
+    return [];
+  };
+
+  const exportCurrentTabToExcel = () => {
+    const activeStatusFilter = getActiveStatusFilter();
+    if (activeStatusFilter.length === 0) {
+      return;
+    }
+
+    const filteredReports = applyFilters(activeStatusFilter);
+    if (filteredReports.length === 0) {
+      return;
+    }
+
+    const rows = filteredReports.map((report) => {
+      const signatureCount = getSignatureCompletionCount(report);
+      return {
+        "ID reporte": report.id,
+        "ID usuario": report.user_id,
+        "Estado": STATUS_LABELS[report.status] ?? report.status.replace(/_/g, " "),
+        "Grupo": GROUP_LABELS[report.group] ?? report.group,
+        "Fecha del reporte": formatReportDate(report.date, report.created_at),
+        "Fecha creación": formatDateTime(report.created_at),
+        "Fecha actualización": formatDateTime(report.updated_at),
+        "PM/N°": report.address?.pm_number ?? "",
+        "Tipo de sitio": report.address?.site_type ?? "",
+        "Distrito": report.address?.distrito ?? "",
+        "Municipio": report.address?.municipio ?? "",
+        "Nombre del sitio": report.address?.site_name ?? "",
+        "Dirección": report.address?.full_address ?? "",
+        "Latitud": report.address?.latitude ?? "",
+        "Longitud": report.address?.longitude ?? "",
+        "Firmas completadas": `${signatureCount}/3`,
+        "Firma director": hasSignature(report.signature_img_director_url) ? "Sí" : "No",
+        "Firma coordinador": hasSignature(report.signature_img_coordinator_url) ? "Sí" : "No",
+        "Firma interventoría": hasSignature(report.signature_img_interventoria_url) ? "Sí" : "No",
+        "Comentario interventoría": report.interventoria_observation?.trim() ?? "",
+        "URL PDF": report.pdf_url ?? "",
+      };
+    });
+
+    const worksheet = XLSX.utils.json_to_sheet(rows);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Reportes");
+
+    const today = new Date().toISOString().slice(0, 10);
+    const statusLabel = STATUS_LABELS[activeStatusFilter[0]] ?? activeStatusFilter[0];
+    const safeStatus = statusLabel.toLowerCase().replace(/\s+/g, "_");
+    XLSX.writeFile(workbook, `reportes_${safeStatus}_${today}.xlsx`);
+  };
+
   const renderContent = (filterStatus: string[]) => {
     const showSignaturesColumn = filterStatus.includes("listo_para_generar");
     const showCommentsColumn = filterStatus.includes("listo_para_generar") && Boolean(commentFilter);
@@ -329,6 +403,8 @@ export function AdminDashboard() {
     );
   };
 
+  const exportableReportsCount = applyFilters(getActiveStatusFilter()).length;
+
   return (
     <div style={{ padding: "20px" }}>
       <Group justify="space-between" mb="lg">
@@ -398,6 +474,15 @@ export function AdminDashboard() {
               />
             </>
           )}
+          <Button
+            variant="light"
+            leftSection={<IconFileSpreadsheet size={16} />}
+            onClick={exportCurrentTabToExcel}
+            disabled={exportableReportsCount === 0}
+            style={{ flex: "0 0 auto" }}
+          >
+            Exportar Excel
+          </Button>
         </Group>
         <Tabs value={activeTab} onChange={setActiveTab} keepMounted={false}>
           <Tabs.List mb="md">
