@@ -36,9 +36,10 @@ export function AdminDashboard() {
   const [debouncedSearch] = useDebouncedValue(search, 250);
   const [filterGroup, setFilterGroup] = useState<string | null>(null);
   const [signatureFilter, setSignatureFilter] = useState<string | null>(null);
+  const [commentFilter, setCommentFilter] = useState<string | null>(null);
   const [page, setPage] = useState(1);
 
-  useEffect(() => { setPage(1); }, [debouncedSearch, filterGroup, signatureFilter, activeTab]);
+  useEffect(() => { setPage(1); }, [debouncedSearch, filterGroup, signatureFilter, commentFilter, activeTab]);
 
   const fetchReports = async () => {
     setLoading(true);
@@ -73,6 +74,8 @@ export function AdminDashboard() {
   );
 
   const hasSignature = (signatureUrl?: string) => Boolean(signatureUrl?.trim());
+  const hasInterventoriaComment = (report: Report) =>
+    Boolean(report.interventoria_observation?.trim());
 
   const getSignatureCompletionCount = (report: Report) => (
     [
@@ -182,8 +185,19 @@ export function AdminDashboard() {
 
     if (filterStatus.includes("listo_para_generar") && signatureFilter) {
       result = result.filter((r) => {
-        const isComplete = getSignatureCompletionCount(r) === 3;
+        const signatureCount = getSignatureCompletionCount(r);
+        const isComplete = signatureCount === 3;
+        if (signatureFilter === "none") {
+          return signatureCount === 0;
+        }
         return signatureFilter === "complete" ? isComplete : !isComplete;
+      });
+    }
+
+    if (filterStatus.includes("listo_para_generar") && commentFilter) {
+      result = result.filter((r) => {
+        const hasComment = hasInterventoriaComment(r);
+        return commentFilter === "with_comment" ? hasComment : !hasComment;
       });
     }
 
@@ -192,6 +206,7 @@ export function AdminDashboard() {
 
   const renderContent = (filterStatus: string[]) => {
     const showSignaturesColumn = filterStatus.includes("listo_para_generar");
+    const showCommentsColumn = filterStatus.includes("listo_para_generar") && Boolean(commentFilter);
     const filtered = applyFilters(filterStatus);
     const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
     const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
@@ -236,6 +251,7 @@ export function AdminDashboard() {
               <Table.Th>Grupo</Table.Th>
               <Table.Th>Estado</Table.Th>
               {showSignaturesColumn && <Table.Th>Firmas</Table.Th>}
+              {showCommentsColumn && <Table.Th>Comentario</Table.Th>}
               <Table.Th>Acciones</Table.Th>
             </Table.Tr>
           </Table.Thead>
@@ -265,6 +281,29 @@ export function AdminDashboard() {
                 <Table.Td>{getStatusBadge(report.status)}</Table.Td>
                 {showSignaturesColumn && (
                   <Table.Td>{renderSignatureChecks(report)}</Table.Td>
+                )}
+                {showCommentsColumn && (
+                  <Table.Td>
+                    {hasInterventoriaComment(report) ? (
+                      <Tooltip
+                        multiline
+                        w={320}
+                        label={(
+                          <Text size="sm" style={{ whiteSpace: "normal" }}>
+                            {report.interventoria_observation?.trim()}
+                          </Text>
+                        )}
+                      >
+                        <Text size="sm">
+                          {(report.interventoria_observation ?? "").trim().length > 60
+                            ? `${(report.interventoria_observation ?? "").trim().slice(0, 60)}...`
+                            : (report.interventoria_observation ?? "").trim()}
+                        </Text>
+                      </Tooltip>
+                    ) : (
+                      <Text size="sm" c="dimmed">-</Text>
+                    )}
+                  </Table.Td>
                 )}
                 <Table.Td>
                   <Tooltip label="Ver detalles">
@@ -333,17 +372,31 @@ export function AdminDashboard() {
             style={{ flex: "0 0 160px" }}
           />
           {activeTab === "listo_para_generar" && (
-            <Select
-              placeholder="Firmas"
-              data={[
-                { value: "complete", label: "Completas (3/3)" },
-                { value: "incomplete", label: "Incompletas (<3/3)" },
-              ]}
-              value={signatureFilter}
-              onChange={setSignatureFilter}
-              clearable
-              style={{ flex: "0 0 190px" }}
-            />
+            <>
+              <Select
+                placeholder="Firmas"
+                data={[
+                  { value: "complete", label: "Completas (3/3)" },
+                  { value: "incomplete", label: "Incompletas (<3/3)" },
+                  { value: "none", label: "Sin firmas (0/3)" },
+                ]}
+                value={signatureFilter}
+                onChange={setSignatureFilter}
+                clearable
+                style={{ flex: "0 0 190px" }}
+              />
+              <Select
+                placeholder="Comentario"
+                data={[
+                  { value: "with_comment", label: "Con comentario" },
+                  { value: "without_comment", label: "Sin comentario" },
+                ]}
+                value={commentFilter}
+                onChange={setCommentFilter}
+                clearable
+                style={{ flex: "0 0 190px" }}
+              />
+            </>
           )}
         </Group>
         <Tabs value={activeTab} onChange={setActiveTab} keepMounted={false}>
