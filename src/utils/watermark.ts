@@ -80,7 +80,7 @@ export async function buildWatermarkedImage(src: string, report: Report, logoDat
 
   const lines = getWatermarkLines(report);
   const scale = Math.min(canvas.width, canvas.height);
-  const fontSize = Math.max(11, Math.min(18, Math.round(scale * 0.018)));
+  const fontSize = Math.max(18, Math.min(28, Math.round(scale * 0.028)));
   const horizontalPadding = Math.max(12, Math.round(canvas.width * 0.016));
   const verticalPadding = Math.max(10, Math.round(canvas.height * 0.015));
   const lineHeight = Math.round(fontSize * 1.25);
@@ -89,7 +89,6 @@ export async function buildWatermarkedImage(src: string, report: Report, logoDat
 
   const x = margin;
   const y = canvas.height - blockHeight - margin;
-  const w = canvas.width - margin * 2;
 
   ctx.font = `700 ${fontSize}px Roboto, Arial, sans-serif`;
   ctx.fillStyle = '#FFD700';
