@@ -60,7 +60,7 @@ async function resolveToDataUrl(src: string): Promise<string> {
 /**
  * Produce a watermarked data URL from an image source (data URL or Storage URL)
  */
-export async function buildWatermarkedImage(src: string, report: Report): Promise<string> {
+export async function buildWatermarkedImage(src: string, report: Report, logoDataUrl?: string): Promise<string> {
   const resolved = await resolveToDataUrl(src);
 
   const img = await new Promise<HTMLImageElement>((resolve, reject) => {
@@ -100,10 +100,36 @@ export async function buildWatermarkedImage(src: string, report: Report): Promis
   ctx.shadowColor = 'rgba(0,0,0,0.45)';
   ctx.shadowBlur = 3;
 
-  const maxTextWidth = w - horizontalPadding * 2;
+  // If a logo is provided, reserve space for it on the right of the watermark block
+  let logoWidth = 0;
+  const logoGap = Math.max(8, Math.round(canvas.width * 0.008));
+  if (logoDataUrl) {
+    try {
+      const logoImg = await new Promise<HTMLImageElement>((resolve, reject) => {
+        const n = new Image();
+        n.onload = () => resolve(n);
+        n.onerror = () => reject(new Error('Failed to load logo'));
+        n.src = logoDataUrl;
+      });
+      // Fit logo height to blockHeight - verticalPadding*2, preserving aspect ratio
+      const maxLogoHeight = blockHeight - verticalPadding * 2;
+      const scaleLogo = Math.min(1, maxLogoHeight / logoImg.naturalHeight);
+      logoWidth = Math.round(logoImg.naturalWidth * scaleLogo);
+      const logoHeight = Math.round(logoImg.naturalHeight * scaleLogo);
+      const logoX = x + w - horizontalPadding - logoWidth;
+      const logoY = y + verticalPadding + Math.round((blockHeight - verticalPadding * 2 - logoHeight) / 2);
+      ctx.drawImage(logoImg, logoX, logoY, logoWidth, logoHeight);
+    } catch (e) {
+      // Ignore logo failures and continue with text-only watermark
+      logoWidth = 0;
+    }
+  }
+
+  const maxTextWidth = w - horizontalPadding * 2 - logoWidth - (logoWidth ? logoGap : 0);
   lines.forEach((line, index) => {
     const text = truncateTextToWidth(ctx, line, maxTextWidth);
-    ctx.fillText(text, x + horizontalPadding, y + verticalPadding + index * lineHeight);
+    const textX = x + horizontalPadding;
+    ctx.fillText(text, textX, y + verticalPadding + index * lineHeight);
   });
 
   ctx.shadowColor = 'transparent';

@@ -29,6 +29,22 @@ async function resolveImageSource(src: string): Promise<string> {
   return await resolveStorageUrl(src);
 }
 
+let cachedLogoDataUrl: string | null = null;
+async function getPublicLogoDataUrl(): Promise<string> {
+  if (cachedLogoDataUrl) return cachedLogoDataUrl;
+  const res = await fetch('/logo_transparent.png', { cache: 'no-store' });
+  if (!res.ok) throw new Error('Failed to fetch logo asset');
+  const blob = await res.blob();
+  const dataUrl = await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => reject(new Error('Failed to convert logo to data URL'));
+    reader.readAsDataURL(blob);
+  });
+  cachedLogoDataUrl = dataUrl;
+  return dataUrl;
+}
+
 /* ── Compression options ──────────────────────────────────── */
 
 const COMPRESSION_OPTIONS = {
@@ -181,7 +197,8 @@ export function ReportEditStep4({ report, setReport, readOnly, saveState = 'idle
     setWatermarkingField(field);
 
     try {
-      const watermarkedDataUrl = await buildWatermarkedImage(source, reportRef.current);
+      const logoDataUrl = await getPublicLogoDataUrl();
+      const watermarkedDataUrl = await buildWatermarkedImage(source, reportRef.current, logoDataUrl);
       if (watermarkRequestRef.current[field] !== requestId) return;
 
       watermarkCacheKeyRef.current[field] = watermarkKey;

@@ -6,6 +6,22 @@ import pdfLogoBase64 from "../../public/pdf_logo_base64.txt?raw";
 import { storageUrlToDataUrl } from "./reportImagesStorage";
 import { buildWatermarkedImage } from './watermark';
 
+let cachedPublicLogoDataUrl: string | null = null;
+async function fetchPublicLogoDataUrl(): Promise<string> {
+  if (cachedPublicLogoDataUrl) return cachedPublicLogoDataUrl;
+  const res = await fetch('/logo_transparent.png', { cache: 'no-store' });
+  if (!res.ok) throw new Error('Failed to fetch public logo asset');
+  const blob = await res.blob();
+  const dataUrl = await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => reject(new Error('Failed to convert logo to data URL'));
+    reader.readAsDataURL(blob);
+  });
+  cachedPublicLogoDataUrl = dataUrl;
+  return dataUrl;
+}
+
 export const TRANSPARENT_1PX =
   "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=";
 
@@ -462,7 +478,8 @@ export async function generateReportPdf(
   // If watermark flags are set, build merged watermarked images here
   if (report.camera_view_photo_watermark_enabled && report.camera_view_photo_url) {
     try {
-      inputs.photo_general = await buildWatermarkedImage(report.camera_view_photo_url, report);
+      const logoDataUrl = await fetchPublicLogoDataUrl();
+      inputs.photo_general = await buildWatermarkedImage(report.camera_view_photo_url, report, logoDataUrl);
     } catch (e) {
       console.warn('Failed to build watermarked camera photo for PDF:', e);
       inputs.photo_general = report.camera_view_photo_url;
@@ -471,7 +488,8 @@ export async function generateReportPdf(
 
   if (report.service_entrance_photo_watermark_enabled && report.service_entrance_photo_url) {
     try {
-      inputs.photo_detail = await buildWatermarkedImage(report.service_entrance_photo_url, report);
+      const logoDataUrl = await fetchPublicLogoDataUrl();
+      inputs.photo_detail = await buildWatermarkedImage(report.service_entrance_photo_url, report, logoDataUrl);
     } catch (e) {
       console.warn('Failed to build watermarked service photo for PDF:', e);
       inputs.photo_detail = report.service_entrance_photo_url;
