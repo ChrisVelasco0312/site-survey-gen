@@ -7,7 +7,6 @@ import {
   Button,
   Slider,
   Group,
-  Anchor,
   Center,
   ThemeIcon,
   SegmentedControl,
@@ -15,8 +14,6 @@ import {
   ColorInput,
   ActionIcon,
   Card,
-  Grid,
-  NumberInput,
   Checkbox,
   Select,
 } from '@mantine/core';
@@ -53,14 +50,6 @@ const ICON_OPTIONS = [
 ];
 
 /* ── Tile math ─────────────────────────────────────────────── */
-
-function latLonToTile(lat: number, lon: number, z: number) {
-  const n = 2 ** z;
-  const x = Math.floor(((lon + 180) / 360) * n);
-  const rad = (lat * Math.PI) / 180;
-  const y = Math.floor(((1 - Math.log(Math.tan(rad) + 1 / Math.cos(rad)) / Math.PI) / 2) * n);
-  return { x, y };
-}
 
 function latLonToPoint(lat: number, lon: number, z: number) {
   const n = 2 ** z;

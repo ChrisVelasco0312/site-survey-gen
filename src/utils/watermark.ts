@@ -91,16 +91,13 @@ export async function buildWatermarkedImage(src: string, report: Report, logoDat
   const y = canvas.height - blockHeight - margin;
   const w = canvas.width - margin * 2;
 
-  ctx.fillStyle = 'rgba(0, 0, 0, 0.52)';
-  ctx.fillRect(x, y, w, blockHeight);
-
   ctx.font = `700 ${fontSize}px Roboto, Arial, sans-serif`;
-  ctx.fillStyle = 'rgba(255, 255, 255, 0.98)';
+  ctx.fillStyle = '#FFD700';
   ctx.textBaseline = 'top';
-  ctx.shadowColor = 'rgba(0,0,0,0.45)';
-  ctx.shadowBlur = 3;
+  ctx.textAlign = 'right';
+  ctx.shadowColor = 'rgba(0,0,0,0.6)';
+  ctx.shadowBlur = 4;
 
-  // If a logo is provided, reserve space for it on the right of the watermark block
   let logoWidth = 0;
   const logoGap = Math.max(8, Math.round(canvas.width * 0.008));
   if (logoDataUrl) {
@@ -111,24 +108,22 @@ export async function buildWatermarkedImage(src: string, report: Report, logoDat
         n.onerror = () => reject(new Error('Failed to load logo'));
         n.src = logoDataUrl;
       });
-      // Fit logo height to blockHeight - verticalPadding*2, preserving aspect ratio
       const maxLogoHeight = blockHeight - verticalPadding * 2;
       const scaleLogo = Math.min(1, maxLogoHeight / logoImg.naturalHeight);
       logoWidth = Math.round(logoImg.naturalWidth * scaleLogo);
       const logoHeight = Math.round(logoImg.naturalHeight * scaleLogo);
-      const logoX = x + w - horizontalPadding - logoWidth;
+      const logoX = x + horizontalPadding;
       const logoY = y + verticalPadding + Math.round((blockHeight - verticalPadding * 2 - logoHeight) / 2);
       ctx.drawImage(logoImg, logoX, logoY, logoWidth, logoHeight);
     } catch (e) {
-      // Ignore logo failures and continue with text-only watermark
       logoWidth = 0;
     }
   }
 
-  const maxTextWidth = w - horizontalPadding * 2 - logoWidth - (logoWidth ? logoGap : 0);
+  const maxTextWidth = canvas.width - horizontalPadding * 2 - logoWidth - (logoWidth ? logoGap : 0);
+  const textX = canvas.width - horizontalPadding;
   lines.forEach((line, index) => {
     const text = truncateTextToWidth(ctx, line, maxTextWidth);
-    const textX = x + horizontalPadding;
     ctx.fillText(text, textX, y + verticalPadding + index * lineHeight);
   });
 
