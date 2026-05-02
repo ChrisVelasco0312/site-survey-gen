@@ -4,6 +4,7 @@ import type { Template, Font } from "@pdfme/common";
 import type { Report } from "../types/Report";
 import pdfLogoBase64 from "../../public/pdf_logo_base64.txt?raw";
 import { storageUrlToDataUrl } from "./reportImagesStorage";
+import { buildWatermarkedImage } from './watermark';
 
 export const TRANSPARENT_1PX =
   "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=";
@@ -391,9 +392,11 @@ export function buildPdfInputs(report: Report): Record<string, string> {
   if (report.edited_map_image_url) {
     inputs.diagram_image = report.edited_map_image_url;
   }
+
   if (report.camera_view_photo_url) {
     inputs.photo_general = report.camera_view_photo_url;
   }
+
   if (report.service_entrance_photo_url) {
     inputs.photo_detail = report.service_entrance_photo_url;
   }
@@ -450,11 +453,30 @@ export async function generateReportPdf(
 ): Promise<Uint8Array> {
   const template = await loadTemplate();
   const font = await loadFont();
-  const reportInputs = buildPdfInputs(report);
+  const reportInputs = await buildPdfInputs(report);
 
   // Merge: template defaults first, then our explicit overrides on top
   const defaults = extractDefaults(template);
   const inputs = { ...defaults, ...reportInputs };
+
+  // If watermark flags are set, build merged watermarked images here
+  if (report.camera_view_photo_watermark_enabled && report.camera_view_photo_url) {
+    try {
+      inputs.photo_general = await buildWatermarkedImage(report.camera_view_photo_url, report);
+    } catch (e) {
+      console.warn('Failed to build watermarked camera photo for PDF:', e);
+      inputs.photo_general = report.camera_view_photo_url;
+    }
+  }
+
+  if (report.service_entrance_photo_watermark_enabled && report.service_entrance_photo_url) {
+    try {
+      inputs.photo_detail = await buildWatermarkedImage(report.service_entrance_photo_url, report);
+    } catch (e) {
+      console.warn('Failed to build watermarked service photo for PDF:', e);
+      inputs.photo_detail = report.service_entrance_photo_url;
+    }
+  }
 
   if (signatureImages?.directorProyectos !== undefined) {
     inputs.sig_img_proj = signatureImages.directorProyectos;

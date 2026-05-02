@@ -186,10 +186,12 @@ export interface Report {
   camera_view_photo_url?: string;
   camera_view_photo_original_url?: string;
   camera_view_photo_shapes?: Shape[];
+  camera_view_photo_watermark_enabled?: boolean;
 
   service_entrance_photo_url?: string;
   service_entrance_photo_original_url?: string;
   service_entrance_photo_shapes?: Shape[];
+  service_entrance_photo_watermark_enabled?: boolean;
 
   // HU-18: Metrajes y Adecuaciones
   pole_infrastructure: PoleInfrastructure;
