@@ -163,11 +163,16 @@ export function ReportEdit() {
 
   /** Wraps setReport so edits are tracked as dirty. */
   const updateReport: typeof setReport = (value) => {
-    isDirty.current = true;
-    clearTimeout(syncStateTimer.current);
-    setSyncState('pending');
     setReport(value);
+    clearTimeout(dirtyTimer.current);
+    dirtyTimer.current = setTimeout(() => {
+      isDirty.current = true;
+      clearTimeout(syncStateTimer.current);
+      setSyncState('pending');
+    }, 800);
   };
+
+  const dirtyTimer = useRef<ReturnType<typeof setTimeout>>();
 
   // Keep reportRef in sync for unmount flush
   useEffect(() => { reportRef.current = report; }, [report]);
@@ -214,6 +219,7 @@ export function ReportEdit() {
       clearTimeout(localSaveTimer.current);
       clearTimeout(firestoreSaveTimer.current);
       clearTimeout(syncStateTimer.current);
+      clearTimeout(dirtyTimer.current);
       if (isDirty.current && reportRef.current) {
         saveReport(reportRef.current).catch(() => {});
       }
@@ -224,6 +230,7 @@ export function ReportEdit() {
   const flushSave = (r: Report) => {
     clearTimeout(localSaveTimer.current);
     clearTimeout(firestoreSaveTimer.current);
+    clearTimeout(dirtyTimer.current);
     if (isDirty.current) {
       isDirty.current = false;
       clearTimeout(syncStateTimer.current);
@@ -241,6 +248,7 @@ export function ReportEdit() {
     if (!report || saving || syncState === 'saving') return;
     clearTimeout(localSaveTimer.current);
     clearTimeout(firestoreSaveTimer.current);
+    clearTimeout(dirtyTimer.current);
     isDirty.current = false;
     setSaving(true);
     clearTimeout(syncStateTimer.current);
@@ -361,7 +369,11 @@ export function ReportEdit() {
 
   /** Called by PdfPreviewPanel after saving signature images to Storage. */
   const handleUpdateReport = (updated: Report) => {
-    isDirty.current = true;
+    clearTimeout(dirtyTimer.current);
+    clearTimeout(syncStateTimer.current);
+    clearTimeout(firestoreSaveTimer.current);
+    clearTimeout(localSaveTimer.current);
+    isDirty.current = false;
     clearTimeout(syncStateTimer.current);
     setSyncState('saving');
     setReport(updated);
