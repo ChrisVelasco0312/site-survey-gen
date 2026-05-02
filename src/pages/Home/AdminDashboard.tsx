@@ -91,6 +91,29 @@ export function AdminDashboard() {
   const formatDateTime = (timestamp: number) =>
     new Date(timestamp).toLocaleString("es-CO");
 
+  const decimalToGMS = (decimal: number, isLatitude: boolean): string => {
+    const absolute = Math.abs(decimal);
+    const degrees = Math.floor(absolute);
+    const minutesFull = (absolute - degrees) * 60;
+    const minutes = Math.floor(minutesFull);
+    const seconds = Math.round((minutesFull - minutes) * 60);
+
+    const direction = isLatitude
+      ? decimal >= 0 ? "N" : "S"
+      : decimal >= 0 ? "E" : "W";
+
+    return `${degrees}° ${minutes}' ${seconds}" ${direction}`;
+  };
+
+  const formatMapPins = (mapPins?: { lat: number; lon: number; label: string }[]): string => {
+    if (!mapPins || mapPins.length === 0) {
+      return "";
+    }
+    return mapPins
+      .map((pin) => `${pin.label}: ${decimalToGMS(pin.lat, true)}, ${decimalToGMS(pin.lon, false)}`)
+      .join("; ");
+  };
+
   const getSignatureCompletionCount = (report: Report) => (
     [
       report.signature_img_director_url,
@@ -259,6 +282,10 @@ export function AdminDashboard() {
         "Dirección": report.address?.full_address ?? "",
         "Latitud": report.address?.latitude ?? "",
         "Longitud": report.address?.longitude ?? "",
+        "Coordenadas GMS": report.address?.latitude && report.address?.longitude
+          ? `${decimalToGMS(report.address.latitude, true)}, ${decimalToGMS(report.address.longitude, false)}`
+          : "",
+        "Coordenadas Adicionales": formatMapPins(report.map_pins),
         "Firmas completadas": `${signatureCount}/3`,
         "Firma director": hasSignature(report.signature_img_director_url) ? "Sí" : "No",
         "Firma coordinador": hasSignature(report.signature_img_coordinator_url) ? "Sí" : "No",
