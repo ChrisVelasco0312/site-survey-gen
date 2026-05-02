@@ -67,6 +67,7 @@ interface ReportEditStep4Props {
 type PhotoField = 'camera_view_photo_url' | 'service_entrance_photo_url';
 type FieldAction = 'upload' | 'delete';
 type WatermarkEnabledField = 'camera_view_photo_watermark_enabled' | 'service_entrance_photo_watermark_enabled';
+type WatermarkedPhotoField = 'camera_view_photo_watermarked_url' | 'service_entrance_photo_watermarked_url';
 
 interface PhotoSectionConfig {
   field: PhotoField;
@@ -101,9 +102,11 @@ const PHOTO_SECTIONS: PhotoSectionConfig[] = [
 const WATERMARK_CONFIG: Record<PhotoField, WatermarkFieldConfig> = {
   camera_view_photo_url: {
     enabledField: 'camera_view_photo_watermark_enabled',
+    watermarkedField: 'camera_view_photo_watermarked_url',
   },
   service_entrance_photo_url: {
     enabledField: 'service_entrance_photo_watermark_enabled',
+    watermarkedField: 'service_entrance_photo_watermarked_url',
   },
 };
 
@@ -456,7 +459,7 @@ export function ReportEditStep4({ report, setReport, readOnly, saveState = 'idle
     }, 3000);
   };
 
-  const handleViewerContainerDoubleTap = (e: React.TouchEvent) => {
+  const handleViewerContainerDoubleTap = (_e: any) => {
     const now = Date.now();
     if (!viewerDoubleTapRef.current) viewerDoubleTapRef.current = { lastTap: 0 };
 
@@ -467,7 +470,7 @@ export function ReportEditStep4({ report, setReport, readOnly, saveState = 'idle
   };
 
   const handlePhotoDoubleTap = (field: PhotoField) => {
-    return (e: React.TouchEvent) => {
+    return (_e: any) => {
       const now = Date.now();
       const lastTap = photoDoubleTapRef.current[field] ?? 0;
 

@@ -15,14 +15,14 @@ let devServiceAccount, prodServiceAccount;
 
 try {
   devServiceAccount = JSON.parse(readFileSync(devServiceAccountPath, 'utf-8'));
-} catch (error) {
+} catch {
   console.error(`Error reading dev service account key at ${devServiceAccountPath}. Please ensure the file exists.`);
   process.exit(1);
 }
 
 try {
   prodServiceAccount = JSON.parse(readFileSync(prodServiceAccountPath, 'utf-8'));
-} catch (error) {
+} catch {
   console.error(`Error reading prod service account key at ${prodServiceAccountPath}. Please ensure you have placed the production service account key there.`);
   process.exit(1);
 }

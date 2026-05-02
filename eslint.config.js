@@ -1,6 +1,9 @@
 import preactConfig from 'eslint-config-preact';
 
 export default [
+	{
+		ignores: ['dist/**', 'node_modules/**', 'coverage/**']
+	},
 	...preactConfig,
 	{
 		rules: {

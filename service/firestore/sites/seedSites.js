@@ -39,7 +39,7 @@ async function seedSites() {
   let withoutCoords = 0;
 
   for (const site of rawSites) {
-    const { id, latitude, longitude, ...rest } = site;
+    const { id, latitude, longitude, ..._rest } = site;
     const location =
       latitude != null && longitude != null
         ? new admin.firestore.GeoPoint(latitude, longitude)

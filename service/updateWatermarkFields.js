@@ -53,7 +53,7 @@ async function fetchReportsByDistritos(db, distritos) {
   return reports;
 }
 
-function formatDate(timestamp) {
+function _formatDate(timestamp) {
   if (!timestamp) return 'N/A';
   return new Date(timestamp).toLocaleString('es-CO');
 }
@@ -64,7 +64,7 @@ function displayReports(reports) {
   console.log('═══════════════════════════════════════════════════════════════════════════════');
 
   for (const r of reports) {
-    const id = r.id.slice(0, 8) + '...';
+    const id = `${r.id.slice(0, 8)}...`;
     const siteName = (r.address?.site_name || 'Sin nombre').slice(0, 25).padEnd(25);
     const distrito = (r.address?.distrito || 'N/A').slice(0, 20).padEnd(20);
     const status = (r.status || 'N/A').padEnd(10);
@@ -92,7 +92,7 @@ async function main() {
   console.log(`\nEnvironment: ${env}`);
   console.log(`Distritos: ${distritos.join(', ')}\n`);
 
-  const { key, projectId } = getEnvironment(env);
+  const { key } = getEnvironment(env);
   initializeApp({ credential: cert(key) });
   const db = getFirestore();
 
