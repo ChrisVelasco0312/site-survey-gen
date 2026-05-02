@@ -17,6 +17,7 @@ import { buildWatermarkedImage } from '../../utils/watermark';
 import imageCompression from 'browser-image-compression';
 import type { Report } from '../../types/Report';
 import { Shape } from '../../types/Shape';
+import { clearImageSourceUrls } from '../../utils/reportImagesStorage';
 import { ImageEditor } from '../../components/ImageEditor/ImageEditor';
 import { StorageImage } from '../../components/StorageImage/StorageImage';
 import { resolveStorageUrl } from '../../hooks/useStorageUrl';
@@ -251,10 +252,11 @@ export function ReportEditStep4({ report, setReport, readOnly, saveState = 'idle
 
     if (!file) {
       markFieldPending(field, 'delete');
-      const newReport = { ...report, updated_at: Date.now() };
-      delete (newReport as any)[field];
-      delete (newReport as any)[originalField];
-      delete (newReport as any)[shapesField];
+      let newReport: any = { ...report, updated_at: Date.now() };
+      delete newReport[field];
+      delete newReport[originalField];
+      delete newReport[shapesField];
+      newReport = clearImageSourceUrls(newReport, field, originalField);
       watermarkCacheKeyRef.current[field] = '';
       setWatermarkedPreview((p) => { const np = { ...p }; delete np[field]; return np; });
       setReport(newReport as Report);
@@ -265,14 +267,12 @@ export function ReportEditStep4({ report, setReport, readOnly, saveState = 'idle
       setCompressing(field);
       const dataUrl = await compressAndEncode(file);
       markFieldPending(field, 'upload');
-      setReport({
+      setReport(clearImageSourceUrls({
         ...report,
         [field]: dataUrl,
         [originalField]: dataUrl,
-        // Keep existing shapes if any, so user can re-apply them to new image
-        // [shapesField]: [],
         updated_at: Date.now(),
-      } as Report);
+      } as Report, field, originalField));
       watermarkCacheKeyRef.current[field] = '';
       setWatermarkedPreview((p) => { const np = { ...p }; delete np[field]; return np; });
     } catch (e) {
@@ -288,10 +288,11 @@ export function ReportEditStep4({ report, setReport, readOnly, saveState = 'idle
     const originalField = field.replace('_url', '_original_url');
     const shapesField = field.replace('_url', '_shapes');
 
-    const newReport = { ...report, updated_at: Date.now() };
-    delete (newReport as any)[field];
-    delete (newReport as any)[originalField];
-    delete (newReport as any)[shapesField];
+    let newReport: any = { ...report, updated_at: Date.now() };
+    delete newReport[field];
+    delete newReport[originalField];
+    delete newReport[shapesField];
+    newReport = clearImageSourceUrls(newReport, field, originalField);
     watermarkCacheKeyRef.current[field] = '';
     setWatermarkedPreview((p) => { const np = { ...p }; delete np[field]; return np; });
     setReport(newReport as Report);
@@ -513,12 +514,12 @@ export function ReportEditStep4({ report, setReport, readOnly, saveState = 'idle
 
       markFieldPending(editingField, 'upload');
 
-      setReport({
+      setReport(clearImageSourceUrls({
         ...currentReport,
         [editingField]: dataUrl,
         [shapesField]: shapes,
         updated_at: Date.now(),
-      } as Report);
+      } as Report, editingField));
       watermarkCacheKeyRef.current[editingField] = '';
       setWatermarkedPreview((p) => { const np = { ...p }; delete np[editingField]; return np; });
     }

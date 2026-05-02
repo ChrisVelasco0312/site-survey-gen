@@ -25,6 +25,7 @@ import type { Report, MapPinData } from '../../types/Report';
 import { useConnectivity } from '../../hooks/useConnectivity';
 import { drawLegend, LEGEND_WIDTH, LEGEND_HEIGHT } from '../../utils/mapLegend';
 import { StorageImage } from '../../components/StorageImage/StorageImage';
+import { clearImageSourceUrls } from '../../utils/reportImagesStorage';
 
 /* ── Constants ─────────────────────────────────────────────── */
 
@@ -513,7 +514,7 @@ export function ReportEditStep3({ report, setReport, readOnly }: ReportEditStep3
     const canvas = canvasRef.current;
     if (!canvas) return;
     const dataUrl = canvas.toDataURL('image/png');
-    setReport({ ...report, edited_map_image_url: dataUrl, updated_at: Date.now() });
+    setReport(clearImageSourceUrls({ ...report, edited_map_image_url: dataUrl, updated_at: Date.now() }, 'edited_map_image_url'));
   }, [report, setReport]);
 
   const getLegendRect = () => {

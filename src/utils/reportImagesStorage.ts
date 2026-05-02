@@ -22,6 +22,26 @@ export function invalidateImageCache(url: string) {
   invalidateResolvedStorageUrlCache(url);
 }
 
+/**
+ * Returns a copy of the report with _image_source_urls cleared for the given
+ * fields. Call this when an image field is set to a new base64 value so the
+ * next save knows to upload the new image instead of reusing the old URL.
+ */
+export function clearImageSourceUrls(report: Report, ...fields: string[]): Report {
+  const sourceUrls = report._image_source_urls;
+  if (!sourceUrls || fields.length === 0) return report;
+  const next = { ...sourceUrls };
+  let changed = false;
+  for (const f of fields) {
+    if (f in next) {
+      delete next[f];
+      changed = true;
+    }
+  }
+  if (!changed) return report;
+  return { ...report, _image_source_urls: next };
+}
+
 export type ReportImageField = (typeof REPORT_IMAGE_FIELDS)[number];
 
 function isDataUrl(value: string): boolean {
@@ -288,6 +308,13 @@ export async function reportWithStorageUrls(
       continue;
     }
     if (!isDataUrl(value)) {
+      continue;
+    }
+
+    // Reuse existing Storage URL if the image hasn't changed since last fetch
+    const previousUrl = report._image_source_urls?.[field];
+    if (previousUrl && typeof previousUrl === 'string') {
+      out[field] = previousUrl;
       continue;
     }
 
