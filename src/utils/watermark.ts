@@ -91,11 +91,16 @@ export async function buildWatermarkedImage(src: string, report: Report, logoDat
   const y = canvas.height - blockHeight - margin;
 
   ctx.font = `700 ${fontSize}px Roboto, Arial, sans-serif`;
+  ctx.letterSpacing = `${Math.max(1, Math.round(fontSize * 0.08))}px`;
   ctx.fillStyle = '#FFD700';
   ctx.textBaseline = 'top';
   ctx.textAlign = 'right';
-  ctx.shadowColor = 'rgba(0,0,0,0.6)';
-  ctx.shadowBlur = 4;
+  ctx.lineWidth = Math.max(2, Math.round(fontSize * 0.12));
+  ctx.strokeStyle = '#000000';
+  ctx.shadowColor = 'rgba(0,0,0,0.7)';
+  ctx.shadowBlur = 2;
+  ctx.shadowOffsetX = 2;
+  ctx.shadowOffsetY = 2;
 
   let logoWidth = 0;
   const logoGap = Math.max(8, Math.round(canvas.width * 0.008));
@@ -123,7 +128,9 @@ export async function buildWatermarkedImage(src: string, report: Report, logoDat
   const textX = canvas.width - horizontalPadding;
   lines.forEach((line, index) => {
     const text = truncateTextToWidth(ctx, line, maxTextWidth);
-    ctx.fillText(text, textX, y + verticalPadding + index * lineHeight);
+    const textY = y + verticalPadding + index * lineHeight;
+    ctx.strokeText(text, textX, textY);
+    ctx.fillText(text, textX, textY);
   });
 
   ctx.shadowColor = 'transparent';
