@@ -266,6 +266,35 @@ export function AdminDashboard() {
 
     const rows = filteredReports.map((report) => {
       const signatureCount = getSignatureCompletionCount(report);
+
+      const aerialMeters = report.pole_infrastructure?.aerial_meters ?? 0;
+      const grassMeters = report.pole_infrastructure?.grass_meters ?? 0;
+      const asphaltMeters = report.pole_infrastructure?.asphalt_meters ?? 0;
+      const adoquinMeters = report.pole_infrastructure?.adoquin_meters ?? 0;
+      const concreteMeters = report.pole_infrastructure?.concrete_meters ?? 0;
+      const fillMeters = report.pole_infrastructure?.fill_meters ?? 0;
+
+      const totalRuta = aerialMeters + grassMeters + asphaltMeters + adoquinMeters + concreteMeters + fillMeters;
+
+      const seHeight = report.infrastructure_details?.service_entrance?.height ?? 0;
+      const cpHeight = report.infrastructure_details?.camera_point?.height ?? 0;
+      const baseDist = totalRuta + seHeight + cpHeight;
+      const distanciaElectrica = baseDist + (report.infrastructure_details?.electrical_distance ?? 0);
+      const distanciaFibra = baseDist + (report.infrastructure_details?.fiber_distance ?? 0);
+
+      // const cablingLabels: Record<string, string> = {
+      //   aereo: 'Aéreo',
+      //   subterraneo: 'Subterráneo',
+      //   mixto: 'Mixto',
+      // };
+      //
+      // const mountingLabels: Record<string, string> = {
+      //   soporte_t: 'Soporte T',
+      //   soporte_c: 'Soporte C',
+      //   poste: 'Soporte C (Pórtico)',
+      //   soporte_l: 'Soporte L',
+      // };
+
       return {
         "ID reporte": report.id,
         "ID usuario": report.user_id,
@@ -280,6 +309,10 @@ export function AdminDashboard() {
         "Municipio": report.address?.municipio ?? "",
         "Nombre del sitio": report.address?.site_name ?? "",
         "Dirección": report.address?.full_address ?? "",
+        "Total Ruta (mts)": totalRuta,
+        // "Tipo Cableado": cablingLabels[report.connectivity?.cabling_type ?? ''] ?? '',
+        "Distancia Eléctrica (mts)": distanciaElectrica,
+        "Distancia Fibra (mts)": distanciaFibra,
         "Latitud": report.address?.latitude ?? "",
         "Longitud": report.address?.longitude ?? "",
         "Coordenadas GMS": report.address?.latitude && report.address?.longitude
@@ -291,7 +324,21 @@ export function AdminDashboard() {
         "Firma coordinador": hasSignature(report.signature_img_coordinator_url) ? "Sí" : "No",
         "Firma interventoría": hasSignature(report.signature_img_interventoria_url) ? "Sí" : "No",
         "Comentario interventoría": report.interventoria_observation?.trim() ?? "",
-        "URL PDF": report.pdf_url ?? "",
+        // "Ruta Aérea (mts)": aerialMeters,
+        // "Ruta Prado (mts)": grassMeters,
+        // "Ruta Asfalto (mts)": asphaltMeters,
+        // "Ruta Adoquín (mts)": adoquinMeters,
+        // "Ruta Concreto (mts)": concreteMeters,
+        // "Ruta Relleno (mts)": fillMeters,
+        // "Tipo Instalación Cámara": mountingLabels[report.infrastructure_details?.camera_mounting ?? ''] ?? '',
+        // "Requiere Poste Apoyo": report.infrastructure_details?.needs_support_point === true ? 'Sí' :
+        //   report.infrastructure_details?.needs_support_point === false ? 'No' : '',
+        // "Cantidad Postes Apoyo": report.infrastructure_details?.apoyo_cant ?? 0,
+        // "Altura Acometida (mts)": seHeight,
+        // "Material Acometida": report.infrastructure_details?.service_entrance?.material ?? '',
+        // "Altura Punto Cámara (mts)": cpHeight,
+        // "Material Punto Cámara": report.infrastructure_details?.camera_point?.material ?? '',
+        "URL PDF": report.pdf_url ?? '',
       };
     });
 
