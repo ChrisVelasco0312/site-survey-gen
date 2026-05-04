@@ -12,7 +12,6 @@ import {
   Modal,
   Tooltip,
   FileInput,
-  Image,
   SimpleGrid,
   Textarea,
 } from '@mantine/core';
@@ -350,21 +349,33 @@ export function PdfPreviewPanel({
     }
   };
 
-  const handleDownload = () => {
+  const handleDownload = async () => {
     if (!pdfUrl) return;
 
+    const downloadFromUrl = async (url: string, filename: string) => {
+      try {
+        const response = await fetch(url);
+        if (!response.ok) throw new Error('Failed to fetch PDF');
+        const blob = await response.blob();
+        const blobUrl = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = blobUrl;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(blobUrl);
+      } catch {
+        window.open(url, '_blank');
+      }
+    };
+
     if (isGenerado && generatedPdfUrl) {
-      // For generado reports, open the Storage URL in a new tab (direct download)
-      window.open(generatedPdfUrl, '_blank');
+      await downloadFromUrl(generatedPdfUrl, `reporte_${report.address?.site_name || report.id}.pdf`);
       return;
     }
 
-    const link = document.createElement('a');
-    link.href = pdfUrl;
-    link.download = `reporte_${report.address?.site_name || report.id}.pdf`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    await downloadFromUrl(pdfUrl, `reporte_${report.address?.site_name || report.id}.pdf`);
   };
 
   const handleConfirmGenerate = async () => {
