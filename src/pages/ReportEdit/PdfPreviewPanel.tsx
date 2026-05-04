@@ -369,10 +369,24 @@ export function PdfPreviewPanel({
 
   const handleConfirmGenerate = async () => {
     if (statusActionInProgress) return;
-    if (!onGenerate || !signedPdfBytes) return;
+    if (!onGenerate) return;
+    // Require signed PDF only when NOT all signatures are embedded
+    if (!signedPdfBytes && !hasAllSignatures) return;
     setGenerating(true);
     try {
-      await onGenerate(signedPdfBytes);
+      let pdfToUpload: Uint8Array;
+      if (hasAllSignatures) {
+        // Generate PDF with embedded signatures
+        const sigImages: SignatureImages = {
+          directorProyectos: report.signature_img_director_url || TRANSPARENT_1PX,
+          coordinadorZona: report.signature_img_coordinator_url || TRANSPARENT_1PX,
+          interventoria: report.signature_img_interventoria_url || TRANSPARENT_1PX,
+        };
+        pdfToUpload = await generateReportPdf(report, sigImages);
+      } else {
+        pdfToUpload = signedPdfBytes!;
+      }
+      await onGenerate(pdfToUpload);
     } catch (e: any) {
       console.error('Error generating final report:', e);
       setError(e?.message ?? 'Error al generar el reporte final');
@@ -381,6 +395,13 @@ export function PdfPreviewPanel({
       closeConfirm();
     }
   };
+
+  // Check if all three required signatures are present
+  const hasAllSignatures = !!(
+    report.signature_img_director_url &&
+    report.signature_img_coordinator_url &&
+    report.signature_img_interventoria_url
+  );
 
   // Show "Generar Reporte Final" button only for admin + listo_para_generar
   const showGenerarButton = isAdmin && report.status === 'listo_para_generar' && onGenerate;
@@ -425,6 +446,15 @@ export function PdfPreviewPanel({
             Una vez generado, este reporte quedará fijo y no podrá ser editado ni duplicado.
             Esta acción es irreversible y solo puede ser realizada por un administrador.
           </Text>
+          {hasAllSignatures ? (
+            <Text size="sm" c="teal">
+              Las tres firmas están incrustadas - se generará el PDF automáticamente.
+            </Text>
+          ) : (
+            <Text size="sm">
+              Se subirá el PDF firmado que usted proporcione.
+            </Text>
+          )}
           <Text size="sm" fw={600}>
             ¿Desea continuar?
           </Text>
@@ -486,13 +516,13 @@ export function PdfPreviewPanel({
             </Button>
           )}
 
-          {/* Generar Reporte Final button — requires signed PDF */}
+          {/* Generar Reporte Final button — requires signed PDF or embedded signatures */}
           {showGenerarButton && (
             <Button
               color="teal"
               leftSection={<IconFileExport size={16} />}
               onClick={openConfirm}
-              disabled={!signedPdfBytes || loading || statusActionInProgress}
+              disabled={(!signedPdfBytes && !hasAllSignatures) || loading || statusActionInProgress}
               size="sm"
             >
               Generar Reporte Final
@@ -712,8 +742,8 @@ export function PdfPreviewPanel({
         </Alert>
       )}
 
-      {/* Signed PDF upload for listo_para_generar */}
-      {isListoParaGenerar && isAdmin && (
+      {/* Signed PDF upload for listo_para_generar - hide when signatures embedded */}
+      {isListoParaGenerar && isAdmin && !hasAllSignatures && (
         <Alert color="blue" variant="light" title="PDF firmado requerido" icon={<IconUpload size={20} />}>
           <Stack gap="sm" mt="xs">
             <Text size="sm">
@@ -725,6 +755,17 @@ export function PdfPreviewPanel({
               leftSection={<IconUpload size={16} />}
               onChange={handleSignedPdfUpload}
             />
+          </Stack>
+        </Alert>
+      )}
+
+      {/* Message when all signatures are embedded - smaller alert below buttons */}
+      {isListoParaGenerar && isAdmin && hasAllSignatures && (
+        <Alert color="teal" variant="light" title="PDF listo para generar" icon={<IconCheck size={20} />}>
+          <Stack gap="sm" mt="xs">
+            <Text size="sm">
+              Las tres firmas están incrustadas. El PDF se generará automáticamente con las firmas al hacer clic en "Generar Reporte Final".
+            </Text>
           </Stack>
         </Alert>
       )}
