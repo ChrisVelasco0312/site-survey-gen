@@ -17,11 +17,14 @@ import {
   Pagination,
 } from "@mantine/core";
 import { useMediaQuery, useDebouncedValue } from "@mantine/hooks";
+import { notifications } from "@mantine/notifications";
 import { Report } from "../../types/Report";
-import { IconEye, IconFileSpreadsheet, IconRefresh, IconSearch, IconX } from "@tabler/icons-react";
+import { IconEye, IconFileSpreadsheet, IconRefresh, IconSearch, IconX, IconFileZip } from "@tabler/icons-react";
 import { useLocation } from "preact-iso";
 import * as XLSX from "xlsx";
+import JSZip from "jszip";
 import { getAllReports } from "../../services/reportsService";
+import { getGeneratedReportByReportId } from "../../services/generatedReportsService";
 import { formatReportDate } from "../../utils/reportDate";
 
 const PAGE_SIZE = 10;
@@ -40,6 +43,8 @@ const GROUP_LABELS: Record<string, string> = {
 export function AdminDashboard() {
   const [reports, setReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState(true);
+  const [downloadingZip, setDownloadingZip] = useState(false);
+  const [generatedPdfUrls, setGeneratedPdfUrls] = useState<Record<string, string>>({});
   const [activeTab, setActiveTab] = useState<string | null>("en_campo");
   const location = useLocation();
   const isMobile = useMediaQuery("(max-width: 768px)");
@@ -58,6 +63,23 @@ export function AdminDashboard() {
     try {
       const data = await getAllReports();
       setReports(data);
+
+      const generadoReports = data.filter((r) => r.status === "generado");
+      const pdfUrls: Record<string, string> = {};
+
+      await Promise.all(
+        generadoReports.map(async (report) => {
+          try {
+            const genReport = await getGeneratedReportByReportId(report.id);
+            if (genReport?.pdf_url) {
+              pdfUrls[report.id] = genReport.pdf_url;
+            }
+          } catch (err) {
+            console.error(`Error fetching PDF for ${report.id}:`, err);
+          }
+        }),
+      );
+      setGeneratedPdfUrls(pdfUrls);
     } catch (error) {
       console.error("Error fetching reports:", error);
     } finally {
@@ -352,6 +374,91 @@ export function AdminDashboard() {
     XLSX.writeFile(workbook, `reportes_${safeStatus}_${today}.xlsx`);
   };
 
+  const downloadPdfsZip = async () => {
+    const generatedReports = applyFilters(["generado"]).filter((r) => generatedPdfUrls[r.id]);
+
+    if (generatedReports.length === 0) {
+      notifications.show({
+        title: "Sin PDFs disponibles",
+        message: "No hay reportes generados con PDF para descargar.",
+        color: "yellow",
+      });
+      return;
+    }
+
+    setDownloadingZip(true);
+    notifications.show({
+      title: "Descargando PDFs",
+      message: `Descargando ${generatedReports.length} PDF(s)...`,
+      color: "blue",
+      loading: true,
+    });
+
+    try {
+      const zip = new JSZip();
+      let downloadedCount = 0;
+      let failedCount = 0;
+
+      for (const report of generatedReports) {
+        const pdfUrl = generatedPdfUrls[report.id];
+        if (pdfUrl) {
+          try {
+            const response = await fetch(pdfUrl, { mode: "cors" });
+            if (response.ok) {
+              const blob = await response.blob();
+              const fileName = report.address.site_name
+                ? `${report.address.site_name}.pdf`
+                : `${report.id}.pdf`;
+              zip.file(fileName, blob);
+              downloadedCount++;
+            } else {
+              failedCount++;
+              console.warn(`Failed to fetch PDF for ${report.id}: ${response.status}`);
+            }
+          } catch (err) {
+            failedCount++;
+            console.error(`Error fetching PDF for ${report.id}:`, err);
+          }
+        }
+      }
+
+      if (downloadedCount === 0) {
+        notifications.show({
+          title: "Error",
+          message: "No se pudieron descargar los PDFs. Verifica tu conexión.",
+          color: "red",
+        });
+        setDownloadingZip(false);
+        return;
+      }
+
+      const content = await zip.generateAsync({ type: "blob" });
+      const url = URL.createObjectURL(content);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `pdfs_generados_${new Date().toISOString().slice(0, 10)}.zip`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      notifications.show({
+        title: "Descarga completa",
+        message: `Se descargaron ${downloadedCount} PDF(s)${failedCount > 0 ? ` (${failedCount} fallidos)` : ""}.`,
+        color: downloadedCount === generatedReports.length ? "green" : "yellow",
+      });
+    } catch (err) {
+      console.error("Error generating zip:", err);
+      notifications.show({
+        title: "Error",
+        message: "Ocurrió un error al generar el ZIP.",
+        color: "red",
+      });
+    } finally {
+      setDownloadingZip(false);
+    }
+  };
+
   const renderContent = (filterStatus: string[]) => {
     const showSignaturesColumn = filterStatus.includes("listo_para_generar");
     const showCommentsColumn = filterStatus.includes("listo_para_generar") && Boolean(commentFilter);
@@ -557,6 +664,18 @@ export function AdminDashboard() {
           >
             Exportar Excel
           </Button>
+          {activeTab === "generado" && (
+            <Button
+              variant="light"
+              color="orange"
+              leftSection={<IconFileZip size={16} />}
+              onClick={downloadPdfsZip}
+              loading={downloadingZip}
+              style={{ flex: "0 0 auto" }}
+            >
+              Descargar PDFs
+            </Button>
+          )}
         </Group>
         <Tabs value={activeTab} onChange={setActiveTab} keepMounted={false}>
           <Tabs.List mb="md">

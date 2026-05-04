@@ -1,7 +1,9 @@
 import { render } from 'preact';
 import { LocationProvider, Router, Route } from 'preact-iso';
 import { MantineProvider } from '@mantine/core';
+import { Notifications } from '@mantine/notifications';
 import '@mantine/core/styles.css';
+import '@mantine/notifications/styles.css';
 import '@mantine/dates/styles.css';
 
 import { Home } from './pages/Home';
@@ -22,6 +24,7 @@ import './style.css';
 export function App() {
   return (
     <MantineProvider>
+        <Notifications position="top-right" />
       <LocationProvider>
         <AuthProvider>
           <Router>
