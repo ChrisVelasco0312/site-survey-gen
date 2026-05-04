@@ -19,7 +19,7 @@ import {
 import { useMediaQuery, useDebouncedValue } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import { Report } from "../../types/Report";
-import { IconEye, IconFileSpreadsheet, IconRefresh, IconSearch, IconX, IconFileZip } from "@tabler/icons-react";
+import { IconEye, IconFileSpreadsheet, IconRefresh, IconSearch, IconX, IconFileZip, IconDownload } from "@tabler/icons-react";
 import { useLocation } from "preact-iso";
 import * as XLSX from "xlsx";
 import JSZip from "jszip";
@@ -459,6 +459,25 @@ export function AdminDashboard() {
     }
   };
 
+  const downloadPdf = async (report: Report, pdfUrl: string) => {
+    try {
+      const response = await fetch(pdfUrl, { mode: "cors" });
+      if (!response.ok) throw new Error("Failed to fetch");
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `${report.address?.site_name || report.id}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("Error downloading PDF:", err);
+      notifications.show({ title: "Error", message: "No se pudo descargar el PDF.", color: "red" });
+    }
+  };
+
   const renderContent = (filterStatus: string[]) => {
     const showSignaturesColumn = filterStatus.includes("listo_para_generar");
     const showCommentsColumn = filterStatus.includes("listo_para_generar") && Boolean(commentFilter);
@@ -561,15 +580,28 @@ export function AdminDashboard() {
                   </Table.Td>
                 )}
                 <Table.Td>
-                  <Tooltip label="Ver detalles">
-                    <ActionIcon
-                      variant="subtle"
-                      color="blue"
-                      onClick={() => location.route(`/reporte/${report.id}`)}
-                    >
-                      <IconEye size={16} />
-                    </ActionIcon>
-                  </Tooltip>
+                  <Group gap={4}>
+                    <Tooltip label="Ver detalles">
+                      <ActionIcon
+                        variant="subtle"
+                        color="blue"
+                        onClick={() => location.route(`/reporte/${report.id}`)}
+                      >
+                        <IconEye size={16} />
+                      </ActionIcon>
+                    </Tooltip>
+                    {report.status === "generado" && generatedPdfUrls[report.id] && (
+                      <Tooltip label="Descargar PDF">
+                        <ActionIcon
+                          variant="subtle"
+                          color="green"
+                          onClick={() => downloadPdf(report, generatedPdfUrls[report.id])}
+                        >
+                          <IconDownload size={16} />
+                        </ActionIcon>
+                      </Tooltip>
+                    )}
+                  </Group>
                 </Table.Td>
               </Table.Tr>
             ))}
