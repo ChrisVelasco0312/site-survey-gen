@@ -286,36 +286,66 @@ export function AdminDashboard() {
       return;
     }
 
-    const rows = filteredReports.map((report) => {
-      const signatureCount = getSignatureCompletionCount(report);
+    const cablingLabels: Record<string, string> = {
+      aereo: 'Aéreo',
+      subterraneo: 'Subterráneo',
+      mixto: 'Mixto',
+    };
 
+    const mountingLabels: Record<string, string> = {
+      soporte_t: 'Soporte T',
+      soporte_c: 'Soporte C',
+      poste: 'Soporte C (Pórtico)',
+      soporte_l: 'Soporte L',
+    };
+
+    const transmissionLabels: Record<string, string> = {
+      fibra_optica: 'Fibra óptica',
+      radio_enlace: 'Radioenlace',
+      na: 'N/A',
+    };
+
+    const getSentiDoVialLabel = (val?: string): string => {
+      const map: Record<string, string> = {
+        unidireccional_norte_sur: 'Unidireccional Norte → Sur',
+        unidireccional_sur_norte: 'Unidireccional Sur → Norte',
+        unidireccional_oriente_occidente: 'Unidireccional Oriente → Occidente',
+        unidireccional_occidente_oriente: 'Unidireccional Occidente → Oriente',
+        unidireccional_nororiente_suroccidente: 'Unidireccional Nororiente → Suroccidente',
+        unidireccional_noroeste_sureste: 'Unidireccional Noroeste → Sureste',
+        bidireccional_norte_sur: 'Bidireccional Norte ⇄ Sur',
+        bidireccional_sur_norte: 'Bidireccional Sur ⇄ Norte',
+        bidireccional_oriente_occidente: 'Bidireccional Oriente ⇄ Occidente',
+        bidireccional_occidente_oriente: 'Bidireccional Occidente ⇄ Oriente',
+        bidireccional_nororiente_suroccidente: 'Bidireccional Nororiente ⇄ Suroccidente',
+        bidireccional_noroeste_sureste: 'Bidireccional Noroeste ⇄ Sureste',
+      };
+      return map[val ?? ''] ?? val ?? '';
+    };
+
+    const getAnguloHorizontalLabel = (val?: string): string => {
+      const map: Record<string, string> = {
+        menor_30: '< 30° (Recomendado)',
+        '30_a_45': '30° - 45°',
+        mayor_45: '> 45°',
+      };
+      return map[val ?? ''] ?? val ?? '';
+    };
+
+    const getCommonFields = (report: Report) => {
+      const signatureCount = getSignatureCompletionCount(report);
       const aerialMeters = report.pole_infrastructure?.aerial_meters ?? 0;
       const grassMeters = report.pole_infrastructure?.grass_meters ?? 0;
       const asphaltMeters = report.pole_infrastructure?.asphalt_meters ?? 0;
       const adoquinMeters = report.pole_infrastructure?.adoquin_meters ?? 0;
       const concreteMeters = report.pole_infrastructure?.concrete_meters ?? 0;
       const fillMeters = report.pole_infrastructure?.fill_meters ?? 0;
-
       const totalRuta = aerialMeters + grassMeters + asphaltMeters + adoquinMeters + concreteMeters + fillMeters;
-
       const seHeight = report.infrastructure_details?.service_entrance?.height ?? 0;
       const cpHeight = report.infrastructure_details?.camera_point?.height ?? 0;
       const baseDist = totalRuta + seHeight + cpHeight;
       const distanciaElectrica = baseDist + (report.infrastructure_details?.electrical_distance ?? 0);
       const distanciaFibra = baseDist + (report.infrastructure_details?.fiber_distance ?? 0);
-
-      // const cablingLabels: Record<string, string> = {
-      //   aereo: 'Aéreo',
-      //   subterraneo: 'Subterráneo',
-      //   mixto: 'Mixto',
-      // };
-      //
-      // const mountingLabels: Record<string, string> = {
-      //   soporte_t: 'Soporte T',
-      //   soporte_c: 'Soporte C',
-      //   poste: 'Soporte C (Pórtico)',
-      //   soporte_l: 'Soporte L',
-      // };
 
       return {
         "ID reporte": report.id,
@@ -326,47 +356,133 @@ export function AdminDashboard() {
         "Fecha creación": formatDateTime(report.created_at),
         "Fecha actualización": formatDateTime(report.updated_at),
         "PM/N°": report.address?.pm_number ?? "",
-        "Tipo de sitio": report.address?.site_type ?? "",
         "Distrito": report.address?.distrito ?? "",
         "Municipio": report.address?.municipio ?? "",
         "Nombre del sitio": report.address?.site_name ?? "",
         "Dirección": report.address?.full_address ?? "",
-        "Total Ruta (mts)": totalRuta,
-        // "Tipo Cableado": cablingLabels[report.connectivity?.cabling_type ?? ''] ?? '',
-        "Distancia Eléctrica (mts)": distanciaElectrica,
-        "Distancia Fibra (mts)": distanciaFibra,
         "Latitud": report.address?.latitude ?? "",
         "Longitud": report.address?.longitude ?? "",
         "Coordenadas GMS": report.address?.latitude && report.address?.longitude
           ? `${decimalToGMS(report.address.latitude, true)}, ${decimalToGMS(report.address.longitude, false)}`
           : "",
         "Coordenadas Adicionales": formatMapPins(report.map_pins),
+        "Nivel de seguridad": { alto: 'Alto', medio: 'Medio', bajo: 'Bajo' }[report.security_level] ?? report.security_level,
+        "Tipo de instalación": (report.installation_type ?? []).map((t: string) =>
+          ({ fachada_mastil: 'Fachada / Mástil', poste: 'Poste', torre: 'Torre', terraza: 'Terraza', estructura: 'Estructura' }[t] ?? t)
+        ).join(', '),
+        "Línea de vista": report.connectivity?.has_line_of_sight ? 'Sí' : 'No',
+        "Medio de transmisión": transmissionLabels[report.connectivity?.transmission_medium ?? ''] ?? report.connectivity?.transmission_medium ?? '',
+        "Tipo Cableado": cablingLabels[report.connectivity?.cabling_type ?? ''] ?? '',
+        "Total Ruta (mts)": totalRuta,
+        "Ruta Aérea (mts)": aerialMeters,
+        "Ruta Prado (mts)": grassMeters,
+        "Ruta Asfalto (mts)": asphaltMeters,
+        "Ruta Adoquín (mts)": adoquinMeters,
+        "Ruta Concreto (mts)": concreteMeters,
+        "Ruta Relleno (mts)": fillMeters,
+        "Distancia Eléctrica (mts)": distanciaElectrica,
+        "Distancia Fibra (mts)": distanciaFibra,
+        "Altura Acometida (mts)": seHeight,
+        "Material Acometida": report.infrastructure_details?.service_entrance?.material ?? '',
+        "Altura Punto Cámara (mts)": cpHeight,
+        "Material Punto Cámara": report.infrastructure_details?.camera_point?.material ?? '',
+        "Tipo Instalación Cámara": mountingLabels[report.infrastructure_details?.camera_mounting ?? ''] ?? '',
+        "Requiere Poste Apoyo": report.infrastructure_details?.needs_support_point === true ? 'Sí' :
+          report.infrastructure_details?.needs_support_point === false ? 'No' : '',
+        "Cantidad Postes Apoyo": report.infrastructure_details?.apoyo_cant ?? 0,
+        "Cajas 40x40": report.hardware?.boxes_40 ?? 0,
+        "Cajas 60x60": report.hardware?.boxes_60 ?? 0,
+        "Pertenece a": report.owner_name ?? '',
+        "Observaciones finales": report.final_observations ?? '',
         "Firmas completadas": `${signatureCount}/3`,
         "Firma director": hasSignature(report.signature_img_director_url) ? "Sí" : "No",
         "Firma coordinador": hasSignature(report.signature_img_coordinator_url) ? "Sí" : "No",
         "Firma interventoría": hasSignature(report.signature_img_interventoria_url) ? "Sí" : "No",
         "Comentario interventoría": report.interventoria_observation?.trim() ?? "",
-        // "Ruta Aérea (mts)": aerialMeters,
-        // "Ruta Prado (mts)": grassMeters,
-        // "Ruta Asfalto (mts)": asphaltMeters,
-        // "Ruta Adoquín (mts)": adoquinMeters,
-        // "Ruta Concreto (mts)": concreteMeters,
-        // "Ruta Relleno (mts)": fillMeters,
-        // "Tipo Instalación Cámara": mountingLabels[report.infrastructure_details?.camera_mounting ?? ''] ?? '',
-        // "Requiere Poste Apoyo": report.infrastructure_details?.needs_support_point === true ? 'Sí' :
-        //   report.infrastructure_details?.needs_support_point === false ? 'No' : '',
-        // "Cantidad Postes Apoyo": report.infrastructure_details?.apoyo_cant ?? 0,
-        // "Altura Acometida (mts)": seHeight,
-        // "Material Acometida": report.infrastructure_details?.service_entrance?.material ?? '',
-        // "Altura Punto Cámara (mts)": cpHeight,
-        // "Material Punto Cámara": report.infrastructure_details?.camera_point?.material ?? '',
         "URL PDF": report.pdf_url ?? '',
+      };
+    };
+
+    const ptzReports = filteredReports.filter((r) => r.address?.site_type === 'ptz');
+    const lprReports = filteredReports.filter((r) => r.address?.site_type === 'lpr');
+    const facialReports = filteredReports.filter((r) => r.address?.site_type === 'cotejo_facial');
+
+    const ptzRows = ptzReports.map((report) => ({
+      ...getCommonFields(report),
+      "Cámaras Multisensor": report.hardware?.cameras_multisensor ?? 0,
+      "Cámaras PTZ": report.hardware?.cameras_ptz ?? 0,
+      "Cámaras Fijas": report.hardware?.cameras_fixed ?? 0,
+      "Cables eléctricos aéreos": report.ptz_survey?.has_aerial_cables === true ? 'Sí' :
+        report.ptz_survey?.has_aerial_cables === false ? 'No' : '',
+      "Distancia cables eléctricos (mts)": report.ptz_survey?.distance_from_pole ?? '',
+    }));
+
+    const lprRows = lprReports.map((report) => {
+      const s = report.lpr_survey || {};
+      return {
+        ...getCommonFields(report),
+        "Cámaras LPR": report.hardware?.cameras_lpr ?? 0,
+        "Cámaras PTZ": report.hardware?.cameras_ptz ?? 0,
+        "Sentido vial": getSentiDoVialLabel(s.sentido_vial),
+        "Número de carriles": s.numero_carriles ?? '',
+        "Distancia cámara - placas (m)": s.distancia_camara_placas ?? '',
+        "Altura instalación (m)": s.altura_instalacion ?? '',
+        "Ángulo horizontal": getAnguloHorizontalLabel(s.angulo_horizontal),
+        "Ángulo vertical (°)": s.angulo_vertical ?? '',
+        "FOV carriles": s.fov_carriles ?? '',
+        "Obstáculo en FOV": s.obstaculo_fov === true ? 'Sí' : s.obstaculo_fov === false ? 'No' : '',
+        "Descripción obstáculo": s.obstaculo_descripcion ?? '',
+        "Iluminación": s.iluminacion_estado === 'con_iluminacion_publica' ? 'Con iluminación pública' :
+          s.iluminacion_estado === 'sin_iluminacion_publica' ? 'Sin iluminación pública' : '',
+        "Condiciones del sitio": Array.isArray(s.condiciones_sitio)
+          ? s.condiciones_sitio.map((c: string) => c === 'otros' ? `Otros: ${s.condiciones_sitio_otros || ''}` : c.replace(/_/g, ' ')).join(', ')
+          : '',
       };
     });
 
-    const worksheet = XLSX.utils.json_to_sheet(rows);
+    const facialRows = facialReports.map((report) => {
+      const s = report.cotejo_facial_survey || {};
+      const zonaTipoLabels: Record<string, string> = { peatonal: 'Peatonal', mixta: 'Mixta (peatonal - vehicular)' };
+      const iluminacionLabels: Record<string, string> = { con_iluminacion: 'Con iluminación', sin_iluminacion: 'Sin iluminación' };
+      const enlaceLabels: Record<string, string> = { fibra_optica: 'Fibra Óptica', inalambrico: 'Inalámbrico' };
+      const estructuraLabels: Record<string, string> = { poste: 'Poste', muro: 'Muro', techo: 'Techo', portico: 'Pórtico', otro: 'Otro' };
+      return {
+        ...getCommonFields(report),
+        "Cámaras Facial": report.hardware?.cameras_facial ?? 0,
+        "Tipo de zona": zonaTipoLabels[s.zona_tipo ?? ''] ?? s.zona_tipo ?? '',
+        "Tipo de estructura": s.estructura_tipo === 'otro' ? `Otro: ${s.estructura_otro ?? ''}` : (estructuraLabels[s.estructura_tipo ?? ''] ?? s.estructura_tipo ?? ''),
+        "Altura proyectada (m)": s.altura_proyectada ?? '',
+        "Distancia rostro - cámara (m)": s.distancia_rostro_camara ?? '',
+        "Área de cobertura": s.area_cobertura ?? '',
+        "Ángulo horizontal (°)": s.angulo_horizontal ?? '',
+        "Ángulo vertical (°)": s.angulo_vertical ?? '',
+        "Iluminación": iluminacionLabels[s.iluminacion_estado ?? ''] ?? s.iluminacion_estado ?? '',
+        "Punto eléctrico cercano": s.punto_electrico_cercano === true ? 'Sí' : s.punto_electrico_cercano === false ? 'No' : '',
+        "Distancia punto eléctrico (m)": s.distancia_punto_electrico ?? '',
+        "Tipo de enlace": enlaceLabels[s.tipo_enlace ?? ''] ?? s.tipo_enlace ?? '',
+        "Distancia canalización (m)": s.distancia_canalizacion ?? '',
+        "Riesgos identificados": Array.isArray(s.riesgos_identificados)
+          ? s.riesgos_identificados.join(', ')
+          : '',
+        "Detalle riesgos": s.detalle_riesgos ?? '',
+      };
+    });
+
     const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Reportes");
+
+    if (ptzRows.length > 0) {
+      XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(ptzRows), "Componente 1 PTZ");
+    }
+    if (lprRows.length > 0) {
+      XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(lprRows), "Componente 2 LPR");
+    }
+    if (facialRows.length > 0) {
+      XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(facialRows), "Componente 3 Facial");
+    }
+
+    if (workbook.SheetNames.length === 0) {
+      XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet([]), "Sin datos");
+    }
 
     const today = new Date().toISOString().slice(0, 10);
     const statusLabel = STATUS_LABELS[activeStatusFilter[0]] ?? activeStatusFilter[0];
