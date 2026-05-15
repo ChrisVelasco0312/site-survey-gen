@@ -6,10 +6,11 @@ service firebase.storage {
       allow read, write: if request.auth != null;
     }
 
-    // Generated report PDFs: only authenticated users can read/write
+    // Generated report PDFs: only authenticated users can read/write, superadmin can delete
     match /generated_reports/{reportId}/{allPaths=**} {
       allow read: if request.auth != null;
       allow write: if request.auth != null;
+      allow delete: if request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'superadmin';
     }
   }
 }

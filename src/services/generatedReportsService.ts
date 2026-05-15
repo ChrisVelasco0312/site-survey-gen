@@ -5,8 +5,9 @@ import {
   collection,
   query,
   where,
+  deleteDoc,
 } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { db, storage } from '../firebase-config';
 import type { GeneratedReport } from '../types/GeneratedReport';
 
@@ -61,4 +62,33 @@ export async function getGeneratedReportByReportId(
   const snapshot = await getDocs(q);
   if (snapshot.empty) return null;
   return snapshot.docs[0].data() as GeneratedReport;
+}
+
+/**
+ * Delete a generated report: removes the Firestore document and the PDF from storage.
+ * Returns true if deleted successfully, false if no generated report exists.
+ */
+export async function deleteGeneratedReport(reportId: string): Promise<boolean> {
+  const q = query(
+    collection(db, 'generated_reports'),
+    where('report_id', '==', reportId),
+  );
+  const snapshot = await getDocs(q);
+
+  if (snapshot.empty) {
+    return false;
+  }
+
+  const genReportDoc = snapshot.docs[0];
+
+  try {
+    const pdfPath = `generated_reports/${reportId}/report.pdf`;
+    const storageRef = ref(storage, pdfPath);
+    await deleteObject(storageRef);
+  } catch (err) {
+    console.warn('Could not delete PDF from storage:', err);
+  }
+
+  await deleteDoc(doc(db, 'generated_reports', genReportDoc.id));
+  return true;
 }

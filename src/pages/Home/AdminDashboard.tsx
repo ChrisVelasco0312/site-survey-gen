@@ -15,17 +15,19 @@ import {
   TextInput,
   Select,
   Pagination,
+  Modal,
 } from "@mantine/core";
 import { useMediaQuery, useDebouncedValue } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import { Report } from "../../types/Report";
-import { IconEye, IconFileSpreadsheet, IconRefresh, IconSearch, IconX, IconFileZip, IconDownload } from "@tabler/icons-react";
+import { IconEye, IconFileSpreadsheet, IconRefresh, IconSearch, IconX, IconFileZip, IconDownload, IconRotateClockwise } from "@tabler/icons-react";
 import { useLocation } from "preact-iso";
 import * as XLSX from "xlsx";
 import JSZip from "jszip";
-import { getAllReports } from "../../services/reportsService";
-import { getGeneratedReportByReportId } from "../../services/generatedReportsService";
+import { getAllReports, updateReportStatus } from "../../services/reportsService";
+import { getGeneratedReportByReportId, deleteGeneratedReport } from "../../services/generatedReportsService";
 import { formatReportDate } from "../../utils/reportDate";
+import { useAuth } from "../../features/auth/AuthContext";
 
 const PAGE_SIZE = 10;
 const STATUS_LABELS: Record<string, string> = {
@@ -41,11 +43,16 @@ const GROUP_LABELS: Record<string, string> = {
 };
 
 export function AdminDashboard() {
+  const { userData } = useAuth();
+  const isSuperadmin = userData?.role === 'superadmin';
   const [reports, setReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState(true);
   const [downloadingZip, setDownloadingZip] = useState(false);
   const [generatedPdfUrls, setGeneratedPdfUrls] = useState<Record<string, string>>({});
   const [activeTab, setActiveTab] = useState<string | null>("en_campo");
+  const [restoreModalOpen, setRestoreModalOpen] = useState(false);
+  const [reportToRestore, setReportToRestore] = useState<Report | null>(null);
+  const [restoring, setRestoring] = useState(false);
   const location = useLocation();
   const isMobile = useMediaQuery("(max-width: 768px)");
 
@@ -594,6 +601,50 @@ export function AdminDashboard() {
     }
   };
 
+  const openRestoreModal = (report: Report) => {
+    setReportToRestore(report);
+    setRestoreModalOpen(true);
+  };
+
+  const handleRestore = async () => {
+    if (!reportToRestore) return;
+
+    setRestoring(true);
+    try {
+      await deleteGeneratedReport(reportToRestore.id);
+      await updateReportStatus(reportToRestore, 'listo_para_generar');
+
+      setGeneratedPdfUrls((prev) => {
+        const next = { ...prev };
+        delete next[reportToRestore.id];
+        return next;
+      });
+
+      setReports((prev) =>
+        prev.map((r) =>
+          r.id === reportToRestore.id ? { ...r, status: 'listo_para_generar' as const } : r
+        )
+      );
+
+      notifications.show({
+        title: "Reporte restaurado",
+        message: "El reporte ha vuelto a estado 'Listo para generar'.",
+        color: "green",
+      });
+    } catch (err) {
+      console.error("Error restoring report:", err);
+      notifications.show({
+        title: "Error",
+        message: "No se pudo restaurar el reporte.",
+        color: "red",
+      });
+    } finally {
+      setRestoring(false);
+      setRestoreModalOpen(false);
+      setReportToRestore(null);
+    }
+  };
+
   const renderContent = (filterStatus: string[]) => {
     const showSignaturesColumn = filterStatus.includes("listo_para_generar");
     const showCommentsColumn = filterStatus.includes("listo_para_generar") && Boolean(commentFilter);
@@ -714,6 +765,17 @@ export function AdminDashboard() {
                           onClick={() => downloadPdf(report, generatedPdfUrls[report.id])}
                         >
                           <IconDownload size={16} />
+                        </ActionIcon>
+                      </Tooltip>
+                    )}
+                    {report.status === "generado" && isSuperadmin && (
+                      <Tooltip label="Restaurar a Listo para Generar">
+                        <ActionIcon
+                          variant="subtle"
+                          color="orange"
+                          onClick={() => openRestoreModal(report)}
+                        >
+                          <IconRotateClockwise size={16} />
                         </ActionIcon>
                       </Tooltip>
                     )}
@@ -849,6 +911,28 @@ export function AdminDashboard() {
             {renderContent(["generado"])}
           </Tabs.Panel>
         </Tabs>
+
+        <Modal
+          opened={restoreModalOpen}
+          onClose={() => setRestoreModalOpen(false)}
+          title="Restaurar Reporte"
+          centered
+        >
+          <Text mb="lg">
+            ¿Estás seguro de restaurar el reporte <b>{reportToRestore?.address?.site_name || reportToRestore?.id}</b> a estado "Listo para generar"?
+          </Text>
+          <Text size="sm" c="dimmed" mb="lg">
+            Esto eliminará el PDF generado y el registro en Firestore. El reporte pasará a estado "Listo para generar" sin ser eliminado.
+          </Text>
+          <Group justify="flex-end">
+            <Button variant="subtle" onClick={() => setRestoreModalOpen(false)}>
+              Cancelar
+            </Button>
+            <Button color="orange" onClick={handleRestore} loading={restoring}>
+              Restaurar
+            </Button>
+          </Group>
+        </Modal>
         </>
       )}
     </div>
