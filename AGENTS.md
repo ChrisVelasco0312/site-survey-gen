@@ -32,3 +32,8 @@ ESLint (\`eslint-config-preact\` + custom rules). Semicolons required. Prefix in
 
 # Docs
 \`docs/\` is Docsify. Deploys to GitHub Pages on push to main/master (\`.github/workflows/docs.yml\`). Keep tech docs aligned with code changes.
+
+# Git
+- Commit messages: Conventional Commits format (e.g. \`feat:\`, \`fix:\`,
+  \`docs:\`). Use imperative mood. Make it clear, concise and short. Example:
+  \`feat: add PDF generation for PTZ reports\`.
